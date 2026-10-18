@@ -130,6 +130,13 @@ class StudioAudioEngine {
    */
   resetClockTracker() {
     this.lastScheduledSecond = -1;
+    this.stopClockMusic();
+  }
+
+  /**
+   * Stops the countdown music immediately when a round is submitted.
+   */
+  stopClockMusic() {
     this.thinkMusic.pause();
     this.thinkMusic.currentTime = 0;
   }

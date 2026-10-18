@@ -548,6 +548,7 @@ function adjudicateConundrumBuzz(isCorrect) {
  * ========================================================================== */
 function scoreCurrentRoundSubmissions() {
   const st = store.getState();
+  audio.stopClockMusic();
   if (clock && clock.running) clock.pause();
 
   const p1Raw = document.getElementById('host-p1-submission')?.value.trim() || '';

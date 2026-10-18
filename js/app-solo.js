@@ -321,6 +321,7 @@ function handleLetterTyping(char) {
 
 function submitLettersRound() {
   if (session.phase === 'REVEAL') return;
+  audio.stopClockMusic();
   session.phase = 'REVEAL';
   if (clock) clock.pause();
 
@@ -572,6 +573,7 @@ function handleNumberTileClick(idx) {
 
 async function submitNumbersRound() {
   if (session.phase === 'REVEAL') return;
+  audio.stopClockMusic();
   session.phase = 'REVEAL';
   if (clock) clock.pause();
 
@@ -703,6 +705,7 @@ function revealConundrumHint() {
 
 function submitConundrumRound() {
   if (session.phase === 'REVEAL') return;
+  audio.stopClockMusic();
   session.phase = 'REVEAL';
   if (clock) clock.pause();
 
