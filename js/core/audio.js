@@ -118,7 +118,7 @@ class StudioAudioEngine {
       }
 
       if (elapsedSeconds === 0) {
-        this.thinkMusic.currentTime = 1;
+        this.thinkMusic.currentTime = 2;
         this.thinkMusic.volume = this.volume;
         this.thinkMusic.play().catch(() => {});
       }
