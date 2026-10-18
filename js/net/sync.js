@@ -14,22 +14,47 @@ const STORAGE_SIGNAL_KEY = 'countdown_studio_stage_signal_v1';
 const REMOTE_CONNECT_TIMEOUT_MS = 5000;
 const REMOTE_RECONNECT_DELAY_MS = 1000;
 const MAX_REMOTE_CONNECT_ATTEMPTS = 2;
+const STAGE_WS_QUERY_PARAM = 'ws';
+const STAGE_WS_GLOBAL_CONFIG = '__COUNTDOWN_STAGE_WS_URL__';
+
+function getBrowserLocation() {
+  return typeof window !== 'undefined' ? window.location : null;
+}
+
+function getConfiguredWebSocketEndpoint(pageUrl) {
+  const queryEndpoint = new URLSearchParams(pageUrl.search).get(STAGE_WS_QUERY_PARAM);
+  if (queryEndpoint) return queryEndpoint.trim();
+
+  if (typeof window !== 'undefined') {
+    const globalEndpoint = window[STAGE_WS_GLOBAL_CONFIG];
+    if (typeof globalEndpoint === 'string' && globalEndpoint.trim()) {
+      return globalEndpoint.trim();
+    }
+  }
+
+  return '';
+}
 
 /**
  * Resolve the WebSocket endpoint for the current deployment.
  *
  * A full-stack deployment serves the endpoint from the same origin at /ws.
  * Static deployments can pass a separate backend endpoint through ?ws=, for
- * example: ?ws=wss%3A%2F%2Fapi.example.com%2Fws. Supporting this at runtime
- * keeps the static frontend deployable without baking an environment-specific
- * URL into the source bundle.
+ * example: ?ws=wss%3A%2F%2Fapi.example.com%2Fws. A deployment can also set
+ * window.__COUNTDOWN_STAGE_WS_URL__ before the module loads. Supporting both
+ * at runtime keeps the frontend deployable without baking an environment-
+ * specific URL into the source bundle.
  *
  * @param {Location|URL} [pageLocation]
  * @returns {string}
  */
-export function getStageSyncWebSocketUrl(pageLocation = window.location) {
-  const pageUrl = new URL(pageLocation.href || pageLocation.toString());
-  const configuredEndpoint = new URLSearchParams(pageUrl.search).get('ws');
+export function getStageSyncWebSocketUrl(pageLocation = getBrowserLocation()) {
+  if (!pageLocation) {
+    throw new Error('A browser page URL is required to resolve the WebSocket endpoint.');
+  }
+
+  const pageUrl = new URL(pageLocation.href || pageLocation.toString(), pageLocation.origin);
+  const configuredEndpoint = getConfiguredWebSocketEndpoint(pageUrl);
 
   if (configuredEndpoint) {
     const endpoint = new URL(configuredEndpoint, pageUrl.href);
@@ -39,7 +64,9 @@ export function getStageSyncWebSocketUrl(pageLocation = window.location) {
     return endpoint.toString();
   }
 
-  const endpoint = new URL('./ws', pageUrl.href);
+  // The Node server owns /ws at the origin root. Using '/ws' instead of
+  // './ws' also works when the static frontend is served from a subpath.
+  const endpoint = new URL('/ws', pageUrl.origin);
   endpoint.protocol = pageUrl.protocol === 'https:' ? 'wss:' : 'ws:';
   return endpoint.toString();
 }

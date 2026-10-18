@@ -120,6 +120,8 @@ Countdown Studio provides two complementary synchronization transports:
   https://your-static-site.example/versus-host.html?ws=wss%3A%2F%2Fyour-ws-server.example%2Fws
   ```
   Generated Display links and QR codes carry the `ws` parameter automatically.
+- **Runtime Backend Configuration:** A static deployment may set `window.__COUNTDOWN_STAGE_WS_URL__` before loading the application modules. The value should be the complete `wss://.../ws` endpoint. This avoids hard-coding a provider-specific URL in the source bundle.
+- **Production Full-Stack Deployment:** `Dockerfile` and `render.yaml` are included for deploying the Node server that serves both the pages and `/ws` from one origin. Point the production domain at that service; GitHub Pages alone cannot provide a WebSocket server.
 - **Configurable Display Limits:** The server limits displays per room via the `MAX_DISPLAYS_PER_ROOM` environment variable (default: `20`).
 - **Lifecycle & Cleanup:** 
   - Host can explicitly terminate the room via the **Close Room** panel, which notifies and disconnects all displays.
@@ -197,9 +199,14 @@ Countdown Studio features a 100% synthesized audio engine built on the browser *
 1. Push this repository to GitHub.
 2. In your repository, go to **Settings → Pages**.
 3. Under **Build and deployment**, select **Deploy from a branch**, choose `main` (or `master`) and `/ (root)` or `/dist`, and click **Save**.
-4. Custom domain support is preconfigured via the included [`CNAME`](file:///d:/drive-download-20240827T165320Z-001/GSA-project/countdown-studio-app/CNAME) file (`www.countdown-studio.id.vn`).
+4. Custom domain support for the static frontend is preconfigured via the included [`CNAME`](file:///d:/drive-download-20240827T165320Z-001/GSA-project/countdown-studio-app/CNAME) file (`www.countdown-studio.id.vn`).
 5. All assets, modules, and stylesheets use relative paths, ensuring compatibility both at the root domain and under repository subpaths.
 6. The Service Worker (`sw.js`) caches the core application shell, styles, scripts, and lexicon for offline use and PWA installation.
+
+GitHub Pages supports the local same-device Stage Display flow, but it cannot
+serve the `/ws` WebSocket endpoint. For cross-device rooms, deploy the
+full-stack service below and point the production domain to that service (or
+keep Pages as the frontend and provide a separate `?ws=wss://.../ws` backend).
 
 ### Deploying to Node.js / Docker / Cloud Run
 
@@ -212,6 +219,11 @@ npm run build
 # 2. Start the production server
 NODE_ENV=production npm start
 ```
+
+The included `Dockerfile` can be used by Docker/Cloud Run, and `render.yaml`
+can be used to create a Render web service. The service must be reachable over
+HTTPS/WSS from the browser and must expose `/ws` on the same public service
+origin when the frontend uses the default endpoint.
 
 #### Environment Variables
 
