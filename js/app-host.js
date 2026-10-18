@@ -970,6 +970,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Stage Display Modal Viewer Handlers
   const stageModal = document.getElementById('modal-host-stage-display');
   const hostStageIframe = document.getElementById('host-stage-iframe');
+  const hostStagePreviewIframe = document.getElementById('host-stage-preview-iframe');
+
+  const syncStageIframe = (iframe) => {
+    try {
+      iframe?.contentWindow?.postMessage({
+        type: 'STATE_SYNC',
+        sender: 'host',
+        timestamp: Date.now(),
+        payload: store.getState()
+      }, '*');
+    } catch {}
+  };
+
+  hostStagePreviewIframe?.addEventListener('load', () => {
+    syncStageIframe(hostStagePreviewIframe);
+  });
 
   const openStageModal = () => {
     if (!stageModal) return;
@@ -999,14 +1015,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   };
 
   hostStageIframe?.addEventListener('load', () => {
-    try {
-      hostStageIframe.contentWindow?.postMessage({
-        type: 'STATE_SYNC',
-        sender: 'host',
-        timestamp: Date.now(),
-        payload: store.getState()
-      }, '*');
-    } catch {}
+    syncStageIframe(hostStageIframe);
     broadcastState(store.getState());
   });
 

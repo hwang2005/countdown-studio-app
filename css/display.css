@@ -470,25 +470,80 @@
 .host-layout {
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--space-5);
-  padding: var(--space-5);
-  max-width: 1440px;
+  gap: clamp(var(--space-3), 2vw, var(--space-5));
+  padding: clamp(var(--space-3), 2vw, var(--space-5));
+  max-width: 1560px;
   margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.host-col {
+  display: grid;
+  gap: clamp(var(--space-3), 2vw, var(--space-5));
+  min-width: 0;
   width: 100%;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1180px) {
   .host-layout {
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1.18fr) minmax(0, 1fr);
     align-items: start;
   }
 }
 
+/* Status & Clock Bar */
+.host-status-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: var(--space-4);
+}
+
+.host-status-title-group {
+  min-width: 0;
+}
+
+.host-status-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.host-status-actions .btn {
+  flex: 1 1 auto;
+  white-space: nowrap;
+}
+
+/* Selection Controls Row */
+.host-controls-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.host-controls-row .btn {
+  flex: 1 1 auto;
+}
+
 /* Contestant Declarations & Adjudication Panel */
+.adjudication-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: var(--space-3);
+  flex-wrap: wrap;
+}
+
 .adjudication-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: clamp(var(--space-3), 1.5vw, var(--space-4));
   margin-bottom: var(--space-4);
   width: 100%;
 }
@@ -497,12 +552,18 @@
   background: rgba(10, 18, 42, 0.45);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
-  padding: var(--space-3) var(--space-3);
+  padding: clamp(0.75rem, 1.5vw, 1rem);
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   min-width: 0;
   box-sizing: border-box;
+  transition: border-color var(--duration-fast) ease, box-shadow var(--duration-fast) ease;
+}
+
+.adjudication-card:focus-within {
+  border-color: rgba(147, 197, 253, 0.5);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
 .adjudication-card--p1 {
@@ -515,21 +576,24 @@
 
 .adjudication-card .input-field {
   width: 100%;
+  min-width: 0;
   box-sizing: border-box;
+  font-size: clamp(0.875rem, 1.2vw, 1rem);
+  padding: 0.5rem 0.75rem;
 }
 
 .host-declaration-meta {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.45rem;
 }
 
 .host-verified-label {
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
   cursor: pointer;
   user-select: none;
 }
@@ -538,71 +602,123 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.25rem;
-  padding-top: 0.3rem;
+  gap: 0.35rem;
+  padding-top: 0.4rem;
   border-top: 1px dashed rgba(255, 255, 255, 0.08);
 }
 
 .host-score-adj-label {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
-  font-weight: 600;
-  margin-right: 0.15rem;
+  font-weight: 700;
+  margin-right: 0.2rem;
   white-space: nowrap;
 }
 
 .host-score-adj-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: 4px;
   flex: 1;
 }
 
 .btn.btn-score-adj {
-  min-height: 22px;
-  height: 22px;
+  min-height: 24px;
+  height: 24px;
   padding: 0 5px;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-family: var(--font-mono);
   font-weight: 700;
-  line-height: 20px;
+  line-height: 22px;
   border-radius: var(--radius-sm);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  min-width: 24px;
-  max-width: 36px;
+  min-width: 26px;
+  max-width: 38px;
   box-sizing: border-box;
+  cursor: pointer;
+  transition: transform 0.1s ease, background 0.15s ease;
+}
+
+.btn.btn-score-adj:hover {
+  transform: translateY(-1px);
+}
+
+.btn.btn-score-adj:active {
+  transform: translateY(1px) scale(0.96);
 }
 
 .adjudication-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 0.65rem;
-  justify-content: space-between;
-  align-items: center;
   padding-top: var(--space-3);
   border-top: 1px solid var(--border-subtle);
+  width: 100%;
 }
 
 .adjudication-actions .btn-award {
-  flex: 1 1 200px;
+  width: 100%;
   font-weight: 700;
-  min-height: 38px;
+  min-height: 42px;
+  font-size: 0.95rem;
+  justify-content: center;
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.3);
 }
 
 .adjudication-secondary-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
+  gap: 0.4rem;
+  width: 100%;
 }
 
+.adjudication-secondary-actions .btn {
+  flex: 1 1 auto;
+  min-height: 34px;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.8125rem;
+  justify-content: center;
+}
+
+/* Stage Monitor Header & Toolbar */
+.stage-monitor-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: var(--space-3);
+}
+
+.stage-monitor-title {
+  font-size: 1.15rem;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.stage-monitor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.stage-monitor-toolbar .btn {
+  flex: 1 1 auto;
+  min-height: 32px;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.78rem;
+  justify-content: center;
+}
 
 /* Live Mini Stage Preview inside Host Console (mirrors Stage Background!) */
 .host-stage-preview {
   aspect-ratio: 16 / 9;
   width: 100%;
+  max-width: 100%;
   background-color: #050D24;
   background-image: var(--stage-bg-image, url('/assets/countdown-clock-placeholder.jpg'), url('../assets/countdown-clock-placeholder.jpg'), url('./assets/countdown-clock-placeholder.jpg'), url('../assets/stage-bg.svg'));
   background-size: 100% 100%;
@@ -613,6 +729,22 @@
   overflow: hidden;
   position: relative;
   container-type: size;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+  background: #02050E;
+}
+
+.host-stage-preview__frame {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  z-index: 2;
+}
+
+.host-stage-preview__legacy-content {
+  display: none;
 }
 
 .host-stage-preview .tile-row {
