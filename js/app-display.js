@@ -824,6 +824,15 @@ document.addEventListener('DOMContentLoaded', () => {
       if (roomText) roomText.textContent = `Phòng: ${status.roomId}`;
       if (btnDisconnectRoom) btnDisconnectRoom.hidden = false;
       if (btnJoinRemote) btnJoinRemote.textContent = `🌐 ${status.roomId}`;
+    } else if (status.roomId && status.connectionFailed) {
+      setRemoteDisplayGate(
+        true,
+        status.error || 'Không thể kết nối đến máy chủ. Kiểm tra máy chủ rồi thử lại.'
+      );
+      if (roomDot) roomDot.className = 'status-dot status-dot--offline';
+      if (roomText) roomText.textContent = `Không kết nối: ${status.roomId}`;
+      if (btnDisconnectRoom) btnDisconnectRoom.hidden = false;
+      if (btnJoinRemote) btnJoinRemote.textContent = '🌐 Thử lại kết nối';
     } else if (status.roomId && !status.connected) {
       setRemoteDisplayGate(true, status.error || 'Đang kiểm tra phòng với máy chủ...');
       if (roomDot) roomDot.className = 'status-dot status-dot--connecting';

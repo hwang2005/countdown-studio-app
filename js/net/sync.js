@@ -11,6 +11,9 @@ import { saveVersusState, loadVersusState } from '../core/storage.js';
 
 const CHANNEL_NAME = 'countdown_studio_stage_sync_v1';
 const STORAGE_SIGNAL_KEY = 'countdown_studio_stage_signal_v1';
+const REMOTE_CONNECT_TIMEOUT_MS = 5000;
+const REMOTE_RECONNECT_DELAY_MS = 1000;
+const MAX_REMOTE_CONNECT_ATTEMPTS = 2;
 
 export class StageSyncChannel {
   /**
@@ -32,6 +35,10 @@ export class StageSyncChannel {
     this.hostToken = null;
     this.isRemoteConnected = false;
     this.remoteReconnectTimer = null;
+    this.remoteConnectTimeoutTimer = null;
+    this.remoteConnectAttempts = 0;
+    this.remoteConnectionFailed = false;
+    this.lastRemoteError = null;
     this.heartbeatTimer = null;
     this.onStatusChangeCallbacks = new Set();
     this.displayCount = 0;
@@ -107,6 +114,8 @@ export class StageSyncChannel {
       connected: this.isRemoteConnected,
       roomId: this.roomId,
       displayCount: this.displayCount,
+      error: this.lastRemoteError || undefined,
+      connectionFailed: this.remoteConnectionFailed,
     });
     return () => this.onStatusChangeCallbacks.delete(callback);
   }
@@ -117,6 +126,8 @@ export class StageSyncChannel {
       roomId: this.roomId,
       displayCount: this.displayCount,
       roomClosed: this.roomClosed,
+      connectionFailed: this.remoteConnectionFailed,
+      error: this.lastRemoteError || undefined,
       ...extra,
     };
     for (const cb of this.onStatusChangeCallbacks) {
@@ -140,11 +151,17 @@ export class StageSyncChannel {
     this.role = role;
     this.hostPin = hostPin ? String(hostPin).trim() : '';
     this.roomClosed = false;
+    this.remoteConnectionFailed = false;
+    this.lastRemoteError = null;
+    this.remoteConnectAttempts = 0;
 
     if (this.remoteReconnectTimer) {
       clearTimeout(this.remoteReconnectTimer);
       this.remoteReconnectTimer = null;
     }
+    clearTimeout(this.remoteConnectTimeoutTimer);
+    this.remoteConnectTimeoutTimer = null;
+    clearInterval(this.heartbeatTimer);
 
     if (this.ws) {
       try {
@@ -153,6 +170,7 @@ export class StageSyncChannel {
       this.ws = null;
     }
 
+    this.notifyStatus({ connecting: true, error: undefined });
     this._initWebSocket();
   }
 
@@ -162,20 +180,37 @@ export class StageSyncChannel {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
     const wsUrl = `${protocol}//${host}/ws`;
+    this.remoteConnectAttempts += 1;
 
     try {
-      this.ws = new WebSocket(wsUrl);
+      const socket = new WebSocket(wsUrl);
+      this.ws = socket;
+      const isCurrentSocket = () => this.ws === socket;
+      const failConnection = (message) => {
+        if (!isCurrentSocket() || this.isRemoteConnected || this.remoteConnectionFailed) return;
+        this.lastRemoteError = message;
+        clearTimeout(this.remoteConnectTimeoutTimer);
+        this.remoteConnectTimeoutTimer = null;
+        try { socket.close(); } catch {}
+      };
 
-      this.ws.onopen = () => {
+      // A WebSocket can remain in CONNECTING forever behind a proxy or on a
+      // static host. Always fail that attempt so the UI can offer a recovery.
+      this.remoteConnectTimeoutTimer = setTimeout(() => {
+        failConnection('Không thể xác thực phòng với máy chủ sau 5 giây. Kiểm tra máy chủ và đường dẫn /ws.');
+      }, REMOTE_CONNECT_TIMEOUT_MS);
+
+      socket.onopen = () => {
+        if (!isCurrentSocket()) return;
         // Authenticate or join
         if (this.role === 'host') {
-          this.ws.send(JSON.stringify({
+          socket.send(JSON.stringify({
             type: 'host:auth',
             roomId: this.roomId,
             pin: this.hostPin,
           }));
         } else {
-          this.ws.send(JSON.stringify({
+          socket.send(JSON.stringify({
             type: 'display:join',
             roomId: this.roomId,
           }));
@@ -184,19 +219,25 @@ export class StageSyncChannel {
         // Start heartbeat ping every 25s
         clearInterval(this.heartbeatTimer);
         this.heartbeatTimer = setInterval(() => {
-          if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            this.ws.send(JSON.stringify({ type: 'ping' }));
+          if (isCurrentSocket() && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: 'ping' }));
           }
         }, 25000);
       };
 
-      this.ws.onmessage = (event) => {
+      socket.onmessage = (event) => {
+        if (!isCurrentSocket()) return;
         try {
           const msg = JSON.parse(event.data);
           if (msg.type === 'pong') return;
 
           if (msg.type === 'host:auth_success') {
+            clearTimeout(this.remoteConnectTimeoutTimer);
+            this.remoteConnectTimeoutTimer = null;
             this.isRemoteConnected = true;
+            this.remoteConnectionFailed = false;
+            this.lastRemoteError = null;
+            this.remoteConnectAttempts = 0;
             this.hostToken = msg.token;
             this.displayCount = msg.displayCount || 0;
             this.notifyStatus({ isNew: msg.isNew });
@@ -204,7 +245,12 @@ export class StageSyncChannel {
           }
 
           if (msg.type === 'display:join_success') {
+            clearTimeout(this.remoteConnectTimeoutTimer);
+            this.remoteConnectTimeoutTimer = null;
             this.isRemoteConnected = true;
+            this.remoteConnectionFailed = false;
+            this.lastRemoteError = null;
+            this.remoteConnectAttempts = 0;
             this.notifyStatus({ hasHost: msg.hasHost });
             return;
           }
@@ -219,10 +265,13 @@ export class StageSyncChannel {
             const closedRoomId = this.roomId;
             this.roomClosed = true;
             this.isRemoteConnected = false;
+            this.lastRemoteError = msg.message || 'Phòng đã được Host đóng.';
+            clearTimeout(this.remoteConnectTimeoutTimer);
+            this.remoteConnectTimeoutTimer = null;
             clearInterval(this.heartbeatTimer);
-            this.notifyStatus({ roomClosed: true, roomId: closedRoomId, error: msg.message || 'Phòng đã được Host đóng.' });
-            if (this.ws) {
-              try { this.ws.close(); } catch {}
+            this.notifyStatus({ roomClosed: true, roomId: closedRoomId, error: this.lastRemoteError });
+            if (isCurrentSocket()) {
+              try { socket.close(); } catch {}
               this.ws = null;
             }
             return;
@@ -242,43 +291,73 @@ export class StageSyncChannel {
             if (msg.code === 'ROOM_NOT_FOUND') {
               this.roomClosed = true;
               this.isRemoteConnected = false;
-              this.notifyStatus({ roomClosed: true, error: msg.message });
-              if (this.ws) {
-                try { this.ws.close(); } catch {}
+              this.lastRemoteError = msg.message || 'Phòng không tồn tại hoặc chưa được mở bởi Host.';
+              clearTimeout(this.remoteConnectTimeoutTimer);
+              this.remoteConnectTimeoutTimer = null;
+              this.notifyStatus({ roomClosed: true, error: this.lastRemoteError });
+              if (isCurrentSocket()) {
+                try { socket.close(); } catch {}
                 this.ws = null;
               }
               return;
             }
-            this.notifyStatus({ error: msg.message });
+            this.lastRemoteError = msg.message || 'Máy chủ từ chối kết nối phòng.';
+            if (['INVALID_PIN', 'INVALID_ROOM', 'UNAUTHORIZED', 'SESSION_EXPIRED'].includes(msg.code)) {
+              this.remoteConnectionFailed = true;
+              clearTimeout(this.remoteConnectTimeoutTimer);
+              this.remoteConnectTimeoutTimer = null;
+              this.notifyStatus({ connectionFailed: true, error: this.lastRemoteError });
+              try { socket.close(); } catch {}
+              this.ws = null;
+              return;
+            }
+            this.notifyStatus({ error: this.lastRemoteError });
           }
         } catch (err) {
           console.error('Error parsing remote message:', err);
         }
       };
 
-      this.ws.onclose = () => {
+      socket.onclose = () => {
+        if (!isCurrentSocket()) return;
         this.isRemoteConnected = false;
+        this.ws = null;
+        clearTimeout(this.remoteConnectTimeoutTimer);
+        this.remoteConnectTimeoutTimer = null;
         clearInterval(this.heartbeatTimer);
-        this.notifyStatus();
+        if (!this.roomClosed && !this.remoteConnectionFailed && !this.lastRemoteError) {
+          this.lastRemoteError = 'Kết nối tới máy chủ WebSocket đã bị đóng.';
+        }
 
         // Auto-reconnect if roomId is still configured
         if (this.roomId && !this.roomClosed) {
-          this.remoteReconnectTimer = setTimeout(() => {
-            if (this.roomId) {
-              this._initWebSocket();
-            }
-          }, 3000);
+          if (this.remoteConnectAttempts < MAX_REMOTE_CONNECT_ATTEMPTS) {
+            this.notifyStatus({ retrying: true, error: this.lastRemoteError });
+            this.remoteReconnectTimer = setTimeout(() => {
+              this.remoteReconnectTimer = null;
+              if (this.roomId && !this.remoteConnectionFailed) this._initWebSocket();
+            }, REMOTE_RECONNECT_DELAY_MS);
+          } else {
+            this.remoteConnectionFailed = true;
+            this.notifyStatus({ connectionFailed: true, error: this.lastRemoteError });
+          }
+        } else {
+          this.notifyStatus({ error: this.lastRemoteError });
         }
       };
 
-      this.ws.onerror = () => {
+      socket.onerror = () => {
+        if (!isCurrentSocket()) return;
         this.isRemoteConnected = false;
-        this.notifyStatus({ error: 'Không thể kết nối đến máy chủ WebSocket' });
+        this.lastRemoteError = 'Không thể kết nối đến máy chủ WebSocket.';
+        this.notifyStatus({ error: this.lastRemoteError });
       };
     } catch (e) {
       console.error('Failed to instantiate WebSocket:', e);
       this.isRemoteConnected = false;
-      this.notifyStatus({ error: String(e) });
+      this.remoteConnectionFailed = true;
+      this.lastRemoteError = `Không thể khởi tạo kết nối WebSocket: ${String(e)}`;
+      this.notifyStatus({ connectionFailed: true, error: this.lastRemoteError });
     }
   }
 
@@ -287,6 +366,8 @@ export class StageSyncChannel {
       clearTimeout(this.remoteReconnectTimer);
       this.remoteReconnectTimer = null;
     }
+    clearTimeout(this.remoteConnectTimeoutTimer);
+    this.remoteConnectTimeoutTimer = null;
     clearInterval(this.heartbeatTimer);
     if (this.ws) {
       try {
@@ -299,7 +380,10 @@ export class StageSyncChannel {
     this.isRemoteConnected = false;
     this.displayCount = 0;
     this.roomClosed = false;
-    this.notifyStatus();
+    this.remoteConnectionFailed = false;
+    this.lastRemoteError = null;
+    this.remoteConnectAttempts = 0;
+    this.notifyStatus({ error: undefined });
   }
 
   /**
