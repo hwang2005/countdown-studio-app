@@ -96,6 +96,12 @@ let lastRenderedPreviewBoardKey = null;
 function getStageDisplayUrl(roomId = '') {
   const url = new URL('./versus-display.html', window.location.href);
   if (roomId) url.searchParams.set('room', roomId);
+
+  // Preserve an explicitly configured remote WebSocket backend in copied
+  // links and QR codes when the frontend is hosted separately from the Node
+  // WebSocket server (for example, GitHub Pages + a small API host).
+  const wsEndpoint = new URLSearchParams(window.location.search).get('ws');
+  if (wsEndpoint) url.searchParams.set('ws', wsEndpoint);
   return url.toString();
 }
 

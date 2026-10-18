@@ -15,6 +15,35 @@ const REMOTE_CONNECT_TIMEOUT_MS = 5000;
 const REMOTE_RECONNECT_DELAY_MS = 1000;
 const MAX_REMOTE_CONNECT_ATTEMPTS = 2;
 
+/**
+ * Resolve the WebSocket endpoint for the current deployment.
+ *
+ * A full-stack deployment serves the endpoint from the same origin at /ws.
+ * Static deployments can pass a separate backend endpoint through ?ws=, for
+ * example: ?ws=wss%3A%2F%2Fapi.example.com%2Fws. Supporting this at runtime
+ * keeps the static frontend deployable without baking an environment-specific
+ * URL into the source bundle.
+ *
+ * @param {Location|URL} [pageLocation]
+ * @returns {string}
+ */
+export function getStageSyncWebSocketUrl(pageLocation = window.location) {
+  const pageUrl = new URL(pageLocation.href || pageLocation.toString());
+  const configuredEndpoint = new URLSearchParams(pageUrl.search).get('ws');
+
+  if (configuredEndpoint) {
+    const endpoint = new URL(configuredEndpoint, pageUrl.href);
+    if (endpoint.protocol === 'http:') endpoint.protocol = 'ws:';
+    if (endpoint.protocol === 'https:') endpoint.protocol = 'wss:';
+    if (!endpoint.pathname || endpoint.pathname === '/') endpoint.pathname = '/ws';
+    return endpoint.toString();
+  }
+
+  const endpoint = new URL('./ws', pageUrl.href);
+  endpoint.protocol = pageUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+  return endpoint.toString();
+}
+
 export class StageSyncChannel {
   /**
    * @param {'host'|'display'} role
@@ -177,9 +206,7 @@ export class StageSyncChannel {
   _initWebSocket() {
     if (typeof window === 'undefined') return;
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.host;
-    const wsUrl = `${protocol}//${host}/ws`;
+    const wsUrl = getStageSyncWebSocketUrl();
     this.remoteConnectAttempts += 1;
 
     try {

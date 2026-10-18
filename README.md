@@ -44,7 +44,17 @@ Then open:
 5. The Host Console and Stage Display synchronise in real time via the `BroadcastChannel` API (with automatic `localStorage` event fallback) and persist match state across page refreshes.
 6. **Single-Screen Setup:** If you only have one screen, open `/versus-display.html` and press **`H`** to toggle the embedded Host Control Overlay drawer directly on top of the stage!
 
-For Host and Display opened from the same deployed site, the local stage sync works without a backend. The optional **Remote Room** feature (Host and Display on separate devices) requires deploying the included Node server (`npm run build`, then `NODE_ENV=production npm start`) because static hosts such as GitHub Pages cannot provide its `/ws` WebSocket endpoint.
+For Host and Display opened in tabs/windows of the same browser/device, the local stage sync works without a backend. Open `versus-display.html` without a `?room=` parameter for this mode. The Display no longer re-joins a stale room saved in the browser automatically.
+
+The optional **Remote Room** feature (Host and Display on separate devices) requires a WebSocket backend. Static hosts such as GitHub Pages cannot provide the `/ws` WebSocket endpoint. Deploy the included Node server with `npm run build`, then `NODE_ENV=production npm start`, and serve the Host and Display from that same server.
+
+If the frontend and backend are hosted separately, start the Host page with the backend endpoint in the URL, for example:
+
+```text
+https://your-static-site.example/versus-host.html?ws=wss%3A%2F%2Fyour-websocket-server.example%2Fws
+```
+
+The generated Display link and QR code carry this `ws` setting automatically. Use `wss://` when the website is served over HTTPS; otherwise browsers will block the connection as mixed content.
 
 ---
 

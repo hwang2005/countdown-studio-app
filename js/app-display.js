@@ -765,7 +765,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   const urlParams = new URLSearchParams(window.location.search);
-  const requestedRoom = (urlParams.get('room') || localStorage.getItem('countdown_studio_last_room') || '').toUpperCase().trim();
+  const roomFromUrl = urlParams.get('room');
+  const requestedRoom = (roomFromUrl || '').toUpperCase().trim();
   // A remote display must not reveal a locally cached match while its room is
   // being checked. This also prevents an old QR/link from showing stale data
   // when the room no longer exists.
@@ -895,21 +896,18 @@ document.addEventListener('DOMContentLoaded', () => {
     showToast('Đã rời phòng trực tuyến. Chuyển về chế độ đồng bộ cục bộ (Local).', 'info');
   });
 
-  // Check URL param ?room=CODE (e.g. from QR code or shared link)
-  const roomFromUrl = urlParams.get('room');
+  // Check URL param ?room=CODE (e.g. from QR code or shared link). A saved
+  // room is intentionally not auto-connected here: static deployments do not
+  // have a /ws endpoint, and a stale room in localStorage would otherwise
+  // block the normal local Stage Display every time it is opened.
   if (roomFromUrl) {
     const cleanRoom = roomFromUrl.toUpperCase().trim();
     localStorage.setItem('countdown_studio_last_room', cleanRoom);
     if (inputRoomCode) inputRoomCode.value = cleanRoom;
     syncChannel.connectRemote(cleanRoom, 'display');
     showToast(`Tự động kết nối tới phòng thi đấu: ${cleanRoom}`, 'success');
-  } else {
-    // Check saved room in localStorage
-    const savedRoom = localStorage.getItem('countdown_studio_last_room');
-    if (savedRoom) {
-      if (inputRoomCode) inputRoomCode.value = savedRoom;
-      syncChannel.connectRemote(savedRoom, 'display');
-    }
+  } else if (inputRoomCode) {
+    inputRoomCode.value = localStorage.getItem('countdown_studio_last_room') || '';
   }
 
   // Single-window Host Overlay Drawer (Hotkey H), Calibration (Hotkey B), & Fullscreen (Hotkey F)
