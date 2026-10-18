@@ -211,12 +211,19 @@
 
         <!-- Contestant Declarations & Scoring Panel (Hotkey D) -->
         <section class="panel">
-          <h2 style="font-size: 1.2rem; margin-bottom: var(--space-3);">
-            Contestant Declarations &amp; Adjudication (Hotkey D)
-          </h2>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-4);">
-            <div>
-              <label id="label-p1-sub" for="host-p1-submission" style="display: block; font-size: 0.85rem; color: var(--accent-secondary); margin-bottom: 0.25rem; font-weight: 600;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: var(--space-3); flex-wrap: wrap;">
+            <h2 style="font-size: 1.15rem; margin: 0; display: flex; align-items: center; gap: 0.45rem;">
+              Contestant Declarations &amp; Adjudication (Hotkey D)
+            </h2>
+            <span class="meta-inline font-mono" style="font-size: 0.75rem; background: rgba(255,255,255,0.06); padding: 0.15rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+              Hotkey: <strong>D</strong>
+            </span>
+          </div>
+
+          <div class="adjudication-grid">
+            <!-- Contestant 1 Card -->
+            <div class="adjudication-card adjudication-card--p1">
+              <label id="label-p1-sub" for="host-p1-submission" style="display: block; font-size: 0.85rem; color: var(--accent-secondary); margin-bottom: 0.15rem; font-weight: 600;">
                 Contestant 1 Declaration
               </label>
               <input
@@ -226,29 +233,33 @@
                 class="input-field font-mono"
                 style="text-transform: uppercase;"
               />
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.4rem;">
-                <label style="font-size: 0.78rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.35rem;">
+              <div class="host-declaration-meta">
+                <label class="host-verified-label">
                   <input type="checkbox" id="host-p1-valid-toggle" checked />
                   Working verified (Numbers)
                 </label>
-                <div style="display: flex; gap: 0.25rem;">
-                  <button type="button" class="btn btn--sm btn--secondary" data-player="1" data-score-adj="-1">-1</button>
-                  <button type="button" class="btn btn--sm btn--secondary" data-player="1" data-score-adj="2">+2</button>
-                  <button type="button" class="btn btn--sm btn--secondary" data-player="1" data-score-adj="3">+3</button>
-                  <button type="button" class="btn btn--sm btn--secondary" data-player="1" data-score-adj="4">+4</button>
-                  <button type="button" class="btn btn--sm btn--secondary" data-player="1" data-score-adj="5">+5</button>
-                  <button type="button" class="btn btn--sm btn--secondary" data-player="1" data-score-adj="6">+6</button>
-                  <button type="button" class="btn btn--sm btn--secondary" data-player="1" data-score-adj="7">+7</button>
-                  <button type="button" class="btn btn--sm btn--secondary" data-player="1" data-score-adj="8">+8</button>
-                  <button type="button" class="btn btn--sm btn--secondary" data-player="1" data-score-adj="9">+9</button>
-                  <button type="button" class="btn btn--sm btn--primary" data-player="1" data-score-adj="10">+10</button>
-                  <button type="button" class="btn btn--sm btn--royal" data-player="1" data-score-adj="18">+18</button>
+                <div class="host-score-adj-bar">
+                  <span class="host-score-adj-label">Adj:</span>
+                  <div class="host-score-adj-list">
+                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="-1" title="Deduct 1 point">-1</button>
+                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="2" title="Award 2 points">+2</button>
+                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="3" title="Award 3 points">+3</button>
+                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="4" title="Award 4 points">+4</button>
+                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="5" title="Award 5 points">+5</button>
+                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="6" title="Award 6 points">+6</button>
+                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="7" title="Award 7 points">+7</button>
+                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="8" title="Award 8 points">+8</button>
+                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="9" title="Award 9 points">+9</button>
+                    <button type="button" class="btn btn-score-adj btn--primary" data-player="1" data-score-adj="10" title="Award 10 points (+10)">+10</button>
+                    <button type="button" class="btn btn-score-adj btn--royal" data-player="1" data-score-adj="18" title="Award 18 points (Double 9-Letter Word)">+18</button>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div>
-              <label id="label-p2-sub" for="host-p2-submission" style="display: block; font-size: 0.85rem; color: var(--accent-primary); margin-bottom: 0.25rem; font-weight: 600;">
+            <!-- Contestant 2 Card -->
+            <div class="adjudication-card adjudication-card--p2">
+              <label id="label-p2-sub" for="host-p2-submission" style="display: block; font-size: 0.85rem; color: var(--accent-primary); margin-bottom: 0.15rem; font-weight: 600;">
                 Contestant 2 Declaration
               </label>
               <input
@@ -258,33 +269,36 @@
                 class="input-field font-mono"
                 style="text-transform: uppercase;"
               />
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.4rem;">
-                <label style="font-size: 0.78rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.35rem;">
+              <div class="host-declaration-meta">
+                <label class="host-verified-label">
                   <input type="checkbox" id="host-p2-valid-toggle" checked />
                   Working verified (Numbers)
                 </label>
-                <div style="display: flex; gap: 0.25rem;">
-                  <button type="button" class="btn btn--sm btn--secondary" data-player="2" data-score-adj="-1">-1</button>
-                  <button type="button" class="btn btn--sm btn--secondary" data-player="2" data-score-adj="2">+2</button>
-                  <button type="button" class="btn btn--sm btn--secondary" data-player="2" data-score-adj="3">+3</button>
-                  <button type="button" class="btn btn--sm btn--secondary" data-player="2" data-score-adj="4">+4</button>
-                  <button type="button" class="btn btn--sm btn--secondary" data-player="2" data-score-adj="5">+5</button>
-                  <button type="button" class="btn btn--sm btn--secondary" data-player="2" data-score-adj="6">+6</button>
-                  <button type="button" class="btn btn--sm btn--secondary" data-player="2" data-score-adj="7">+7</button>
-                  <button type="button" class="btn btn--sm btn--secondary" data-player="2" data-score-adj="8">+8</button>
-                  <button type="button" class="btn btn--sm btn--secondary" data-player="2" data-score-adj="9">+9</button>
-                  <button type="button" class="btn btn--sm btn--primary" data-player="2" data-score-adj="10">+10</button>
-                  <button type="button" class="btn btn--sm btn--royal" data-player="2" data-score-adj="18">+18</button>
+                <div class="host-score-adj-bar">
+                  <span class="host-score-adj-label">Adj:</span>
+                  <div class="host-score-adj-list">
+                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="-1" title="Deduct 1 point">-1</button>
+                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="2" title="Award 2 points">+2</button>
+                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="3" title="Award 3 points">+3</button>
+                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="4" title="Award 4 points">+4</button>
+                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="5" title="Award 5 points">+5</button>
+                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="6" title="Award 6 points">+6</button>
+                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="7" title="Award 7 points">+7</button>
+                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="8" title="Award 8 points">+8</button>
+                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="9" title="Award 9 points">+9</button>
+                    <button type="button" class="btn btn-score-adj btn--primary" data-player="2" data-score-adj="10" title="Award 10 points (+10)">+10</button>
+                    <button type="button" class="btn btn-score-adj btn--royal" data-player="2" data-score-adj="18" title="Award 18 points (Double 9-Letter Word)">+18</button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: space-between; align-items: center;">
-            <button type="button" id="host-btn-score-round" class="btn btn--primary">
+          <div class="adjudication-actions">
+            <button type="button" id="host-btn-score-round" class="btn btn--primary btn-award">
               Validate &amp; Award Round Points
             </button>
-            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+            <div class="adjudication-secondary-actions">
               <button type="button" id="host-btn-undo" class="btn btn--secondary btn--sm">Undo</button>
               <button type="button" id="host-btn-replay-round" class="btn btn--secondary btn--sm">Replay Round</button>
               <button type="button" id="host-btn-skip-round" class="btn btn--secondary btn--sm">Skip Round</button>

@@ -479,10 +479,125 @@
 
 @media (min-width: 1024px) {
   .host-layout {
-    grid-template-columns: 1.35fr 1fr;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
     align-items: start;
   }
 }
+
+/* Contestant Declarations & Adjudication Panel */
+.adjudication-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+  width: 100%;
+}
+
+.adjudication-card {
+  background: rgba(10, 18, 42, 0.45);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.adjudication-card--p1 {
+  border-left: 3px solid var(--accent-secondary);
+}
+
+.adjudication-card--p2 {
+  border-left: 3px solid var(--accent-primary);
+}
+
+.adjudication-card .input-field {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.host-declaration-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.host-verified-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.host-score-adj-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding-top: 0.3rem;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+.host-score-adj-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-right: 0.15rem;
+  white-space: nowrap;
+}
+
+.host-score-adj-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  flex: 1;
+}
+
+.btn.btn-score-adj {
+  min-height: 22px;
+  height: 22px;
+  padding: 0 5px;
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  line-height: 20px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-width: 24px;
+  max-width: 36px;
+  box-sizing: border-box;
+}
+
+.adjudication-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.adjudication-actions .btn-award {
+  flex: 1 1 200px;
+  font-weight: 700;
+  min-height: 38px;
+}
+
+.adjudication-secondary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
 
 /* Live Mini Stage Preview inside Host Console (mirrors Stage Background!) */
 .host-stage-preview {
