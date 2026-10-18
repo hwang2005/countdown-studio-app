@@ -1,0 +1,17 @@
+PUBLIC DOMAIN / PERMISSIVE WORD LIST LICENCE
+============================================
+
+The bundled offline word list (/data/words.txt) and conundrum dataset (/data/conundrums.json)
+are derived from the public-domain ENABLE (Enhanced North American Benchmark Lexicon) and
+the public-domain UKACD / dwyl english-words compilations, filtered to lowercase a-z words
+of length 2 to 9 letters suitable for Countdown letters rounds and 9-letter conundrums.
+
+Licence: Public Domain (CC0 1.0 Universal)
+No copyright is claimed in the word list data. You may copy, modify, distribute, and swap
+/data/words.txt freely.
+
+Disclaimer:
+Countdown Studio is an independent, fan-made educational software project created for
+students, maths/language clubs, teachers, and quiz hosts. It is not affiliated with,
+endorsed by, or connected to Channel 4 Television Corporation, ITV Studios, or Marcel Stellman.
+All graphics, layouts, and Web Audio API synthesised compositions are 100% original creations.

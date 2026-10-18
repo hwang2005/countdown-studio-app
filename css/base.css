@@ -1,0 +1,212 @@
+/**
+ * @file css/base.css
+ * Base reset, typography, WCAG 2.2 AA accessibility rules, and 3-zone Top Bar Contract.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Universal hidden contract to prevent any display override */
+[hidden] {
+  display: none !important;
+}
+
+html {
+  font-size: calc(16px * var(--font-scale, 1));
+  -webkit-text-size-adjust: 100%;
+  color-scheme: dark;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  background-color: var(--bg-canvas);
+  background-image: var(--bg-canvas-gradient);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  line-height: 1.55;
+  letter-spacing: 0.01em;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Focus rings for WCAG 2.2 AA keyboard navigation */
+:focus-visible {
+  outline: 3px solid var(--accent-primary);
+  outline-offset: 3px;
+}
+
+/* Skip link for screen readers & keyboard users */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: var(--space-4);
+  background: var(--accent-primary);
+  color: var(--text-on-accent);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  z-index: var(--z-panic);
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  top: var(--space-3);
+}
+
+/* Screen-reader only utility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Typography Hierarchy */
+h1, h2, h3, h4, .font-display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.18;
+  text-wrap: balance;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.font-condensed {
+  font-family: var(--font-condensed);
+  font-variant-numeric: tabular-nums;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+/* Strict 3-Zone Top Bar Contract */
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+  padding: 0.875rem 1.5rem;
+  background: var(--bg-glass);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-subtle);
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+}
+
+.top-bar__brand {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.top-bar__nav {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  overflow-x: auto;
+}
+
+.top-bar__link {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding: 0.25rem 0;
+  border-bottom: 2px solid transparent;
+  transition: color var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out);
+}
+
+.top-bar__link:hover,
+.top-bar__link[aria-current="page"] {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent-primary);
+}
+
+.top-bar__action {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+/* Main Container */
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4);
+}
+
+@media (min-width: 768px) {
+  .container {
+    padding: var(--space-8) var(--space-6);
+  }
+}
+
+/* Metadata inline text (Zero-Pill Discipline) */
+.meta-inline {
+  display: flex;
+   flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.meta-sep {
+  opacity: 0.55;
+  user-select: none;
+}
+
+/* Hairline Dividers */
+.hairline {
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+  margin: var(--space-6) 0;
+}

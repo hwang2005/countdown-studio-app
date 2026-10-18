@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en" data-theme="classic-blue">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function () {
+        var _fetch = window.fetch;
+        function setup(target) {
+          if (!target) return;
+          try {
+            Object.defineProperty(target, 'fetch', {
+              get: function () { return _fetch; },
+              set: function (fn) { _fetch = fn; },
+              configurable: true,
+              enumerable: true
+            });
+          } catch (e) {}
+        }
+        setup(window);
+        try { setup(Window.prototype); } catch (e) {}
+        try { if (window.__proto__) setup(window.__proto__); } catch (e) {}
+
+        window.addEventListener(
+          'error',
+          function (e) {
+            var msg = (e && (e.message || (e.error && e.error.message))) || '';
+            var file = (e && e.filename) || '';
+            if (file.indexOf('chrome-extension://') !== -1 || msg.indexOf('Cannot set property fetch') !== -1) {
+              e.stopImmediatePropagation();
+              e.preventDefault();
+            }
+          },
+          true
+        );
+        window.addEventListener(
+          'unhandledrejection',
+          function (e) {
+            var reason = (e && e.reason && (e.reason.message || String(e.reason))) || '';
+            if (reason.indexOf('Cannot set property fetch') !== -1) {
+              e.stopImmediatePropagation();
+              e.preventDefault();
+            }
+          },
+          true
+        );
+      })();
+    </script>
+    <title>Stage Display (16:9) — Countdown Studio</title>
+    <meta name="description" content="Full-bleed 16:9 projector stage screen for Countdown Studio Live Versus mode." />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="./assets/icon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Fraunces:opsz,wght@9..144,700;9..144,800&family=JetBrains+Mono:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./css/theme.css" />
+    <link rel="stylesheet" href="./css/base.css" />
+    <link rel="stylesheet" href="./css/components.css" />
+    <link rel="stylesheet" href="./css/display.css" />
+    <link rel="stylesheet" href="./css/animations.css" />
+  </head>
+  <body>
+    <!-- 16:9 Full-Bleed Projector Stage Viewport -->
+    <div class="stage-viewport">
+      <main id="stage-canvas" class="stage-canvas" aria-label="Countdown Live Stage Display">
+        <!-- Conundrum Buzzer Banner -->
+        <div id="stage-buzz-banner" class="buzz-banner" aria-live="assertive" hidden></div>
+
+
+        <!-- Top Stage Header -->
+        <header class="stage-header">
+          <div id="stage-round-indicator" class="stage-round-indicator">
+            Round 1 of 15 · Letters
+          </div>
+          <div id="stage-picker-indicator" class="stage-picker-indicator">
+            Selection: Contestant 1
+          </div>
+        </header>
+
+        <!-- Remote Room Connection Indicator Badge -->
+        <div id="stage-room-badge" class="stage-room-badge" title="Trạng thái kết nối trực tuyến với máy Host">
+          <span class="status-dot status-dot--offline" id="stage-room-dot"></span>
+          <span id="stage-room-text">Local Sync</span>
+        </div>
+
+        <!-- 1. GIANT 30-SECOND STUDIO CLOCK RUNNING RIGHT IN THE BACKGROUND -->
+        <div
+          id="stage-clock-zone"
+          class="stage-positioned-item stage-clock-zone"
+          data-calib-key="clock"
+          data-calib-label="CLOCK (Drag to move · Scroll to resize)"
+        >
+          <div id="stage-clock-container"></div>
+        </div>
+
+        <!-- 2. CENTRAL BOARD ZONE (Letters / Numbers / Conundrum / Podium) -->
+        <section
+          id="stage-board-zone"
+          class="stage-positioned-item stage-board-zone"
+          data-calib-key="board"
+          data-calib-label="TILE BOARD (Drag to move · Scroll width)"
+        >
+          <!-- Letters & Conundrum 9-Tile Row -->
+          <div id="stage-letters-board" class="tile-row"></div>
+
+          <!-- Numbers 6-Tile + Target Zone -->
+          <div id="stage-numbers-zone" hidden>
+            <div style="display: flex; justify-content: center; margin-bottom: 2%;">
+              <div class="target-box">
+                <span class="target-box__label">TARGET</span>
+                <span id="stage-target-value" class="target-box__value">000</span>
+              </div>
+            </div>
+            <div id="stage-numbers-board" class="tile-row tile-row--numbers"></div>
+            <div id="stage-numbers-solution" class="panel--subtle" style="margin-top: 1.5%; padding: 0.5rem 0.85rem;" hidden></div>
+          </div>
+
+          <!-- End-of-Match Podium -->
+          <div id="stage-match-end-podium" class="panel" style="text-align: center; padding: 1rem 1.5rem;" hidden>
+            <h1 id="stage-winner-title" style="font-size: clamp(1.4rem, 2.8cqw, 3.2rem); color: var(--accent-primary);">
+              Match Complete
+            </h1>
+            <p style="font-size: clamp(0.85rem, 1.3cqw, 1.35rem); color: var(--text-secondary); margin-top: 0.35rem;">
+              Thank you for playing Countdown Studio!
+            </p>
+          </div>
+        </section>
+
+        <!-- 3. CONTESTANT 1 NAME, SCORE & DECLARATION IN LEFT PODIUM OF BACKGROUND -->
+        <div
+          id="stage-p1-decl"
+          class="stage-positioned-item stage-decl-slot stage-decl-slot--p1 contestant-plate__declaration"
+        ></div>
+
+        <div
+          id="stage-plate-p1"
+          class="stage-positioned-item stage-name-slot stage-name-slot--p1 is-active-picker"
+          data-calib-key="p1Name"
+          data-calib-label="P1 NAME (Drag to move · Scroll width)"
+        >
+          <div id="stage-p1-name" class="contestant-plate__name">Contestant 1</div>
+        </div>
+
+        <div
+          id="stage-p1-score-slot"
+          class="stage-positioned-item stage-score-slot stage-score-slot--p1"
+          data-calib-key="p1Score"
+          data-calib-label="P1 SCORE (Drag to move)"
+        >
+          <div id="stage-p1-score" class="contestant-plate__score">0</div>
+        </div>
+
+        <!-- 4. CONTESTANT 2 NAME, SCORE & DECLARATION IN RIGHT PODIUM OF BACKGROUND -->
+        <div
+          id="stage-p2-decl"
+          class="stage-positioned-item stage-decl-slot stage-decl-slot--p2 contestant-plate__declaration"
+        ></div>
+
+        <div
+          id="stage-plate-p2"
+          class="stage-positioned-item stage-name-slot stage-name-slot--p2"
+          data-calib-key="p2Name"
+          data-calib-label="P2 NAME (Drag to move · Scroll width)"
+        >
+          <div id="stage-p2-name" class="contestant-plate__name">Contestant 2</div>
+        </div>
+
+        <div
+          id="stage-p2-score-slot"
+          class="stage-positioned-item stage-score-slot stage-score-slot--p2"
+          data-calib-key="p2Score"
+          data-calib-label="P2 SCORE (Drag to move)"
+        >
+          <div id="stage-p2-score" class="contestant-plate__score">0</div>
+        </div>
+
+        <!-- Calibration Floating Banner (Shown when Calibrating Background Positions) -->
+        <div
+          id="stage-calibration-toolbar"
+          class="panel"
+          style="
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 45;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.65rem;
+            padding: 0.6rem 1rem;
+            background: rgba(5, 11, 28, 0.94);
+            border: 2px solid var(--accent-primary);
+          "
+          hidden
+        >
+          <span style="font-size: 0.82rem; font-weight: 700; color: var(--accent-primary);">
+            Layout Calibration Mode: Drag Clock, Names, Scores &amp; Board (Scroll wheel on an item to resize)
+          </span>
+          <label style="font-size: 0.78rem; display: flex; align-items: center; gap: 0.35rem; cursor: pointer;">
+            <input type="checkbox" id="calib-hands-only-toggle" checked />
+            Hands-Only Clock (Use Background Dial)
+          </label>
+          <label style="font-size: 0.78rem; display: flex; align-items: center; gap: 0.35rem; cursor: pointer;">
+            <input type="checkbox" id="calib-digital-toggle" />
+            Digital Readout
+          </label>
+          <button type="button" id="btn-calib-upload-bg" class="btn btn--sm btn--royal" title="Select custom background image (countdown-clock-placeholder.jpg)">
+            📷 Change Background Image
+          </button>
+          <button type="button" id="btn-calib-hide-controls" class="btn btn--sm btn--secondary" title="Ẩn/Hiện các nút điều khiển (Phím C) / Toggle Control Buttons">
+            👁 Ẩn điều khiển (C)
+          </button>
+          <button type="button" id="btn-calib-reset" class="btn btn--sm btn--secondary">
+            Reset Default Studio
+          </button>
+          <button type="button" id="btn-calib-done" class="btn btn--sm btn--primary">
+            Done (B)
+          </button>
+        </div>
+
+        <!-- Subtle Bottom Stage Utility Bar (Reveals on Hover, can be hidden by user) -->
+        <footer id="stage-utility-bar" class="stage-utility-bar">
+          <input type="file" id="stage-bg-file-input" accept="image/*" hidden />
+          <button
+            type="button"
+            id="btn-upload-stage-bg"
+            class="btn btn--sm btn--secondary"
+            title="Upload a custom Stage Background image (or drag & drop an image anywhere onto the stage)"
+          >
+            Background Image
+          </button>
+          <button
+            type="button"
+            id="btn-toggle-calibrate"
+            class="btn btn--sm btn--secondary"
+            title="Drag Clock, Player Names, and Scores to align with any background (Hotkey B)"
+          >
+            Align Positions (B)
+          </button>
+          <button
+            type="button"
+            id="btn-toggle-host-overlay"
+            class="btn btn--sm btn--secondary"
+            title="Toggle embedded Host Controls (Hotkey H) or press F for Fullscreen"
+          >
+            Host Overlay (H)
+          </button>
+          <button
+            type="button"
+            id="btn-join-remote-stage"
+            class="btn btn--sm btn--royal"
+            title="Kết nối màn hình với máy Host qua Mã Phòng (Online Multi-Device)"
+          >
+            🌐 Mã Phòng (Online)
+          </button>
+          <button
+            type="button"
+            id="btn-hide-stage-controls"
+            class="btn btn--sm btn--secondary"
+            title="Ẩn các nút điều khiển khỏi màn hình display (Phím C) / Hide Control Buttons"
+          >
+            👁 Ẩn điều khiển (C)
+          </button>
+        </footer>
+
+        <!-- Floating subtle button to reveal controls when hidden -->
+        <button
+          type="button"
+          id="btn-show-stage-controls"
+          class="stage-show-controls-trigger"
+          title="Hiện lại các nút điều khiển (Phím tắt C) / Show Control Buttons"
+          hidden
+        >
+          👁 Hiện điều khiển (C)
+        </button>
+      </main>
+    </div>
+
+    <!-- Single-Window Embedded Host Panel Overlay (Toggled with Hotkey H) -->
+    <aside
+      id="stage-host-overlay"
+      class="stage-host-overlay"
+      hidden
+    >
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-subtle);">
+        <strong style="font-size: 0.95rem;">Embedded Host Console (Hotkey H to hide)</strong>
+        <a href="./versus-host.html" class="btn btn--sm btn--secondary">Full Host Page</a>
+      </div>
+      <iframe
+        id="stage-host-iframe"
+        data-src="./versus-host.html"
+        title="Embedded Host Operator Console"
+        style="width: 100%; height: 100%; border: 0;"
+      ></iframe>
+    </aside>
+
+    <!-- DISPLAY ROOM JOIN MODAL -->
+    <div
+      id="modal-display-join-room"
+      class="modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Tham gia phòng trực tuyến"
+      hidden
+    >
+      <div class="modal-card" style="max-width: 440px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <h2 style="font-size: 1.25rem;">🌐 Tham Gia Phòng Sân Khấu</h2>
+          <button type="button" id="btn-close-display-join-modal" class="btn btn--sm btn--secondary">✕</button>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+          Nhập Mã Phòng (Room Code) hiển thị trên máy Host để kết nối màn hình hiển thị trực tiếp.
+        </p>
+        <div style="margin-bottom: 1.25rem;">
+          <label for="display-input-room-code" style="font-size: 0.82rem; font-weight: 600; display: block; margin-bottom: 0.35rem;">
+            Mã Phòng (ví dụ: CD-8842)
+          </label>
+          <input
+            type="text"
+            id="display-input-room-code"
+            class="input font-mono"
+            style="font-size: 1.35rem; font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: 0.15em;"
+            placeholder="CD-8842"
+            maxlength="10"
+          />
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <button type="button" id="btn-display-disconnect-room" class="btn btn--secondary btn--sm" hidden>
+            Rời phòng (Về Local)
+          </button>
+          <div style="margin-left: auto; display: flex; gap: 0.5rem;">
+            <button type="button" id="btn-cancel-display-join" class="btn btn--secondary btn--sm">Đóng</button>
+            <button type="button" id="btn-submit-display-join" class="btn btn--primary btn--sm">Kết Nối</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Test Pattern Overlay (Strictly hidden by default) -->
+    <div
+      id="stage-test-pattern"
+      class="panic-screen is-hidden"
+      style="display: none; background: rgba(8,18,41,0.95); color: #F8FAFC; flex-direction: column; gap: 1rem;"
+      data-active="false"
+      hidden
+    >
+      <h2 style="font-size: 2.5rem; color: var(--accent-primary);">16:9 STAGE DISPLAY TEST PATTERN</h2>
+      <p style="font-size: 1.25rem;">BroadcastChannel Sync Verified · Audio &amp; Aspect Ratio Calibrated</p>
+    </div>
+
+    <!-- Panic Blank Screen Overlay (Strictly hidden by default) -->
+    <div
+      id="stage-panic-screen"
+      class="panic-screen is-hidden"
+      style="display: none;"
+      data-active="false"
+      hidden
+    >
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 1rem; text-align: center;">
+        <span style="font-size: 1.4rem; font-weight: 700; color: #94A3B8;">Stage blanked by Host Operator</span>
+        <button
+          type="button"
+          id="btn-dismiss-panic"
+          class="btn btn--sm btn--secondary"
+          style="opacity: 0.9; cursor: pointer;"
+          title="Dismiss blank screen locally or press Esc"
+        >
+          Dismiss Blank Screen (Esc)
+        </button>
+      </div>
+    </div>
+
+    <script type="module" src="./js/app-display.js"></script>
+  </body>
+</html>

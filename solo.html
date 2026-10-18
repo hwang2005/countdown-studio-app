@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en" data-theme="classic-blue">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function () {
+        var _fetch = window.fetch;
+        function setup(target) {
+          if (!target) return;
+          try {
+            Object.defineProperty(target, 'fetch', {
+              get: function () { return _fetch; },
+              set: function (fn) { _fetch = fn; },
+              configurable: true,
+              enumerable: true
+            });
+          } catch (e) {}
+        }
+        setup(window);
+        try { setup(Window.prototype); } catch (e) {}
+        try { if (window.__proto__) setup(window.__proto__); } catch (e) {}
+
+        window.addEventListener(
+          'error',
+          function (e) {
+            var msg = (e && (e.message || (e.error && e.error.message))) || '';
+            var file = (e && e.filename) || '';
+            if (file.indexOf('chrome-extension://') !== -1 || msg.indexOf('Cannot set property fetch') !== -1) {
+              e.stopImmediatePropagation();
+              e.preventDefault();
+            }
+          },
+          true
+        );
+        window.addEventListener(
+          'unhandledrejection',
+          function (e) {
+            var reason = (e && e.reason && (e.reason.message || String(e.reason))) || '';
+            if (reason.indexOf('Cannot set property fetch') !== -1) {
+              e.stopImmediatePropagation();
+              e.preventDefault();
+            }
+          },
+          true
+        );
+      })();
+    </script>
+    <title>Solo Practice Studio — Countdown Studio</title>
+    <meta name="description" content="Solo Practice mode with Letters, Numbers, Conundrum drills, interactive calculation board, and Dictionary Corner solver." />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="./assets/icon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Fraunces:opsz,wght@9..144,700;9..144,800&family=JetBrains+Mono:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./css/theme.css" />
+    <link rel="stylesheet" href="./css/base.css" />
+    <link rel="stylesheet" href="./css/components.css" />
+    <link rel="stylesheet" href="./css/animations.css" />
+  </head>
+  <body>
+    <a href="#solo-main" class="skip-link">Skip to game board</a>
+
+    <!-- Strict 3-Zone Top Bar Contract -->
+    <header class="top-bar">
+      <a href="./index.html" class="top-bar__brand">Countdown Studio</a>
+
+      <nav class="top-bar__nav" aria-label="Primary navigation">
+        <a href="./solo.html" class="top-bar__link" aria-current="page">Solo Practice</a>
+        <a href="./versus-host.html" class="top-bar__link">Versus Host</a>
+        <a href="./versus-display.html" class="top-bar__link">Stage Display</a>
+        <a href="./tests/index.html" class="top-bar__link">Unit Tests</a>
+      </nav>
+
+      <div class="top-bar__action">
+        <button type="button" class="btn btn--secondary btn--sm" data-modal-open="modal-solo-help">
+          ? How to Play
+        </button>
+      </div>
+    </header>
+
+    <main id="solo-main" class="container">
+      <!-- Drill Mode Selector & Score HUD -->
+      <div
+        style="
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+          margin-bottom: var(--space-5);
+        "
+      >
+        <div class="segmented-control" role="group" aria-label="Select solo practice drill">
+          <button type="button" class="segmented-control__btn is-active" data-drill="full" aria-pressed="true">
+            Full 15-Round Match
+          </button>
+          <button type="button" class="segmented-control__btn" data-drill="letters" aria-pressed="false">
+            Letters Only
+          </button>
+          <button type="button" class="segmented-control__btn" data-drill="numbers" aria-pressed="false">
+            Numbers Only
+          </button>
+          <button type="button" class="segmented-control__btn" data-drill="conundrum" aria-pressed="false">
+            Conundrums
+          </button>
+          <button type="button" class="segmented-control__btn" data-drill="daily" aria-pressed="false">
+            Daily Challenge
+          </button>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 1.25rem;">
+          <span id="solo-round-indicator" style="font-weight: 700; color: var(--text-secondary);">
+            Round 1 of 15 · Letters
+          </span>
+          <div style="font-family: var(--font-condensed); font-size: 1.65rem; font-weight: 800; color: var(--accent-primary);">
+            Score: <span id="solo-total-score" class="tabular-nums">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading state for lazy dictionary initialization -->
+      <div id="dict-loading-state" class="panel--subtle" style="margin-bottom: var(--space-4); font-size: 0.875rem;">
+        Loading 106,800-word offline lexicon &amp; prefix Trie…
+      </div>
+
+      <!-- ACTIVE PLAY SECTION -->
+      <section id="solo-play-section" class="panel">
+        <div
+          style="
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--space-6);
+            align-items: center;
+          "
+        >
+          <!-- Left / Center: Game Board Area -->
+          <div style="grid-column: span 2; min-width: 0;">
+            <!-- 1. LETTERS ZONE -->
+            <div id="zone-letters">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3);">
+                <h2 style="font-size: 1.35rem;">Letters Round</h2>
+                <span id="letters-counter" class="meta-inline font-mono">Vowels 0/9 · Consonants 0/9</span>
+              </div>
+
+              <div id="letters-board" class="tile-row" style="margin-bottom: var(--space-5);"></div>
+
+              <!-- Picking Phase Buttons -->
+              <div id="letters-picking-controls" style="display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center;">
+                <button type="button" id="btn-pick-vowel" class="btn btn--primary btn--lg">
+                  Pick Vowel (V)
+                </button>
+                <button type="button" id="btn-pick-consonant" class="btn btn--royal btn--lg">
+                  Pick Consonant (C)
+                </button>
+                <button type="button" id="btn-pick-random" class="btn btn--secondary btn--lg">
+                  Random 9 Mix (R)
+                </button>
+              </div>
+
+              <!-- Clock Running Word Builder Tray -->
+              <div id="letters-play-controls" hidden>
+                <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem; text-align: center;">
+                  Click tiles or type on your keyboard to form your longest word. Press Backspace to remove, Enter to submit.
+                </p>
+                <div id="letters-word-tray" class="word-tray" style="margin-bottom: var(--space-4);"></div>
+                <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center;">
+                  <button type="button" id="btn-letters-shuffle" class="btn btn--secondary">
+                    Shuffle Tiles
+                  </button>
+                  <button type="button" id="btn-letters-clear" class="btn btn--secondary">
+                    Clear Tray
+                  </button>
+                  <button type="button" id="btn-letters-submit" class="btn btn--primary">
+                    Submit Word (Enter)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. NUMBERS ZONE -->
+            <div id="zone-numbers" hidden>
+              <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: var(--space-4);">
+                <div>
+                  <h2 style="font-size: 1.35rem;">Numbers Round</h2>
+                  <p style="font-size: 0.85rem; color: var(--text-muted);">
+                    Combine tiles using + − × ÷ to reach the 3-digit target.
+                  </p>
+                </div>
+                <div class="target-box" aria-live="polite">
+                  <span class="target-box__label">TARGET</span>
+                  <span id="numbers-target-value" class="target-box__value">000</span>
+                </div>
+              </div>
+
+              <div id="numbers-board" class="tile-row tile-row--numbers" style="margin-bottom: var(--space-5);"></div>
+
+              <!-- Large Tile Picker -->
+              <div id="numbers-picking-controls" style="text-align: center;">
+                <p style="margin-bottom: 0.75rem; color: var(--text-secondary); font-weight: 600;">
+                  Choose how many Large Tiles (25, 50, 75, 100):
+                </p>
+                <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center;">
+                  <button type="button" class="btn btn--secondary" data-large-pick="0">0 Large (6 Small)</button>
+                  <button type="button" class="btn btn--secondary" data-large-pick="1">1 Large, 5 Small</button>
+                  <button type="button" class="btn btn--primary" data-large-pick="2">2 Large, 4 Small</button>
+                  <button type="button" class="btn btn--secondary" data-large-pick="3">3 Large, 3 Small</button>
+                  <button type="button" class="btn btn--secondary" data-large-pick="4">4 Large, 2 Small</button>
+                  <button type="button" class="btn btn--royal" data-large-pick="random">Random Mix</button>
+                </div>
+              </div>
+
+              <!-- Interactive Calculation Board -->
+              <div id="numbers-calc-controls" class="calc-board" hidden>
+                <div class="calc-operators" role="group" aria-label="Arithmetic operators">
+                  <button type="button" class="calc-op-btn" data-calc-op="+" aria-label="Add">+</button>
+                  <button type="button" class="calc-op-btn" data-calc-op="-" aria-label="Subtract">−</button>
+                  <button type="button" class="calc-op-btn" data-calc-op="*" aria-label="Multiply">×</button>
+                  <button type="button" class="calc-op-btn" data-calc-op="/" aria-label="Divide">÷</button>
+                </div>
+
+                <div
+                  id="numbers-calc-error"
+                  style="color: var(--status-invalid); text-align: center; font-size: 0.875rem; font-weight: 600;"
+                  hidden
+                ></div>
+
+                <div id="numbers-steps-list" class="calc-steps"></div>
+
+                <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem;">
+                  <div style="display: flex; gap: 0.5rem;">
+                    <button type="button" id="btn-numbers-undo" class="btn btn--secondary btn--sm">Undo Step</button>
+                    <button type="button" id="btn-numbers-reset" class="btn btn--secondary btn--sm">Reset Board</button>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <label for="numbers-declared-input" style="font-size: 0.875rem; color: var(--text-secondary);">
+                      Closest tile:
+                    </label>
+                    <input
+                      type="number"
+                      id="numbers-declared-input"
+                      class="input-field font-mono"
+                      style="width: 105px;"
+                      readonly
+                    />
+                    <button type="button" id="btn-numbers-submit" class="btn btn--primary">
+                      Submit Result
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. CONUNDRUM ZONE -->
+            <div id="zone-conundrum" hidden>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3);">
+                <h2 style="font-size: 1.35rem;">Countdown Conundrum</h2>
+                <span id="conundrum-hint-slots" class="font-mono" style="font-size: 0.9rem; color: var(--accent-primary);">
+                  Answer pattern: _ _ _ _ _ _ _ _ _
+                </span>
+              </div>
+
+              <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: var(--space-3);">
+                Drag tiles to rearrange or type the 9-letter anagram solution below:
+              </p>
+
+              <div id="conundrum-board" class="tile-row" style="margin-bottom: var(--space-5);"></div>
+
+              <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;">
+                <input
+                  type="text"
+                  id="conundrum-guess-input"
+                  maxlength="9"
+                  placeholder="Type 9-letter solution…"
+                  class="input-field font-mono"
+                  style="flex: 1; min-width: 200px; text-transform: uppercase;"
+                />
+                <button type="button" id="btn-conundrum-speech" class="btn btn--secondary">
+                  Speak Answer
+                </button>
+                <button type="button" id="btn-conundrum-shuffle" class="btn btn--secondary">
+                  Shuffle
+                </button>
+                <button type="button" id="btn-conundrum-hint" class="btn btn--secondary">
+                  Reveal 1 Letter (-3 pts)
+                </button>
+                <button type="button" id="btn-conundrum-submit" class="btn btn--primary">
+                  Buzz &amp; Submit
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Studio 30-Second Clock -->
+          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <div id="solo-clock-container"></div>
+          </div>
+        </div>
+
+        <!-- REVEAL & DICTIONARY CORNER PANEL -->
+        <div id="solo-reveal-section" class="dict-corner" hidden>
+          <div
+            style="
+              display: flex;
+              flex-wrap: wrap;
+              align-items: center;
+              justify-content: space-between;
+              gap: 1rem;
+              margin-bottom: var(--space-4);
+            "
+          >
+            <h3 id="reveal-status-title" style="font-size: 1.3rem;">Round Result</h3>
+            <button type="button" id="btn-next-round" class="btn btn--primary">
+              Next Round (Enter) →
+            </button>
+          </div>
+          <div id="reveal-solver-body"></div>
+        </div>
+      </section>
+
+      <!-- SESSION SUMMARY SECTION -->
+      <section id="solo-summary-section" class="panel" hidden>
+        <div style="text-align: center; margin-bottom: var(--space-6);">
+          <div class="meta-inline" style="justify-content: center; margin-bottom: 0.5rem;">
+            <span>Session Complete</span>
+            <span class="meta-sep">·</span>
+            <span>Career Stats Updated</span>
+          </div>
+          <h2 style="font-size: 2.2rem; margin-bottom: 0.5rem;">Final Score: <span id="summary-final-score" style="color: var(--accent-primary);">0 pts</span></h2>
+        </div>
+
+        <div style="overflow-x: auto; margin-bottom: var(--space-6);">
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem; text-align: left;">
+            <thead>
+              <tr style="border-bottom: 2px solid var(--border-strong); color: var(--text-secondary);">
+                <th style="padding: 0.5rem;">Round</th>
+                <th style="padding: 0.5rem;">Type</th>
+                <th style="padding: 0.5rem;">Draw / Target</th>
+                <th style="padding: 0.5rem;">Your Answer</th>
+                <th style="padding: 0.5rem;">Points</th>
+                <th style="padding: 0.5rem;">Best Available</th>
+              </tr>
+            </thead>
+            <tbody id="summary-rounds-tbody" class="font-mono"></tbody>
+          </table>
+        </div>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center;">
+          <button type="button" id="btn-summary-play-again" class="btn btn--primary btn--lg">
+            Play Again
+          </button>
+          <button type="button" id="btn-summary-share" class="btn btn--secondary btn--lg">
+            Copy Result to Share
+          </button>
+          <a href="./index.html" class="btn btn--secondary btn--lg">Back to Home</a>
+        </div>
+      </section>
+    </main>
+
+    <!-- MODAL: SOLO HELP -->
+    <div id="modal-solo-help" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="solo-help-title" hidden>
+      <div class="modal-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
+          <h2 id="solo-help-title" style="font-size: 1.35rem;">How to Play Solo Practice</h2>
+          <button type="button" class="btn btn--sm btn--secondary" data-modal-close="modal-solo-help">Close</button>
+        </div>
+        <div style="display: grid; gap: 0.85rem; color: var(--text-secondary); font-size: 0.925rem;">
+          <p><strong>Letters Round:</strong> Press <code>V</code> (Vowel), <code>C</code> (Consonant), or <code>R</code> (Random 9). Once 9 tiles appear, click tiles or type letters on your keyboard. Press <code>Enter</code> to submit and view Dictionary Corner's longest words.</p>
+          <p><strong>Numbers Round:</strong> Pick 0–4 large tiles. On the calculation board, click a number tile, click an operator (<code>+ − × ÷</code>), then click a second number tile to combine them into a new tile. Use Undo or Reset anytime before submitting.</p>
+          <p><strong>Conundrum:</strong> Drag tiles to rearrange the 9-letter anagram or type your solution. Need help? Click <em>Reveal 1 Letter</em> (-3 pts).</p>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="./js/app-solo.js"></script>
+  </body>
+</html>

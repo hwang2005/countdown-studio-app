@@ -1,0 +1,187 @@
+/**
+ * @file css/theme.css
+ * Design-token system in CSS custom properties.
+ * Supports 3 themes:
+ *   1. classic-blue (default TV studio sapphire & warm gold)
+ *   2. dark-studio (deep midnight broadcast console)
+ *   3. high-contrast (WCAG AAA high-visibility mode)
+ * Plus modifiers: [data-large-text="true"] and prefers-reduced-motion.
+ */
+
+:root,
+[data-theme="classic-blue"] {
+  /* 60% Dominant Neutral / Studio Canvas */
+  --bg-canvas: #081229;
+  --bg-canvas-gradient: radial-gradient(ellipse at 50% 18%, #152C69 0%, #091534 58%, #050B1C 100%);
+  --bg-stage-glow: radial-gradient(circle at 50% 42%, rgba(37, 99, 235, 0.28) 0%, transparent 68%);
+
+  /* 30% Structural Surfaces */
+  --bg-surface: #0F1E42;
+  --bg-surface-elevated: #162957;
+  --bg-surface-subtle: rgba(22, 41, 87, 0.65);
+  --bg-glass: rgba(15, 30, 66, 0.85);
+  --border-subtle: rgba(148, 163, 184, 0.18);
+  --border-strong: rgba(147, 197, 253, 0.36);
+
+  /* Typography Colors (WCAG AA/AAA verified against dark studio surfaces) */
+  --text-primary: #F8FAFC;
+  --text-secondary: #CBD5E1;
+  --text-muted: #94A3B8;
+  --text-on-accent: #070E20;
+
+  /* 10% High-Intent Studio Accents */
+  --accent-primary: #F59E0B;
+  --accent-primary-hover: #FBBF24;
+  --accent-secondary: #38BDF8;
+  --accent-royal: #2563EB;
+
+  /* Semantic Status Colors (always paired with icons/text) */
+  --status-valid: #10B981;
+  --status-valid-bg: rgba(16, 185, 129, 0.16);
+  --status-invalid: #EF4444;
+  --status-invalid-bg: rgba(239, 68, 68, 0.16);
+  --status-warning: #F59E0B;
+  --status-warning-bg: rgba(245, 158, 11, 0.16);
+
+  /* Tile Palette (3D Beveled TV Studio Tiles) */
+  --tile-letter-top: #1E40AF;
+  --tile-letter-bottom: #172554;
+  --tile-letter-border: #60A5FA;
+  --tile-letter-text: #FFFFFF;
+
+  --tile-number-top: #1D4ED8;
+  --tile-number-bottom: #1E3A8A;
+  --tile-number-border: #93C5FD;
+  --tile-number-text: #FFFFFF;
+
+  --tile-conundrum-top: #B45309;
+  --tile-conundrum-bottom: #78350F;
+  --tile-conundrum-border: #FCD34D;
+  --tile-conundrum-text: #FFFBEB;
+
+  --tile-empty-bg: rgba(10, 20, 48, 0.72);
+  --tile-empty-border: rgba(96, 165, 250, 0.25);
+
+  /* Clock Palette */
+  --clock-face: #F8FAFC;
+  --clock-rim-outer: #D97706;
+  --clock-rim-inner: #1E3A8A;
+  --clock-hand: #DC2626;
+  --clock-glow: rgba(245, 158, 11, 0.34);
+
+  /* Typography Families */
+  --font-display: 'Fraunces', 'Clarendon', 'Rockwell', 'Georgia', serif;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-condensed: 'Barlow Condensed', 'Oswald', 'Arial Narrow', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+
+  /* Spacing Scale */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  /* Shadows & Glows */
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.28);
+  --shadow-md: 0 8px 24px rgba(2, 6, 23, 0.45);
+  --shadow-lg: 0 16px 40px rgba(2, 6, 23, 0.65);
+  --shadow-tile: 0 6px 0 #09132C, 0 10px 18px rgba(0, 0, 0, 0.48), inset 0 1px 1px rgba(255, 255, 255, 0.35);
+  --glow-gold: 0 0 24px rgba(245, 158, 11, 0.35);
+  --glow-blue: 0 0 24px rgba(56, 189, 248, 0.28);
+
+  /* Z-Index Scale */
+  --z-base: 1;
+  --z-sticky: 20;
+  --z-overlay: 40;
+  --z-modal: 60;
+  --z-toast: 80;
+  --z-panic: 100;
+
+  /* Motion Durations & Easings */
+  --duration-fast: 140ms;
+  --duration-normal: 220ms;
+  --duration-flip: 480ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-flip: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Font Scale Multiplier */
+  --font-scale: 1;
+}
+
+[data-theme="dark-studio"] {
+  --bg-canvas: #060911;
+  --bg-canvas-gradient: radial-gradient(ellipse at 50% 12%, #111827 0%, #090D16 65%, #030712 100%);
+  --bg-stage-glow: radial-gradient(circle at 50% 42%, rgba(56, 189, 248, 0.14) 0%, transparent 65%);
+  --bg-surface: #111827;
+  --bg-surface-elevated: #1F2937;
+  --bg-surface-subtle: rgba(31, 41, 55, 0.72);
+  --bg-glass: rgba(17, 24, 39, 0.88);
+  --border-subtle: rgba(156, 163, 175, 0.16);
+  --border-strong: rgba(56, 189, 248, 0.34);
+  --text-primary: #F9FAFB;
+  --text-secondary: #D1D5DB;
+  --text-muted: #9CA3AF;
+  --accent-primary: #38BDF8;
+  --accent-primary-hover: #7DD3FC;
+  --accent-secondary: #F59E0B;
+  --tile-letter-top: #1E293B;
+  --tile-letter-bottom: #0F172A;
+  --tile-letter-border: #38BDF8;
+}
+
+[data-theme="high-contrast"] {
+  --bg-canvas: #000000;
+  --bg-canvas-gradient: none;
+  --bg-stage-glow: none;
+  --bg-surface: #0A0A0A;
+  --bg-surface-elevated: #171717;
+  --bg-surface-subtle: #121212;
+  --bg-glass: #000000;
+  --border-subtle: #FFFFFF;
+  --border-strong: #FFFF00;
+  --text-primary: #FFFFFF;
+  --text-secondary: #FFFFFF;
+  --text-muted: #E5E5E5;
+  --text-on-accent: #000000;
+  --accent-primary: #FFFF00;
+  --accent-primary-hover: #FDE047;
+  --accent-secondary: #00FFFF;
+  --tile-letter-top: #000000;
+  --tile-letter-bottom: #000000;
+  --tile-letter-border: #FFFF00;
+  --tile-letter-text: #FFFF00;
+  --tile-number-top: #000000;
+  --tile-number-bottom: #000000;
+  --tile-number-border: #00FFFF;
+  --tile-number-text: #FFFFFF;
+  --shadow-tile: 0 0 0 2px #FFFF00;
+}
+
+[data-large-text="true"] {
+  --font-scale: 1.15;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 1ms;
+    --duration-normal: 1ms;
+    --duration-flip: 1ms;
+  }
+}
+
+[data-reduced-motion="true"] {
+  --duration-fast: 1ms;
+  --duration-normal: 1ms;
+  --duration-flip: 1ms;
+}

@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en" data-theme="classic-blue">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function () {
+        var _fetch = window.fetch;
+        function setup(target) {
+          if (!target) return;
+          try {
+            Object.defineProperty(target, 'fetch', {
+              get: function () { return _fetch; },
+              set: function (fn) { _fetch = fn; },
+              configurable: true,
+              enumerable: true
+            });
+          } catch (e) {}
+        }
+        setup(window);
+        try { setup(Window.prototype); } catch (e) {}
+        try { if (window.__proto__) setup(window.__proto__); } catch (e) {}
+
+        window.addEventListener(
+          'error',
+          function (e) {
+            var msg = (e && (e.message || (e.error && e.error.message))) || '';
+            var file = (e && e.filename) || '';
+            if (file.indexOf('chrome-extension://') !== -1 || msg.indexOf('Cannot set property fetch') !== -1) {
+              e.stopImmediatePropagation();
+              e.preventDefault();
+            }
+          },
+          true
+        );
+        window.addEventListener(
+          'unhandledrejection',
+          function (e) {
+            var reason = (e && e.reason && (e.reason.message || String(e.reason))) || '';
+            if (reason.indexOf('Cannot set property fetch') !== -1) {
+              e.stopImmediatePropagation();
+              e.preventDefault();
+            }
+          },
+          true
+        );
+      })();
+    </script>
+    <title>Countdown Studio — Letters, Numbers &amp; Conundrum</title>
+    <meta
+      name="description"
+      content="A faithful, offline-capable British TV game show recreation featuring Solo Practice, Dictionary Corner solvers, and Dual-Screen Live Stage Versus mode."
+    />
+    <meta property="og:title" content="Countdown Studio — Letters, Numbers &amp; Conundrum" />
+    <meta
+      property="og:description"
+      content="A faithful, offline-capable British TV game show recreation featuring Solo Practice, Dictionary Corner solvers, and Dual-Screen Live Stage Versus mode."
+    />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="theme-color" content="#1E3A8A" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Countdown" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="./assets/icon.svg" />
+    <link rel="apple-touch-icon" href="./assets/apple-touch-icon.png" />
+
+    <!-- Google Fonts with local fallbacks -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Fraunces:opsz,wght@9..144,700;9..144,800&family=JetBrains+Mono:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="stylesheet" href="./css/theme.css" />
+    <link rel="stylesheet" href="./css/base.css" />
+    <link rel="stylesheet" href="./css/components.css" />
+    <link rel="stylesheet" href="./css/animations.css" />
+  </head>
+  <body>
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+
+    <!-- Strict 3-Zone Top Bar Contract -->
+    <header class="top-bar">
+      <a href="./index.html" class="top-bar__brand">Countdown Studio</a>
+
+      <nav class="top-bar__nav" aria-label="Primary navigation">
+        <a href="./solo.html" class="top-bar__link">Solo Practice</a>
+        <a href="./versus-host.html" class="top-bar__link">Versus Host</a>
+        <a href="./versus-display.html" class="top-bar__link">Stage Display</a>
+        <a href="./tests/index.html" class="top-bar__link">Unit Tests</a>
+      </nav>
+
+      <div class="top-bar__action">
+        <button type="button" class="btn btn--primary btn--sm" data-modal-open="modal-settings">
+          Studio Settings
+        </button>
+      </div>
+    </header>
+
+    <main id="main-content" class="container">
+      <!-- Hero Studio Showcase -->
+      <section class="panel" style="margin-bottom: var(--space-8);">
+        <div
+          style="
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+            gap: var(--space-8);
+            align-items: center;
+          "
+        >
+          <div>
+            <div class="meta-inline" style="margin-bottom: var(--space-3);">
+              <span>15-Round Championship Format</span>
+              <span class="meta-sep" aria-hidden="true">·</span>
+              <span>Offline Dictionary Corner</span>
+              <span class="meta-sep" aria-hidden="true">·</span>
+              <span id="daily-seed-label">Daily Seed Active</span>
+            </div>
+            <h1 style="font-size: clamp(2.1rem, 4vw, 3.35rem); margin-bottom: var(--space-4);">
+              Nine Letters. Six Numbers. Thirty Seconds on the Clock.
+            </h1>
+            <p style="color: var(--text-secondary); font-size: 1.0625rem; margin-bottom: var(--space-6); max-width: 62ch;">
+              Train solo with instant anagram and arithmetic solvers, or run a live two-screen
+              head-to-head stage show with a dedicated operator console and 16:9 projector display.
+            </p>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 0.75rem;">
+              <a href="./solo.html" class="btn btn--primary btn--lg">Play Solo Practice</a>
+              <a href="./solo.html?drill=daily" class="btn btn--royal btn--lg">Daily Challenge</a>
+              <a href="./versus-host.html" class="btn btn--secondary btn--lg">Launch Versus Stage Host</a>
+              <button type="button" id="pwa-install-btn" class="btn btn--secondary btn--lg">
+                Install Offline App
+              </button>
+            </div>
+          </div>
+
+          <!-- Iconic COUNTDOWN 9-Tile Showcase -->
+          <div>
+            <div class="tile-row" aria-label="Decorative COUNTDOWN 9 letter tiles" style="margin-bottom: var(--space-4);">
+              <div class="tile is-revealed"><div class="tile__face tile__face--front">C</div></div>
+              <div class="tile is-revealed"><div class="tile__face tile__face--front">O</div></div>
+              <div class="tile is-revealed"><div class="tile__face tile__face--front">U</div></div>
+              <div class="tile is-revealed"><div class="tile__face tile__face--front">N</div></div>
+              <div class="tile is-revealed"><div class="tile__face tile__face--front">T</div></div>
+              <div class="tile is-revealed"><div class="tile__face tile__face--front">D</div></div>
+              <div class="tile is-revealed"><div class="tile__face tile__face--front">O</div></div>
+              <div class="tile is-revealed"><div class="tile__face tile__face--front">W</div></div>
+              <div class="tile is-revealed"><div class="tile__face tile__face--front">N</div></div>
+            </div>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: space-between; align-items: center;">
+              <div class="meta-inline">
+                <span>106,800+ Offline Words</span>
+                <span class="meta-sep" aria-hidden="true">·</span>
+                <span>955 Unique Conundrums</span>
+              </div>
+              <button type="button" class="btn btn--secondary btn--sm" data-modal-open="modal-how-to-play">
+                How to Play &amp; Rules
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Mode Selection Grid -->
+      <section
+        style="
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+          gap: var(--space-6);
+          margin-bottom: var(--space-8);
+        "
+      >
+        <!-- Mode 1: Solo Practice -->
+        <article class="panel" style="display: flex; flex-direction: column; justify-content: space-between; gap: var(--space-5);">
+          <div>
+            <div class="meta-inline" style="margin-bottom: var(--space-2);">
+              <span>01. Single Player</span>
+              <span class="meta-sep" aria-hidden="true">·</span>
+              <span>Drills &amp; Dictionary Corner</span>
+            </div>
+            <h2 style="font-size: 1.65rem; margin-bottom: var(--space-3);">Solo Practice &amp; Drills</h2>
+            <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: var(--space-4);">
+              Play a full 15-round TV match or focus on dedicated Letters, Numbers, or Conundrum
+              drills. Includes an interactive arithmetic board and automatic Dictionary Corner
+              best-word lookups.
+            </p>
+            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+              <a href="./solo.html?drill=full" class="btn btn--secondary btn--sm">Full 15-Round Match</a>
+              <a href="./solo.html?drill=letters" class="btn btn--secondary btn--sm">Letters Drill</a>
+              <a href="./solo.html?drill=numbers" class="btn btn--secondary btn--sm">Numbers Drill</a>
+              <a href="./solo.html?drill=conundrum" class="btn btn--secondary btn--sm">Conundrums Only</a>
+            </div>
+          </div>
+          <div>
+            <a href="./solo.html" class="btn btn--primary" style="width: 100%;">Enter Solo Studio →</a>
+          </div>
+        </article>
+
+        <!-- Mode 2: Live Versus (Stage Mode) -->
+        <article class="panel" style="display: flex; flex-direction: column; justify-content: space-between; gap: var(--space-5);">
+          <div>
+            <div class="meta-inline" style="margin-bottom: var(--space-2);">
+              <span>02. Two Contestants + Operator</span>
+              <span class="meta-sep" aria-hidden="true">·</span>
+              <span>BroadcastChannel Sync</span>
+            </div>
+            <h2 style="font-size: 1.65rem; margin-bottom: var(--space-3);">Live Versus (Stage Mode)</h2>
+            <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: var(--space-4);">
+              Built for classrooms, quiz nights, and auditorium projectors. Run the game from the
+              Host Operator Console while projecting the clean 16:9 Stage Display on a second screen
+              or TV.
+            </p>
+            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+              <a href="./versus-display.html" target="_blank" rel="noopener" class="btn btn--secondary btn--sm">
+                Open 16:9 Stage Display ↗
+              </a>
+              <button type="button" class="btn btn--secondary btn--sm" data-modal-open="modal-shortcuts">
+                Host Keyboard Shortcuts
+              </button>
+            </div>
+          </div>
+          <div>
+            <a href="./versus-host.html" class="btn btn--royal" style="width: 100%;">Open Host Operator Console →</a>
+          </div>
+        </article>
+      </section>
+
+      <!-- Solo Progress, Chart & Achievements -->
+      <section class="panel">
+        <div
+          style="
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: var(--space-5);
+          "
+        >
+          <div>
+            <h2 style="font-size: 1.45rem;">Your Studio Career &amp; Progression</h2>
+            <p style="color: var(--text-muted); font-size: 0.875rem;">
+              Stored locally on your device. Export or import your career JSON anytime.
+            </p>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+            <button type="button" id="export-stats-btn" class="btn btn--secondary btn--sm">
+              Export Stats JSON
+            </button>
+            <label class="btn btn--secondary btn--sm" style="cursor: pointer;">
+              Import JSON
+              <input type="file" id="import-stats-input" accept="application/json" hidden />
+            </label>
+          </div>
+        </div>
+
+        <div
+          style="
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: var(--space-4);
+            margin-bottom: var(--space-6);
+          "
+        >
+          <div class="panel--subtle">
+            <div style="font-size: 0.75rem; color: var(--text-muted);">Matches Played</div>
+            <div id="stat-games-played" class="font-mono" style="font-size: 1.65rem; font-weight: 700;">0</div>
+          </div>
+          <div class="panel--subtle">
+            <div style="font-size: 0.75rem; color: var(--text-muted);">Personal Best</div>
+            <div id="stat-best-score" class="font-mono" style="font-size: 1.65rem; font-weight: 700; color: var(--accent-primary);">0</div>
+          </div>
+          <div class="panel--subtle">
+            <div style="font-size: 0.75rem; color: var(--text-muted);">Daily Streak</div>
+            <div id="stat-streak" class="font-mono" style="font-size: 1.65rem; font-weight: 700;">0 days</div>
+          </div>
+          <div class="panel--subtle">
+            <div style="font-size: 0.75rem; color: var(--text-muted);">Longest Word</div>
+            <div id="stat-best-word" class="font-mono" style="font-size: 1.4rem; font-weight: 700; color: var(--accent-secondary);">—</div>
+          </div>
+          <div class="panel--subtle">
+            <div style="font-size: 0.75rem; color: var(--text-muted);">Avg Word Length</div>
+            <div id="stat-avg-len" class="font-mono" style="font-size: 1.4rem; font-weight: 700;">0.0 letters</div>
+          </div>
+          <div class="panel--subtle">
+            <div style="font-size: 0.75rem; color: var(--text-muted);">Exact Target Rate</div>
+            <div id="stat-num-rate" class="font-mono" style="font-size: 1.65rem; font-weight: 700;">0%</div>
+          </div>
+        </div>
+
+        <div
+          style="
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--space-6);
+          "
+        >
+          <div>
+            <h3 style="font-size: 1rem; margin-bottom: var(--space-3);">Recent Match Scores (Last 15)</h3>
+            <div id="home-stats-chart" class="panel--subtle"></div>
+          </div>
+          <div>
+            <h3 style="font-size: 1rem; margin-bottom: var(--space-3);">Studio Achievements</h3>
+            <div id="home-achievements-list" class="panel--subtle"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="container" style="padding-top: 0; font-size: 0.8125rem; color: var(--text-muted); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem;">
+      <span>Fan-made educational project. Not affiliated with Channel 4 or ITV Studios.</span>
+      <div style="display: flex; gap: 1rem;">
+        <button type="button" data-modal-open="modal-how-to-play" style="text-decoration: underline;">Rules</button>
+        <button type="button" data-modal-open="modal-shortcuts" style="text-decoration: underline;">Keyboard Shortcuts</button>
+        <a href="./tests/index.html" style="text-decoration: underline;">Self-Test Suite</a>
+      </div>
+    </footer>
+
+    <!-- MODAL: SETTINGS & SCHEDULE BUILDER -->
+    <div id="modal-settings" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
+      <div class="modal-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
+          <h2 id="settings-title" style="font-size: 1.4rem;">Studio Settings &amp; Schedule</h2>
+          <button type="button" class="btn btn--sm btn--secondary" data-modal-close="modal-settings">Close</button>
+        </div>
+
+        <div style="display: grid; gap: var(--space-4);">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);">
+            <label>
+              <span style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Studio Theme</span>
+              <select id="setting-theme" class="input-field">
+                <option value="classic-blue">Classic Blue (TV Studio)</option>
+                <option value="dark-studio">Dark Studio (Midnight)</option>
+                <option value="high-contrast">High Contrast (WCAG AAA)</option>
+              </select>
+            </label>
+            <label>
+              <span style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Clock Duration</span>
+              <select id="setting-clock" class="input-field">
+                <option value="30">30 Seconds (TV Standard)</option>
+                <option value="60">60 Seconds (Relaxed)</option>
+                <option value="0">Untimed Practice</option>
+              </select>
+            </label>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3);">
+            <label>
+              <span style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Dictionary Mode</span>
+              <select id="setting-dict" class="input-field">
+                <option value="standard">Offline Lexicon (Default)</option>
+                <option value="strict-uk">Strict UK Approximation</option>
+              </select>
+            </label>
+            <label>
+              <span style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Audio Volume</span>
+              <input type="range" id="setting-volume" min="0" max="1" step="0.05" value="0.75" class="input-field" />
+            </label>
+          </div>
+
+          <div style="display: grid; gap: 0.5rem;">
+            <label style="display: flex; align-items: center; gap: 0.6rem;">
+              <input type="checkbox" id="setting-sound" checked />
+              <span>Enable synthesised 30s studio think music &amp; sound effects</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 0.6rem;">
+              <input type="checkbox" id="setting-longer-only" checked />
+              <span>Standard TV Versus scoring (only the longer valid word scores)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 0.6rem;">
+              <input type="checkbox" id="setting-reduced-motion" />
+              <span>Reduced motion (calm transitions, no tile flips or confetti)</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 0.6rem;">
+              <input type="checkbox" id="setting-large-text" />
+              <span>Large-text accessibility mode (115% scale)</span>
+            </label>
+          </div>
+
+          <hr class="hairline" style="margin: var(--space-2) 0;" />
+
+          <div>
+            <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem;">
+              Match Schedule Preset (Drag chips below to reorder)
+            </label>
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
+              <select id="setting-schedule-preset" class="input-field">
+                <option value="tv-15">TV Format (15 Rounds)</option>
+                <option value="quick-5">Quick Match (5 Rounds)</option>
+                <option value="letters-only">Letters Only (6 Rounds)</option>
+                <option value="numbers-only">Numbers Only (6 Rounds)</option>
+                <option value="conundrum-only">Conundrum Sprint (5 Rounds)</option>
+                <option value="custom">Custom Schedule</option>
+              </select>
+              <select id="add-round-type" class="input-field" style="max-width: 110px;">
+                <option value="L">+ Letters</option>
+                <option value="N">+ Numbers</option>
+                <option value="C">+ Conundrum</option>
+              </select>
+              <button type="button" id="add-round-btn" class="btn btn--secondary">Add</button>
+            </div>
+            <div id="custom-schedule-list" style="display: flex; flex-wrap: wrap; gap: 0.4rem;"></div>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: var(--space-3);">
+            <button type="button" class="btn btn--secondary" data-modal-close="modal-settings">Cancel</button>
+            <button type="button" id="save-settings-btn" class="btn btn--primary">Save Studio Settings</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: HOW TO PLAY -->
+    <div id="modal-how-to-play" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="howto-title" hidden>
+      <div class="modal-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
+          <h2 id="howto-title" style="font-size: 1.4rem;">Official Game Rules</h2>
+          <button type="button" class="btn btn--sm btn--secondary" data-modal-close="modal-how-to-play">Close</button>
+        </div>
+        <div style="display: grid; gap: var(--space-4); font-size: 0.9375rem; color: var(--text-secondary);">
+          <div>
+            <h3 style="color: var(--text-primary); font-size: 1.05rem; margin-bottom: 0.25rem;">1. Letters Round</h3>
+            <p>
+              Pick 9 tiles from shuffled Vowel and Consonant stacks (minimum 3 vowels and 4 consonants).
+              Form the longest valid dictionary word in 30 seconds. Valid words score 1 point per letter,
+              or <strong>18 points</strong> for a 9-letter word! In Versus mode, only the player with the longer word scores (ties both score).
+            </p>
+          </div>
+          <div>
+            <h3 style="color: var(--text-primary); font-size: 1.05rem; margin-bottom: 0.25rem;">2. Numbers Round</h3>
+            <p>
+              Choose 0 to 4 Large tiles (25, 50, 75, 100); the remainder of the 6 tiles are Small (1–10).
+              Combine tiles using <code>+ − × ÷</code> to reach a random 3-digit target (101–999). Each tile may be used at most once,
+              and all intermediate steps must be positive integers. Exact hit = <strong>10 pts</strong>, within 5 = <strong>7 pts</strong>, within 10 = <strong>5 pts</strong>.
+            </p>
+          </div>
+          <div>
+            <h3 style="color: var(--text-primary); font-size: 1.05rem; margin-bottom: 0.25rem;">3. Countdown Conundrum</h3>
+            <p>
+              Unscramble the 9-letter anagram before the 30-second clock expires. First contestant to buzz freezes the clock
+              and has 5 seconds to answer for <strong>10 points</strong>. An incorrect buzz locks that contestant out for the remainder of the round.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: KEYBOARD SHORTCUTS -->
+    <div id="modal-shortcuts" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title" hidden>
+      <div class="modal-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
+          <h2 id="shortcuts-title" style="font-size: 1.4rem;">Keyboard Shortcut Map</h2>
+          <button type="button" class="btn btn--sm btn--secondary" data-modal-close="modal-shortcuts">Close</button>
+        </div>
+        <div class="font-mono" style="display: grid; gap: 0.5rem; font-size: 0.875rem;">
+          <div><strong>C / V / R</strong> — Pick Consonant / Vowel / Random 9 Letters</div>
+          <div><strong>SPACE</strong> — Start / Pause / Resume 30s Clock (Host Console)</div>
+          <div><strong>D</strong> — Focus Contestant Declaration Input (Host Console)</div>
+          <div><strong>N</strong> — Advance to Next Round (Host Console)</div>
+          <div><strong>Q / Left Shift</strong> — Player 1 Conundrum Buzzer</div>
+          <div><strong>P / Right Shift</strong> — Player 2 Conundrum Buzzer</div>
+          <div><strong>H</strong> — Toggle Host Control Overlay on Stage Display</div>
+          <div><strong>F</strong> — Toggle Fullscreen on Stage Display</div>
+          <div><strong>A–Z / Backspace / Enter</strong> — Build &amp; Submit Word in Solo Mode</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: PWA INSTALL GUIDE -->
+    <div id="modal-pwa-guide" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="pwa-guide-title" hidden>
+      <div class="modal-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
+          <h2 id="pwa-guide-title" style="font-size: 1.35rem;">Install Countdown Studio Offline</h2>
+          <button type="button" class="btn btn--sm btn--secondary" data-modal-close="modal-pwa-guide">Close</button>
+        </div>
+        <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: var(--space-4);">
+          Countdown Studio caches the complete 106,800-word dictionary and solver locally via its Service Worker so it works 100% offline.
+          To install as a standalone app:
+        </p>
+        <ul style="padding-left: 1.25rem; color: var(--text-secondary); display: grid; gap: 0.5rem; font-size: 0.9rem;">
+          <li><strong>Chrome / Edge (Desktop &amp; Android):</strong> Click the install icon in the browser address bar or menu → <em>Install Countdown Studio</em>.</li>
+          <li><strong>Safari (iPhone / iPad):</strong> Tap the <strong>Share</strong> button and select <strong>Add to Home Screen</strong>.</li>
+        </ul>
+      </div>
+    </div>
+
+    <script type="module" src="./js/app-home.js"></script>
+  </body>
+</html>

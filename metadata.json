@@ -1,0 +1,6 @@
+{
+  "name": "Countdown Studio — Letters, Numbers & Conundrum",
+  "description": "A faithful, offline-capable British TV game show recreation featuring Solo Practice, Dictionary Corner solvers, and Dual-Screen Live Stage Versus mode.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

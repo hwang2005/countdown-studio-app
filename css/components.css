@@ -1,0 +1,477 @@
+/**
+ * @file css/components.css
+ * Reusable UI components: 3D beveled studio tiles, analogue/digital clock,
+ * buttons, segmented controls, calculation board, Dictionary Corner, modals, toasts.
+ */
+
+/* Buttons (Single-line controls, min 44x44px touch targets on mobile) */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.5rem 1.125rem;
+  border-radius: var(--radius-md);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: transform var(--duration-fast) var(--ease-out),
+              background-color var(--duration-fast) var(--ease-out),
+              border-color var(--duration-fast) var(--ease-out),
+              opacity var(--duration-fast) var(--ease-out);
+  user-select: none;
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+}
+
+.btn--primary {
+  background: var(--accent-primary);
+  color: var(--text-on-accent);
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--accent-primary-hover);
+}
+
+.btn--royal {
+  background: var(--accent-royal);
+  color: #FFFFFF;
+  border: 1px solid var(--border-strong);
+}
+
+.btn--royal:hover:not(:disabled) {
+  background: #1D4ED8;
+}
+
+.btn--secondary {
+  background: var(--bg-surface-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: #1E346B;
+}
+
+.btn--danger {
+  background: var(--status-invalid-bg);
+  color: #FCA5A5;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.btn--danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.28);
+}
+
+.btn--sm {
+  min-height: 36px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.btn--lg {
+  min-height: 52px;
+  padding: 0.75rem 1.5rem;
+  font-size: 1.0625rem;
+}
+
+/* Segmented Controls (Interactive Filter / Drill Tabs) */
+.segmented-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.segmented-control__btn {
+  min-height: 38px;
+  padding: 0.375rem 0.875rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background-color var(--duration-fast) var(--ease-out),
+              color var(--duration-fast) var(--ease-out);
+}
+
+.segmented-control__btn[aria-pressed="true"],
+.segmented-control__btn.is-active {
+  background: var(--accent-primary);
+  color: var(--text-on-accent);
+  font-weight: 700;
+}
+
+/* Surface Panels (Single-level elevation) */
+.panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+}
+
+.panel--subtle {
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+
+/* 3D Beveled Studio Tiles (Letters, Numbers, Conundrum) */
+.tile-row {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: clamp(0.35rem, 1vw, 0.75rem);
+  width: 100%;
+  perspective: 1000px;
+}
+
+.tile-row--numbers {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.tile {
+  position: relative;
+  aspect-ratio: 1 / 1.08;
+  min-height: 52px;
+  border-radius: var(--radius-md);
+  transform-style: preserve-3d;
+  transition: transform var(--duration-flip) var(--ease-flip),
+              opacity var(--duration-fast) var(--ease-out);
+  user-select: none;
+}
+
+.tile--interactive {
+  cursor: pointer;
+}
+
+.tile--interactive:hover:not(.tile--used):not(:disabled) {
+  transform: translateY(-4px);
+}
+
+.tile--used {
+  opacity: 0.32;
+  transform: scale(0.95);
+}
+
+.tile__face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.tile__face--back {
+  background: var(--tile-empty-bg);
+  border: 2px dashed var(--tile-empty-border);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.tile__face--front {
+  background: linear-gradient(180deg, var(--tile-letter-top) 0%, var(--tile-letter-bottom) 100%);
+  border: 2px solid var(--tile-letter-border);
+  box-shadow: var(--shadow-tile);
+  color: var(--tile-letter-text);
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 3.6vw, 2.5rem);
+  font-weight: 700;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+/* Subtle studio gloss across top half of tile */
+.tile__face--front::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 46%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.02) 100%);
+  pointer-events: none;
+}
+
+.tile--number .tile__face--front {
+  background: linear-gradient(180deg, var(--tile-number-top) 0%, var(--tile-number-bottom) 100%);
+  border-color: var(--tile-number-border);
+  font-family: var(--font-condensed);
+  font-size: clamp(1.4rem, 3.8vw, 2.6rem);
+  letter-spacing: -0.02em;
+}
+
+.tile--conundrum .tile__face--front {
+  background: linear-gradient(180deg, var(--tile-conundrum-top) 0%, var(--tile-conundrum-bottom) 100%);
+  border-color: var(--tile-conundrum-border);
+  color: var(--tile-conundrum-text);
+}
+
+.tile.is-unrevealed .tile__face--front {
+  transform: rotateX(180deg);
+}
+
+.tile.is-revealed {
+  transform: rotateX(0deg);
+}
+
+/* 3-Digit Target Display (Slot Machine Roll) */
+.target-box {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.75rem 1.75rem;
+  background: #050B18;
+  border: 2px solid var(--accent-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glow-gold), inset 0 2px 10px rgba(0, 0, 0, 0.8);
+}
+
+.target-box__label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--accent-primary);
+  margin-bottom: 0.125rem;
+}
+
+.target-box__value {
+  font-family: var(--font-mono);
+  font-size: clamp(2.25rem, 5vw, 3.5rem);
+  font-weight: 800;
+  line-height: 1.05;
+  color: #FDE68A;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Analogue + Digital Studio Clock */
+.clock-widget {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.clock-svg {
+  width: clamp(160px, 22vw, 240px);
+  height: clamp(160px, 22vw, 240px);
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.55));
+}
+
+.clock-digital {
+  font-family: var(--font-mono);
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Word Builder Tray */
+.word-tray {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 68px;
+  padding: var(--space-3) var(--space-4);
+  background: rgba(5, 11, 28, 0.65);
+  border: 2px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+}
+
+.word-tray__slot {
+  width: clamp(36px, 7vw, 48px);
+  height: clamp(42px, 8vw, 54px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-strong);
+  font-family: var(--font-display);
+  font-size: 1.375rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.word-tray__slot--empty {
+  background: rgba(15, 30, 66, 0.35);
+  border: 1px dashed var(--border-subtle);
+}
+
+/* Interactive Numbers Calculation Board */
+.calc-board {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.calc-operators {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.calc-op-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-elevated);
+  border: 2px solid var(--border-strong);
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--duration-fast) var(--ease-out),
+              background-color var(--duration-fast) var(--ease-out);
+}
+
+.calc-op-btn[aria-pressed="true"],
+.calc-op-btn.is-selected {
+  background: var(--accent-primary);
+  color: var(--text-on-accent);
+  border-color: #FFFFFF;
+}
+
+.calc-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 80px;
+  padding: var(--space-3);
+  background: rgba(5, 11, 28, 0.55);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
+}
+
+/* Dictionary Corner Panel */
+.dict-corner {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-5);
+  margin-top: var(--space-5);
+}
+
+.dict-word-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(135px, 1fr));
+  gap: 0.625rem;
+  margin-top: var(--space-3);
+}
+
+.dict-word-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.dict-word-btn:hover {
+  border-color: var(--accent-primary);
+}
+
+/* Modal Overlay */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 7, 18, 0.78);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  z-index: var(--z-modal);
+}
+
+.modal-backdrop[hidden] {
+  display: none !important;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 600px;
+  max-height: 88vh;
+  overflow-y: auto;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Toast Notification Stack */
+.toast-Region {
+  position: fixed;
+  bottom: var(--space-4);
+  right: var(--space-4);
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 360px;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Form Controls */
+.input-field {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.5rem 0.875rem;
+  background: rgba(5, 11, 28, 0.7);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+
+.input-field:focus {
+  border-color: var(--accent-primary);
+  outline: 2px solid var(--accent-primary);
+}

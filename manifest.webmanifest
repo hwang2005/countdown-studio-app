@@ -1,0 +1,38 @@
+{
+  "id": "/",
+  "name": "Countdown Studio — Letters, Numbers & Conundrum",
+  "short_name": "Countdown",
+  "description": "British TV game show recreation with Solo Practice, Dictionary Corner solvers, and Dual-Screen Live Versus stage mode.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#070D1F",
+  "theme_color": "#1E3A8A",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "./assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

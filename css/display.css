@@ -1,0 +1,599 @@
+/**
+ * @file css/display.css
+ * Stage Mode (16:9 Projector Display & Host Console) styles.
+ * Scales fluidly to any 16:9 screen (1920x1080 target) using container query units (cqw/cqh) and percentages
+ * so the studio clock, contestant names, contestant scores, and board stay locked to the exact
+ * coordinates of the 16:9 studio background image at any resolution.
+ */
+
+.stage-viewport {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background: #02050E;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* 16:9 Letterboxed Stage Canvas with Studio Background Image */
+.stage-canvas {
+  position: relative;
+  width: min(100vw, calc(100vh * 16 / 9));
+  height: min(100vh, calc(100vw * 9 / 16));
+  background-color: #050D24;
+  background-image: var(--stage-bg-image, url('/assets/countdown-clock-placeholder.jpg'), url('../assets/countdown-clock-placeholder.jpg'), url('./assets/countdown-clock-placeholder.jpg'), url('../assets/stage-bg.svg'));
+  background-size: 100% 100%;
+  background-position: center center;
+  background-repeat: no-repeat;
+  box-shadow: 0 0 90px rgba(0, 0, 0, 0.92);
+  overflow: hidden;
+  container-type: size;
+}
+
+/* Drag-and-drop image highlight state */
+.stage-canvas.is-dragover::after {
+  content: 'Drop Image to Set Stage Background';
+  position: absolute;
+  inset: 1.5%;
+  border: 3px dashed var(--accent-primary);
+  border-radius: var(--radius-xl);
+  background: rgba(8, 18, 44, 0.78);
+  color: var(--accent-primary);
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 3cqw, 3rem);
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+  pointer-events: none;
+}
+
+/* Studio Header Bar Floating at Top of Stage */
+.stage-header {
+  position: absolute;
+  top: 2.2%;
+  left: 3.2%;
+  right: 3.2%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65% 1.6%;
+  background: rgba(6, 14, 36, 0.72);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(147, 197, 253, 0.25);
+  border-radius: var(--radius-md);
+  z-index: 10;
+}
+
+.stage-round-indicator {
+  font-family: var(--font-display);
+  font-size: clamp(0.95rem, 1.85cqw, 2rem);
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+}
+
+.stage-picker-indicator {
+  font-size: clamp(0.85rem, 1.4cqw, 1.45rem);
+  color: var(--accent-primary);
+  font-weight: 700;
+}
+
+/* ============================================================================
+ * POSITIONED STUDIO BACKGROUND ELEMENTS (Clock, P1/P2 Name & Score, Board)
+ * ========================================================================== */
+
+.stage-positioned-item {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 12;
+  transition: box-shadow 0.2s ease;
+}
+
+/* Interactive Calibration Mode (Hotkey B / L) */
+.stage-canvas.is-calibrating .stage-positioned-item {
+  cursor: move;
+  outline: 2px dashed #F59E0B;
+  outline-offset: 4px;
+  background-color: rgba(245, 158, 11, 0.14);
+  border-radius: 8px;
+}
+
+.stage-canvas.is-calibrating .stage-positioned-item::before {
+  content: attr(data-calib-label);
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #F59E0B;
+  color: #030712;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 30;
+}
+
+/* 1. GIANT BACKGROUND STUDIO CLOCK (Default: 50% X, 35% Y) */
+.stage-clock-zone {
+  left: var(--clock-x, 50%);
+  top: var(--clock-y, 35%);
+  width: var(--clock-size, 23.5%);
+  aspect-ratio: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 11;
+}
+
+.stage-clock-zone #stage-clock-container,
+.stage-clock-zone .clock-widget {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.stage-clock-zone .clock-svg {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.45));
+}
+
+.stage-clock-zone .clock-widget--hands-only .clock-svg {
+  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.6));
+}
+
+.stage-clock-zone .clock-digital {
+  margin-top: 0.35rem;
+  padding: 0.12rem 0.65rem;
+  background: rgba(5, 11, 28, 0.85);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  border-radius: var(--radius-sm);
+  font-size: clamp(0.85rem, 1.45cqw, 1.5rem);
+  color: var(--accent-primary);
+}
+
+/* 2. CENTRAL BOARD ZONE (Default: 50% X, 81.8% Y, 41.2% Width) */
+.stage-board-zone {
+  left: var(--board-x, 50%);
+  top: var(--board-y, 81.8%);
+  width: var(--board-w, 41.2%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(0.4rem, 1.2cqh, 1rem);
+  z-index: 14;
+}
+
+/* Compact 9-Tile Row inside Central Studio Board Housing */
+.stage-canvas .tile-row {
+  gap: clamp(4px, 0.55cqw, 10px);
+  width: 100%;
+}
+
+.stage-canvas .tile {
+  min-height: clamp(36px, 8.2cqh, 92px);
+  aspect-ratio: 0.86 / 1;
+}
+
+.stage-canvas .tile__face--front {
+  font-size: clamp(1.1rem, 2.55cqw, 2.85rem);
+}
+
+.stage-canvas .tile-row--numbers .tile__face--front {
+  font-size: clamp(1rem, 2.15cqw, 2.35rem);
+}
+
+.stage-canvas .target-box {
+  padding: 0.25rem 1.1rem;
+  min-width: clamp(90px, 11cqw, 180px);
+}
+
+.stage-canvas .target-box__label {
+  font-size: clamp(0.55rem, 0.8cqw, 0.85rem);
+}
+
+.stage-canvas .target-box__value {
+  font-size: clamp(1.35rem, 2.9cqw, 3.2rem);
+}
+
+/* 3. PLAYER NAME & SCORE SLOTS IN THE BACKGROUND PODIUMS */
+.stage-name-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  height: 6.3%;
+  padding: 0 0.6cqw;
+  border-radius: var(--radius-sm);
+  transition: transform 0.25s ease, filter 0.25s ease;
+}
+
+.stage-name-slot--p1 {
+  left: var(--p1-name-x, 16.15%);
+  top: var(--p1-name-y, 70.0%);
+  width: var(--p1-name-w, 19.2%);
+}
+
+.stage-name-slot--p2 {
+  left: var(--p2-name-x, 83.85%);
+  top: var(--p2-name-y, 70.0%);
+  width: var(--p2-name-w, 19.2%);
+}
+
+.stage-name-slot.is-active-picker .contestant-plate__name {
+  color: #FEF08A;
+  text-shadow: 0 0 16px rgba(245, 158, 11, 0.85);
+}
+
+.stage-name-slot.is-buzzed .contestant-plate__name {
+  color: #34D399;
+  text-shadow: 0 0 20px rgba(16, 185, 129, 0.95);
+  transform: scale(1.06);
+}
+
+.contestant-plate__name {
+  font-family: var(--font-display);
+  font-size: clamp(0.9rem, 1.75cqw, 2rem);
+  font-weight: 800;
+  color: #F8FAFC;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.stage-score-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  height: 11.8%;
+  border-radius: var(--radius-md);
+}
+
+.stage-score-slot--p1 {
+  left: var(--p1-score-x, 16.15%);
+  top: var(--p1-score-y, 82.87%);
+  width: var(--p1-score-w, 13.2%);
+}
+
+.stage-score-slot--p2 {
+  left: var(--p2-score-x, 83.85%);
+  top: var(--p2-score-y, 82.87%);
+  width: var(--p2-score-w, 13.2%);
+}
+
+.contestant-plate__score {
+  font-family: var(--font-condensed);
+  font-size: clamp(1.75rem, 4.4cqw, 4.8rem);
+  font-weight: 800;
+  line-height: 1;
+  color: var(--accent-primary);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 22px rgba(245, 158, 11, 0.55), 0 3px 10px rgba(0, 0, 0, 0.95);
+}
+
+/* Contestant Round Declaration Floating Above Podium */
+.stage-decl-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 3.8%;
+  padding: 0.25rem 0.85rem;
+  background: rgba(5, 12, 32, 0.86);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  border-radius: var(--radius-md);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.65);
+  pointer-events: none;
+}
+
+.stage-decl-slot:empty {
+  display: none;
+}
+
+.stage-decl-slot--p1 {
+  left: var(--p1-name-x, 16.15%);
+  top: calc(var(--p1-name-y, 70.0%) - 8.5%);
+  max-width: 22%;
+}
+
+.stage-decl-slot--p2 {
+  left: var(--p2-name-x, 83.85%);
+  top: calc(var(--p2-name-y, 70.0%) - 8.5%);
+  max-width: 22%;
+}
+
+.contestant-plate__declaration {
+  font-family: var(--font-mono);
+  font-size: clamp(0.75rem, 1.25cqw, 1.35rem);
+  font-weight: 700;
+  color: var(--accent-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Quick Stage Utility Corner Controls */
+.stage-utility-bar {
+  position: absolute;
+  bottom: 1.4%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  z-index: 25;
+  opacity: 0.32;
+  transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s ease;
+}
+
+.stage-utility-bar:hover,
+.stage-utility-bar:focus-within,
+.stage-canvas.is-calibrating .stage-utility-bar {
+  opacity: 1;
+}
+
+/* User-controlled hiding of stage controls (Clean TV Stage view) */
+.stage-canvas.is-controls-hidden .stage-utility-bar {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translate(-50%, 150%) !important;
+  visibility: hidden !important;
+}
+
+/* Subtle reveal pill when stage controls are hidden */
+.stage-show-controls-trigger {
+  position: absolute;
+  bottom: 0.6%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 26;
+  background: rgba(6, 14, 36, 0.78);
+  backdrop-filter: blur(8px);
+  color: var(--text-secondary);
+  border: 1px solid rgba(147, 197, 253, 0.25);
+  border-radius: 9999px;
+  padding: 0.25rem 0.85rem;
+  font-size: clamp(0.7rem, 1cqw, 0.85rem);
+  font-weight: 600;
+  cursor: pointer;
+  opacity: 0.2;
+  transition: opacity 0.2s ease, transform 0.2s ease, color 0.2s ease;
+}
+
+.stage-show-controls-trigger:hover,
+.stage-show-controls-trigger:focus-visible {
+  opacity: 1;
+  color: var(--accent-primary);
+  transform: translateX(-50%) translateY(-2px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+
+.stage-canvas:not(.is-controls-hidden) .stage-show-controls-trigger {
+  display: none !important;
+}
+
+/* Dictionary Corner is permanently hidden from Stage Display screen */
+#stage-challenge-banner,
+.stage-challenge-banner,
+[data-dictionary-corner-display] {
+  display: none !important;
+}
+
+/* Conundrum Buzz Banner */
+.buzz-banner {
+  position: absolute;
+  top: 11%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.7rem 2.2rem;
+  background: linear-gradient(90deg, #B45309 0%, #F59E0B 50%, #B45309 100%);
+  color: #070D1F;
+  font-family: var(--font-display);
+  font-size: clamp(1.1rem, 2.2cqw, 2.4rem);
+  font-weight: 800;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.75);
+  z-index: var(--z-overlay);
+  white-space: nowrap;
+}
+
+/* Panic Blank Screen & Test Pattern (Default strictly hidden, only flex when explicitly active) */
+.panic-screen {
+  position: fixed;
+  inset: 0;
+  background: #000000;
+  z-index: var(--z-panic);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  color: #94A3B8;
+  font-size: 1rem;
+  font-family: var(--font-sans);
+}
+
+.panic-screen.is-active:not([hidden]):not(.is-hidden),
+.panic-screen[data-active="true"]:not([hidden]):not(.is-hidden) {
+  display: flex !important;
+}
+
+.panic-screen[hidden],
+.panic-screen.is-hidden,
+.panic-screen[data-active="false"],
+[hidden].panic-screen {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Stage Host Overlay Drawer */
+.stage-host-overlay {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  bottom: 1rem;
+  width: min(520px, 94vw);
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px);
+  border: 2px solid var(--border-strong);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  z-index: 55;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.stage-host-overlay[hidden],
+[hidden].stage-host-overlay {
+  display: none !important;
+}
+
+/* Host Operator Console Layout */
+.host-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  max-width: 1440px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+@media (min-width: 1024px) {
+  .host-layout {
+    grid-template-columns: 1.35fr 1fr;
+    align-items: start;
+  }
+}
+
+/* Live Mini Stage Preview inside Host Console (mirrors Stage Background!) */
+.host-stage-preview {
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  background-color: #050D24;
+  background-image: var(--stage-bg-image, url('/assets/countdown-clock-placeholder.jpg'), url('../assets/countdown-clock-placeholder.jpg'), url('./assets/countdown-clock-placeholder.jpg'), url('../assets/stage-bg.svg'));
+  background-size: 100% 100%;
+  background-position: center center;
+  background-repeat: no-repeat;
+  border: 2px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  position: relative;
+  container-type: size;
+}
+
+.host-stage-preview .tile-row {
+  display: flex;
+  justify-content: center;
+  gap: clamp(2px, 0.4cqw, 6px);
+  width: 100%;
+}
+
+.host-stage-preview .tile {
+  min-height: clamp(20px, 6.5cqh, 48px);
+  aspect-ratio: 0.86 / 1;
+  flex: 1;
+  max-width: clamp(20px, 4cqw, 42px);
+}
+
+.host-stage-preview .tile__face--front {
+  font-size: clamp(0.6rem, 1.55cqw, 1.25rem);
+}
+
+/* Remote Multi-Device Stage Sync UI */
+.stage-room-badge {
+  position: absolute;
+  top: 1.25%;
+  right: 1.5%;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.75rem;
+  background: rgba(5, 11, 28, 0.88);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill, 9999px);
+  font-family: var(--font-mono);
+  font-size: clamp(0.7rem, 1cqw, 0.95rem);
+  font-weight: 600;
+  color: var(--text-secondary);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  transition: opacity 0.3s ease;
+}
+
+.stage-canvas.is-controls-hidden .stage-room-badge {
+  opacity: 0.35;
+}
+.stage-canvas.is-controls-hidden .stage-room-badge:hover {
+  opacity: 1;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-dot--online {
+  background-color: #10B981;
+  box-shadow: 0 0 8px #10B981;
+}
+
+.status-dot--connecting {
+  background-color: #F59E0B;
+  box-shadow: 0 0 8px #F59E0B;
+  animation: pulse 1.5s infinite;
+}
+
+.status-dot--offline {
+  background-color: #64748B;
+}
+
+.remote-qr-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.25rem;
+  background: #FFFFFF;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+  margin: 1rem auto;
+  width: fit-content;
+}
+
+.remote-qr-card canvas {
+  display: block;
+  max-width: 200px;
+  max-height: 200px;
+}
+
+.remote-code-display {
+  font-family: var(--font-mono);
+  font-size: 1.85rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  color: var(--accent-primary);
+  text-align: center;
+  margin: 0.5rem 0;
+  user-select: all;
+}

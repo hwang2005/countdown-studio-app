@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en" data-theme="classic-blue">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function () {
+        var _fetch = window.fetch;
+        function setup(target) {
+          if (!target) return;
+          try {
+            Object.defineProperty(target, 'fetch', {
+              get: function () { return _fetch; },
+              set: function (fn) { _fetch = fn; },
+              configurable: true,
+              enumerable: true
+            });
+          } catch (e) {}
+        }
+        setup(window);
+        try { setup(Window.prototype); } catch (e) {}
+        try { if (window.__proto__) setup(window.__proto__); } catch (e) {}
+
+        window.addEventListener(
+          'error',
+          function (e) {
+            var msg = (e && (e.message || (e.error && e.error.message))) || '';
+            var file = (e && e.filename) || '';
+            if (file.indexOf('chrome-extension://') !== -1 || msg.indexOf('Cannot set property fetch') !== -1) {
+              e.stopImmediatePropagation();
+              e.preventDefault();
+            }
+          },
+          true
+        );
+        window.addEventListener(
+          'unhandledrejection',
+          function (e) {
+            var reason = (e && e.reason && (e.reason.message || String(e.reason))) || '';
+            if (reason.indexOf('Cannot set property fetch') !== -1) {
+              e.stopImmediatePropagation();
+              e.preventDefault();
+            }
+          },
+          true
+        );
+      })();
+    </script>
+    <title>Self-Contained Unit Test Suite — Countdown Studio</title>
+    <link rel="icon" type="image/svg+xml" href="../assets/icon.svg" />
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/base.css" />
+    <link rel="stylesheet" href="../css/components.css" />
+  </head>
+  <body>
+    <header class="top-bar">
+      <a href="../index.html" class="top-bar__brand">Countdown Studio</a>
+      <nav class="top-bar__nav" aria-label="Primary navigation">
+        <a href="../solo.html" class="top-bar__link">Solo Practice</a>
+        <a href="../versus-host.html" class="top-bar__link">Versus Host</a>
+        <a href="../versus-display.html" class="top-bar__link">Stage Display</a>
+        <a href="./index.html" class="top-bar__link" aria-current="page">Unit Tests</a>
+      </nav>
+      <div class="top-bar__action">
+        <a href="../index.html" class="btn btn--secondary btn--sm">Back to Studio</a>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="panel">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
+          <div>
+            <h1 style="font-size: 1.6rem;">Authoritative Unit Test Suite</h1>
+            <p style="color: var(--text-muted); font-size: 0.9rem;">
+              Zero-dependency browser assertions testing pure game logic, FSM transitions, scoring, and solvers.
+            </p>
+          </div>
+          <div id="test-summary-badge" class="font-mono" style="font-size: 1.15rem; font-weight: 700;">
+            Running…
+          </div>
+        </div>
+
+        <div id="test-results-list" class="font-mono" style="display: grid; gap: 0.5rem; font-size: 0.875rem;"></div>
+      </section>
+    </main>
+
+    <script type="module">
+      import { createRNG } from '../js/core/rng.js';
+      import { PHASES, canTransition, GameStore } from '../js/core/state.js';
+      import {
+        createLetterStacks,
+        getPickConstraints,
+        pickLetterTile,
+        pickRandomRemainingLetters,
+        validateWordSubmission
+      } from '../js/game/letters.js';
+      import {
+        drawNumbersTiles,
+        evaluateStep,
+        validateCalculationSequence
+      } from '../js/game/numbers.js';
+      import {
+        scrambleConundrum,
+        checkConundrumGuess,
+        adjudicateBuzz
+      } from '../js/game/conundrum.js';
+      import {
+        scoreSingleWord,
+        scoreVersusLettersRound,
+        scoreSingleNumbers,
+        scoreVersusNumbersRound
+      } from '../js/game/scoring.js';
+      import { buildCustomDictionary, solveLettersRound } from '../js/solver/wordSolver.js';
+      import { solveNumbersRound } from '../js/solver/numbersSolver.js';
+
+      const listEl = document.getElementById('test-results-list');
+      const summaryEl = document.getElementById('test-summary-badge');
+      let passed = 0;
+      let failed = 0;
+
+      function assert(name, condition, details = '') {
+        const row = document.createElement('div');
+        row.className = 'panel--subtle';
+        row.style.padding = '0.6rem 0.9rem';
+        row.style.borderColor = condition ? 'var(--status-valid)' : 'var(--status-invalid)';
+        if (condition) {
+          passed += 1;
+          row.textContent = `✓ PASS: ${name}`;
+          row.style.color = 'var(--status-valid)';
+        } else {
+          failed += 1;
+          row.textContent = `✗ FAIL: ${name} ${details ? `(${details})` : ''}`;
+          row.style.color = 'var(--status-invalid)';
+        }
+        listEl.appendChild(row);
+      }
+
+      // 1. Letter-stack & 3V/4C constraint validation
+      {
+        const rng = createRNG('test-seed-1');
+        const stacks = createLetterStacks(rng);
+        assert('Vowel stack has 67 tiles (TV distribution)', stacks.vowels.length === 67);
+        assert('Consonant stack has 74 tiles (TV distribution)', stacks.consonants.length === 74);
+
+        const c5Vowels = getPickConstraints(5, 2);
+        assert('Disables Vowel button after 5 vowels picked (ensures >= 4 consonants)', c5Vowels.canPickVowel === false && c5Vowels.canPickConsonant === true);
+
+        const c6Consonants = getPickConstraints(1, 6);
+        assert('Disables Consonant button after 6 consonants picked (ensures >= 3 vowels)', c6Consonants.canPickConsonant === false && c6Consonants.canPickVowel === true);
+
+        const randPick = pickRandomRemainingLetters(stacks, [], rng);
+        assert('Random 9-letter pick produces 9 tiles with >=3 vowels and >=4 consonants', randPick.board.length === 9 && randPick.vowelCount >= 3 && randPick.consonantCount >= 4);
+      }
+
+      // 2. Letters word multiset & dictionary validation edge cases
+      {
+        const { wordSet, trie } = buildCustomDictionary(['stone', 'tones', 'not', 'count', 'countdown']);
+        const board = ['C', 'O', 'U', 'N', 'T', 'D', 'O', 'W', 'N'];
+
+        assert('Rejects empty word submission', validateWordSubmission('', board, wordSet).valid === false);
+        assert('Rejects 1-letter word submission', validateWordSubmission('A', board, wordSet).valid === false);
+        assert('Rejects word with non-letters', validateWordSubmission('CO-NT', board, wordSet).valid === false);
+        assert('Rejects reusing a letter more times than drawn on board', validateWordSubmission('CCC', board, wordSet).reason === 'missing_letters');
+        assert('Accepts valid 9-letter word COUNTDOWN using exact multiset', validateWordSubmission('countdown', board, wordSet).valid === true);
+
+        const solved = solveLettersRound(board, trie, 10);
+        assert('WordTrie solver finds 9-letter word COUNTDOWN first', solved.topWords[0] === 'COUNTDOWN' && solved.maxLength === 9);
+        assert('Dictionary Corner only returns words at the maximum length', solved.topWords.every((word) => word.length === solved.maxLength));
+      }
+
+      // 3. Numbers round validation & edge cases
+      {
+        const tiles = drawNumbersTiles(2, createRNG('num-seed'));
+        const largeCount = tiles.filter((n) => n >= 25).length;
+        assert('Numbers draw with 2 large tiles returns 2 large and 4 small', tiles.length === 6 && largeCount === 2);
+
+        assert('Rejects non-exact division (75 ÷ 2)', evaluateStep(75, '/', 2).valid === false);
+        assert('Rejects zero or negative subtraction (25 − 50)', evaluateStep(25, '-', 50).valid === false);
+        assert('Accepts exact division (100 ÷ 25 = 4)', evaluateStep(100, '/', 25).result === 4);
+
+        const seqValid = validateCalculationSequence([75, 50, 2, 3, 6, 1], [
+          { a: 75, op: '+', b: 50 },
+          { a: 125, op: '*', b: 2 }
+        ]);
+        assert('Validates multi-step calculation sequence consuming intermediate tile', seqValid.valid === true && seqValid.finalValue === 250);
+
+        const seqReuse = validateCalculationSequence([75, 50, 2, 3, 6, 1], [
+          { a: 75, op: '+', b: 75 }
+        ]);
+        assert('Rejects reusing a single 75 tile twice', seqReuse.valid === false);
+      }
+
+      // 4. Numbers Solver accuracy & speed (< 300ms)
+      {
+        const sol = solveNumbersRound([100, 75, 50, 25, 6, 3], 952);
+        // Famous 952 target! Wait: 952 with [100, 75, 50, 25, 6, 3] is reachable!
+        assert(`Numbers solver finds exact or closest solution in ${sol.elapsedMs}ms (< 300ms)`, sol.elapsedMs < 300 && sol.exact === true && sol.bestValue === 952);
+      }
+
+      // 5. Scoring rules (Letters, Numbers, Versus only-longer-scores)
+      {
+        assert('8-letter valid word scores 8 points', scoreSingleWord('BUILDINGS'.slice(0, 8), true) === 8);
+        assert('9-letter valid word scores 18 points (double)', scoreSingleWord('COUNTDOWN', true) === 18);
+
+        const vsDiff = scoreVersusLettersRound(
+          { word: 'STREAM', valid: true },
+          { word: 'MASTERING', valid: true },
+          { onlyLongerScores: true }
+        );
+        assert('Versus Letters: only the longer valid word scores (0 vs 18)', vsDiff.p1Points === 0 && vsDiff.p2Points === 18);
+
+        const vsTie = scoreVersusLettersRound(
+          { word: 'STONE', valid: true },
+          { word: 'NOTES', valid: true },
+          { onlyLongerScores: true }
+        );
+        assert('Versus Letters: equal-length valid words both score (5 and 5)', vsTie.p1Points === 5 && vsTie.p2Points === 5);
+
+        assert('Numbers scoring: exact=10, within 5=7, within 10=5, 11 away=0',
+          scoreSingleNumbers(500, 500).points === 10 &&
+          scoreSingleNumbers(496, 500).points === 7 &&
+          scoreSingleNumbers(491, 500).points === 5 &&
+          scoreSingleNumbers(488, 500).points === 0
+        );
+      }
+
+      // 6. Conundrum scramble & buzzer adjudication
+      {
+        const rng = createRNG('con-seed');
+        const scrambled = scrambleConundrum('ASTRONOMY', rng);
+        const sameMultiset = scrambled.split('').sort().join('') === 'ASTRONOMY'.split('').sort().join('');
+        assert('Conundrum scramble preserves exact letters and is never identical to original word', scrambled !== 'ASTRONOMY' && sameMultiset);
+        assert('Conundrum guess check is case-insensitive', checkConundrumGuess('astronomy', 'ASTRONOMY') === true);
+
+        const buzzRes = adjudicateBuzz(
+          { player: 1, timestamp: 105.2 },
+          { player: 2, timestamp: 102.8 }
+        );
+        assert('Buzzer adjudication awards earliest high-res timestamp & flags <15ms near-tie', buzzRes.winner === 2 && buzzRes.tooClose === true);
+      }
+
+      // 7. Finite State Machine transition enforcement
+      {
+        assert('FSM allows PICKING -> CLOCK_RUNNING', canTransition(PHASES.PICKING, PHASES.CLOCK_RUNNING) === true);
+        assert('FSM blocks illegal transition IDLE -> SCORING', canTransition(PHASES.IDLE, PHASES.SCORING) === false);
+
+        const store = new GameStore();
+        let threw = false;
+        try {
+          store.transition(PHASES.SCORING);
+        } catch {
+          threw = true;
+        }
+        assert('GameStore throws error on illegal state transition', threw === true);
+      }
+
+      summaryEl.textContent = `${passed} Passed · ${failed} Failed`;
+      summaryEl.style.color = failed === 0 ? 'var(--status-valid)' : 'var(--status-invalid)';
+    </script>
+  </body>
+</html>

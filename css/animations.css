@@ -1,0 +1,79 @@
+/**
+ * @file css/animations.css
+ * Keyframe animations for tile flip, invalid input shake, glint, slot roll,
+ * and prefers-reduced-motion calm alternatives.
+ */
+
+@keyframes tileFlipIn {
+  0% {
+    transform: perspective(900px) rotateX(-95deg) scale(0.92);
+    opacity: 0;
+  }
+  65% {
+    transform: perspective(900px) rotateX(12deg) scale(1.02);
+    opacity: 1;
+  }
+  100% {
+    transform: perspective(900px) rotateX(0deg) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes shakeInvalid {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-7px); }
+  40% { transform: translateX(7px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+}
+
+@keyframes popScore {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+
+@keyframes fadeInSlide {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.anim-flip-in {
+  animation: tileFlipIn var(--duration-flip) var(--ease-flip) both;
+}
+
+.anim-shake {
+  animation: shakeInvalid 340ms ease-in-out;
+}
+
+.anim-pop {
+  animation: popScore 320ms var(--ease-out);
+}
+
+.anim-fade-in {
+  animation: fadeInSlide var(--duration-normal) var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-flip-in,
+  .anim-shake,
+  .anim-pop,
+  .anim-fade-in {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+[data-reduced-motion="true"] .anim-flip-in,
+[data-reduced-motion="true"] .anim-shake,
+[data-reduced-motion="true"] .anim-pop,
+[data-reduced-motion="true"] .anim-fade-in {
+  animation: none !important;
+  transition: none !important;
+}

@@ -1,0 +1,254 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
+  <defs>
+    <!-- Deep Broadcast Studio Backdrop Gradient -->
+    <radialGradient id="studioWall" cx="50%" cy="35%" r="70%">
+      <stop offset="0%" stop-color="#1E40AF" />
+      <stop offset="32%" stop-color="#112459" />
+      <stop offset="68%" stop-color="#08122E" />
+      <stop offset="100%" stop-color="#030714" />
+    </radialGradient>
+
+    <!-- Warm Studio Halo Behind the Giant Clock -->
+    <radialGradient id="clockHalo" cx="50%" cy="35%" r="36%">
+      <stop offset="0%" stop-color="#60A5FA" stop-opacity="0.55" />
+      <stop offset="45%" stop-color="#2563EB" stop-opacity="0.22" />
+      <stop offset="75%" stop-color="#F59E0B" stop-opacity="0.08" />
+      <stop offset="100%" stop-color="#030714" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Glossy Studio Floor Gradient -->
+    <linearGradient id="studioFloor" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#091536" />
+      <stop offset="35%" stop-color="#060E26" />
+      <stop offset="100%" stop-color="#020510" />
+    </linearGradient>
+
+    <!-- Metallic Gold Trim -->
+    <linearGradient id="goldBezel" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE68A" />
+      <stop offset="35%" stop-color="#F59E0B" />
+      <stop offset="70%" stop-color="#B45309" />
+      <stop offset="100%" stop-color="#FBBF24" />
+    </linearGradient>
+
+    <!-- Brushed Sapphire Podium Body -->
+    <linearGradient id="podiumBody" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1E3A8A" />
+      <stop offset="45%" stop-color="#0F2154" />
+      <stop offset="100%" stop-color="#07102B" />
+    </linearGradient>
+
+    <!-- Podium Top Desk Surface -->
+    <linearGradient id="podiumTop" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1D4ED8" />
+      <stop offset="50%" stop-color="#60A5FA" />
+      <stop offset="100%" stop-color="#1D4ED8" />
+    </linearGradient>
+
+    <!-- Cream Studio Clock Face -->
+    <radialGradient id="bgClockFace" cx="50%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="82%" stop-color="#F8FAFC" />
+      <stop offset="100%" stop-color="#CBD5E1" />
+    </radialGradient>
+
+    <!-- Recessed LED Score Box -->
+    <linearGradient id="scoreRecess" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#020617" />
+      <stop offset="50%" stop-color="#09122C" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+
+    <!-- Soft Drop Shadow -->
+    <filter id="studioShadow" x="-15%" y="-15%" width="130%" height="135%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#000000" flood-opacity="0.72" />
+    </filter>
+  </defs>
+
+  <!-- 1. Main Studio Backdrop Wall -->
+  <rect width="1920" height="1080" fill="url(#studioWall)" />
+  <rect width="1920" height="1080" fill="url(#clockHalo)" />
+
+  <!-- 2. Iconic Radiating Studio Light Ribs (Converging on Clock Center 960, 378) -->
+  <g stroke="#38BDF8" stroke-opacity="0.16" stroke-width="3">
+    <line x1="960" y1="378" x2="0" y2="60" />
+    <line x1="960" y1="378" x2="0" y2="220" />
+    <line x1="960" y1="378" x2="0" y2="378" />
+    <line x1="960" y1="378" x2="0" y2="540" />
+    <line x1="960" y1="378" x2="0" y2="720" />
+    <line x1="960" y1="378" x2="1920" y2="60" />
+    <line x1="960" y1="378" x2="1920" y2="220" />
+    <line x1="960" y1="378" x2="1920" y2="378" />
+    <line x1="960" y1="378" x2="1920" y2="540" />
+    <line x1="960" y1="378" x2="1920" y2="720" />
+    <line x1="960" y1="378" x2="360" y2="0" />
+    <line x1="960" y1="378" x2="640" y2="0" />
+    <line x1="960" y1="378" x2="1280" y2="0" />
+    <line x1="960" y1="378" x2="1560" y2="0" />
+  </g>
+
+  <!-- Concentric Studio Architecture Rings Around Clock -->
+  <g fill="none">
+    <circle cx="960" cy="378" r="390" stroke="#38BDF8" stroke-opacity="0.12" stroke-width="2" />
+    <circle cx="960" cy="378" r="335" stroke="#F59E0B" stroke-opacity="0.18" stroke-width="2.5" stroke-dasharray="18 12" />
+    <circle cx="960" cy="378" r="285" stroke="#60A5FA" stroke-opacity="0.25" stroke-width="4" />
+    <circle cx="960" cy="378" r="252" stroke="url(#goldBezel)" stroke-opacity="0.55" stroke-width="6" />
+  </g>
+
+  <!-- Left & Right Illuminated Studio Wall Columns -->
+  <g opacity="0.45">
+    <rect x="64" y="80" width="22" height="580" rx="11" fill="#38BDF8" opacity="0.3" />
+    <rect x="116" y="120" width="14" height="520" rx="7" fill="#F59E0B" opacity="0.25" />
+    <rect x="1834" y="80" width="22" height="580" rx="11" fill="#38BDF8" opacity="0.3" />
+    <rect x="1790" y="120" width="14" height="520" rx="7" fill="#F59E0B" opacity="0.25" />
+  </g>
+
+  <!-- 3. Studio Horizon & Reflective Stage Floor -->
+  <path d="M0,690 Q960,655 1920,690 L1920,1080 L0,1080 Z" fill="url(#studioFloor)" />
+  <path d="M0,690 Q960,655 1920,690" fill="none" stroke="#38BDF8" stroke-opacity="0.45" stroke-width="3" />
+
+  <!-- Floor Perspective Grid & Stage Light Reflections -->
+  <g stroke="#38BDF8" stroke-opacity="0.12" stroke-width="1.5" fill="none">
+    <ellipse cx="960" cy="910" rx="680" ry="110" />
+    <ellipse cx="960" cy="910" rx="460" ry="74" stroke="#F59E0B" stroke-opacity="0.14" />
+    <line x1="960" y1="672" x2="960" y2="1080" />
+    <line x1="820" y1="675" x2="540" y2="1080" />
+    <line x1="1100" y1="675" x2="1380" y2="1080" />
+    <line x1="660" y1="680" x2="120" y2="1080" />
+    <line x1="1260" y1="680" x2="1800" y2="1080" />
+  </g>
+
+  <!-- 4. GIANT STUDIO CLOCK MOUNTED IN BACKGROUND (Center: 960, 378, Radius: 216) -->
+  <g filter="url(#studioShadow)">
+    <!-- Outer Studio Clock Casing -->
+    <circle cx="960" cy="378" r="234" fill="#091534" stroke="url(#goldBezel)" stroke-width="9" />
+    <circle cx="960" cy="378" r="222" fill="#0F172A" stroke="#1E3A8A" stroke-width="5" />
+    <!-- Iconic Cream/White Clock Dial Face -->
+    <circle cx="960" cy="378" r="212" fill="url(#bgClockFace)" stroke="#1E3A8A" stroke-width="6" />
+    <!-- Subtle Crosshairs on Background Dial -->
+    <line x1="960" y1="170" x2="960" y2="586" stroke="#94A3B8" stroke-width="3" />
+    <line x1="752" y1="378" x2="1168" y2="378" stroke="#94A3B8" stroke-width="3" />
+    <circle cx="960" cy="378" r="16" fill="#0F172A" stroke="#F59E0B" stroke-width="5" />
+  </g>
+
+  <!-- 5. CENTRAL STUDIO BOARD HOUSING (Center: 960, 825) -->
+  <g filter="url(#studioShadow)">
+    <rect
+      x="550"
+      y="676"
+      width="820"
+      height="310"
+      rx="20"
+      fill="#081433"
+      fill-opacity="0.88"
+      stroke="url(#goldBezel)"
+      stroke-width="4"
+    />
+    <rect
+      x="562"
+      y="688"
+      width="796"
+      height="286"
+      rx="14"
+      fill="#0B1B42"
+      fill-opacity="0.75"
+      stroke="#38BDF8"
+      stroke-opacity="0.35"
+      stroke-width="2"
+    />
+  </g>
+
+  <!-- 6. LEFT CONTESTANT PODIUM / DESK (Player 1 - Center X: 310) -->
+  <g filter="url(#studioShadow)">
+    <!-- Curved Desk Pedestal -->
+    <path
+      d="M90,695 L530,695 L505,1035 L115,1035 Z"
+      fill="url(#podiumBody)"
+      stroke="#38BDF8"
+      stroke-opacity="0.55"
+      stroke-width="3"
+    />
+    <!-- Illuminated Desk Top Lip -->
+    <rect
+      x="76"
+      y="675"
+      width="468"
+      height="24"
+      rx="12"
+      fill="url(#podiumTop)"
+      stroke="url(#goldBezel)"
+      stroke-width="2.5"
+    />
+    <!-- Player 1 Nameplate Slot (Center: X=310, Y=756, W=376, H=68) -->
+    <rect
+      x="122"
+      y="722"
+      width="376"
+      height="68"
+      rx="10"
+      fill="url(#scoreRecess)"
+      stroke="#38BDF8"
+      stroke-width="2.5"
+    />
+    <!-- Player 1 Score Display Slot (Center: X=310, Y=895, W=260, H=132) -->
+    <rect
+      x="180"
+      y="829"
+      width="260"
+      height="132"
+      rx="14"
+      fill="url(#scoreRecess)"
+      stroke="url(#goldBezel)"
+      stroke-width="4"
+    />
+    <!-- Studio Accent Strips on Left Desk -->
+    <line x1="126" y1="995" x2="494" y2="995" stroke="#38BDF8" stroke-opacity="0.4" stroke-width="4" stroke-linecap="round" />
+  </g>
+
+  <!-- 7. RIGHT CONTESTANT PODIUM / DESK (Player 2 - Center X: 1610) -->
+  <g filter="url(#studioShadow)">
+    <!-- Curved Desk Pedestal -->
+    <path
+      d="M1390,695 L1830,695 L1805,1035 L1415,1035 Z"
+      fill="url(#podiumBody)"
+      stroke="#38BDF8"
+      stroke-opacity="0.55"
+      stroke-width="3"
+    />
+    <!-- Illuminated Desk Top Lip -->
+    <rect
+      x="1376"
+      y="675"
+      width="468"
+      height="24"
+      rx="12"
+      fill="url(#podiumTop)"
+      stroke="url(#goldBezel)"
+      stroke-width="2.5"
+    />
+    <!-- Player 2 Nameplate Slot (Center: X=1610, Y=756, W=376, H=68) -->
+    <rect
+      x="1422"
+      y="722"
+      width="376"
+      height="68"
+      rx="10"
+      fill="url(#scoreRecess)"
+      stroke="#F59E0B"
+      stroke-width="2.5"
+    />
+    <!-- Player 2 Score Display Slot (Center: X=1610, Y=895, W=260, H=132) -->
+    <rect
+      x="1480"
+      y="829"
+      width="260"
+      height="132"
+      rx="14"
+      fill="url(#scoreRecess)"
+      stroke="url(#goldBezel)"
+      stroke-width="4"
+    />
+    <!-- Studio Accent Strips on Right Desk -->
+    <line x1="1426" y1="995" x2="1794" y2="995" stroke="#F59E0B" stroke-opacity="0.4" stroke-width="4" stroke-linecap="round" />
+  </g>
+</svg>
