@@ -7,7 +7,7 @@
 
 import { cacheWordDefinition, getCachedWordDefinition } from '../core/storage.js';
 
-const TIMEOUT_MS = 4000;
+const TIMEOUT_MS = 10000;
 
 /**
  * Fetches part of speech and concise definition for a word.
