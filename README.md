@@ -56,6 +56,8 @@ https://your-static-site.example/versus-host.html?ws=wss%3A%2F%2Fyour-websocket-
 
 The generated Display link and QR code carry this `ws` setting automatically. Use `wss://` when the website is served over HTTPS; otherwise browsers will block the connection as mixed content.
 
+The Node server supports multiple independent Rooms at the same time. Each Room has one active Host and can have multiple Display connections. By default, a Room accepts up to 20 Displays; set `MAX_DISPLAYS_PER_ROOM` in the server environment to change this limit. A second active Host using the same Room Code is rejected, and an orphaned Room is closed after the Host has been disconnected for approximately 30 seconds. The `/api/health` endpoint reports active Room and connection counts.
+
 ---
 
 ## 4. Keyboard Shortcut Map

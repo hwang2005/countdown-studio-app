@@ -329,7 +329,7 @@ export class StageSyncChannel {
               return;
             }
             this.lastRemoteError = msg.message || 'Máy chủ từ chối kết nối phòng.';
-            if (['INVALID_PIN', 'INVALID_ROOM', 'UNAUTHORIZED', 'SESSION_EXPIRED'].includes(msg.code)) {
+            if (['INVALID_PIN', 'INVALID_ROOM', 'ROOM_OCCUPIED', 'ROOM_FULL', 'UNAUTHORIZED', 'SESSION_EXPIRED'].includes(msg.code)) {
               this.remoteConnectionFailed = true;
               clearTimeout(this.remoteConnectTimeoutTimer);
               this.remoteConnectTimeoutTimer = null;

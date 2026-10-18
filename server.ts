@@ -16,16 +16,68 @@ interface GameRoom {
   displays: Set<WebSocket>;
   latestState: any;
   lastActive: number;
+  hostDisconnectedAt: number | null;
 }
 
 const rooms = new Map<string, GameRoom>();
 
-// Clean up stale rooms older than 12 hours
+const ROOM_ID_PATTERN = /^[A-Z0-9][A-Z0-9-]{2,31}$/;
+const ROOM_IDLE_TIMEOUT_MS = 12 * 60 * 60 * 1000;
+const ORPHANED_ROOM_TIMEOUT_MS = 30 * 1000;
+const MAX_DISPLAYS_PER_ROOM = readPositiveInteger(process.env.MAX_DISPLAYS_PER_ROOM, 20);
+
+function readPositiveInteger(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function getRoomStats() {
+  let displayConnections = 0;
+  let hostConnections = 0;
+
+  for (const room of rooms.values()) {
+    if (room.hostSocket) hostConnections += 1;
+    displayConnections += room.displays.size;
+  }
+
+  return {
+    activeRooms: rooms.size,
+    hostConnections,
+    displayConnections,
+    totalConnections: hostConnections + displayConnections,
+    maxDisplaysPerRoom: MAX_DISPLAYS_PER_ROOM,
+  };
+}
+
+function sendError(ws: WebSocket, code: string, message: string) {
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'error', code, message }));
+  }
+}
+
+function closeRoomForDisplays(room: GameRoom, message: string) {
+  const closedPacket = JSON.stringify({ type: 'room:closed', roomId: room.id, message });
+  for (const displayWs of room.displays) {
+    if (displayWs.readyState === WebSocket.OPEN) {
+      displayWs.send(closedPacket);
+      displayWs.close(1000, 'Room unavailable');
+    }
+  }
+  room.displays.clear();
+}
+
+// Clean up inactive and orphaned rooms without affecting other active rooms.
 setInterval(() => {
   const now = Date.now();
-  const maxAge = 12 * 60 * 60 * 1000;
   for (const [id, room] of rooms.entries()) {
-    if (now - room.lastActive > maxAge && !room.hostSocket && room.displays.size === 0) {
+    const orphanedTooLong =
+      !room.hostSocket &&
+      room.hostDisconnectedAt !== null &&
+      now - room.hostDisconnectedAt > ORPHANED_ROOM_TIMEOUT_MS;
+    const idleTooLong = now - room.lastActive > ROOM_IDLE_TIMEOUT_MS;
+
+    if (orphanedTooLong || (idleTooLong && !room.hostSocket)) {
+      closeRoomForDisplays(room, 'Host đã rời phòng hoặc phòng đã hết hạn.');
       rooms.delete(id);
     }
   }
@@ -39,7 +91,7 @@ async function startServer() {
 
   // REST endpoints for health and room checks
   app.get('/api/health', (_req: Request, res: Response) => {
-    res.json({ status: 'ok', timestamp: Date.now(), activeRooms: rooms.size });
+    res.json({ status: 'ok', timestamp: Date.now(), ...getRoomStats() });
   });
 
   app.get('/api/room/:roomId', (req: Request, res: Response) => {
@@ -54,11 +106,12 @@ async function startServer() {
       hasHost: !!room.hostSocket,
       displayCount: room.displays.size,
       lastActive: room.lastActive,
+      maxDisplays: MAX_DISPLAYS_PER_ROOM,
     });
   });
 
   // Setup WebSocket Server attached to the same HTTP server on /ws
-  const wss = new WebSocketServer({ server, path: '/ws' });
+  const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 1024 * 1024 });
 
   wss.on('connection', (ws: WebSocket) => {
     let clientRole: 'host' | 'display' | null = null;
@@ -71,6 +124,10 @@ async function startServer() {
         const type = msg.type;
 
         if (type === 'ping') {
+          if (clientRoomId) {
+            const room = rooms.get(clientRoomId);
+            if (room) room.lastActive = Date.now();
+          }
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
           }
@@ -81,6 +138,11 @@ async function startServer() {
         if (type === 'host:auth') {
           const rawRoomId = String(msg.roomId || '').toUpperCase().trim();
           const pin = String(msg.pin || '').trim();
+
+          if (!ROOM_ID_PATTERN.test(rawRoomId)) {
+            sendError(ws, 'INVALID_ROOM', 'Mã phòng không hợp lệ.');
+            return;
+          }
 
           if (!rawRoomId) {
             ws.send(JSON.stringify({ type: 'error', code: 'INVALID_ROOM', message: 'Mã phòng không hợp lệ' }));
@@ -99,6 +161,7 @@ async function startServer() {
               displays: new Set(),
               latestState: null,
               lastActive: Date.now(),
+              hostDisconnectedAt: null,
             };
             rooms.set(rawRoomId, room);
             clientRole = 'host';
@@ -113,6 +176,13 @@ async function startServer() {
               isNew: true,
             }));
           } else {
+            // Never let a second active Host silently take over a live room.
+            // A reconnect is allowed after the old socket has closed.
+            if (room.hostSocket && room.hostSocket !== ws && room.hostSocket.readyState === WebSocket.OPEN) {
+              sendError(ws, 'ROOM_OCCUPIED', 'Phòng đang được điều khiển bởi một Host khác.');
+              return;
+            }
+
             // Verify existing PIN
             if (room.pin && room.pin !== pin) {
               ws.send(JSON.stringify({
@@ -128,6 +198,7 @@ async function startServer() {
             room.hostToken = token;
             room.hostSocket = ws;
             room.lastActive = Date.now();
+            room.hostDisconnectedAt = null;
             clientRole = 'host';
             clientRoomId = rawRoomId;
             clientHostToken = token;
@@ -146,6 +217,12 @@ async function startServer() {
         // Display connects to watch room (NO password needed, read-only)
         if (type === 'display:join') {
           const rawRoomId = String(msg.roomId || '').toUpperCase().trim();
+
+          if (!ROOM_ID_PATTERN.test(rawRoomId)) {
+            sendError(ws, 'INVALID_ROOM', 'Mã phòng không hợp lệ.');
+            return;
+          }
+
           let room = rooms.get(rawRoomId);
 
           // A display may only join a room that is currently owned by a host.
@@ -156,6 +233,11 @@ async function startServer() {
               code: 'ROOM_NOT_FOUND',
               message: 'Phòng không tồn tại hoặc chưa được mở bởi Host.',
             }));
+            return;
+          }
+
+          if (room.displays.size >= MAX_DISPLAYS_PER_ROOM) {
+            sendError(ws, 'ROOM_FULL', 'Phòng đã đạt giới hạn số màn hình trình chiếu.');
             return;
           }
 
@@ -203,15 +285,9 @@ async function startServer() {
             ws.send(JSON.stringify({ type: 'error', code: 'SESSION_EXPIRED', message: 'Phiên Host đã hết hạn' }));
             return;
           }
-          const closedPacket = JSON.stringify({ type: 'room:closed', roomId: room.id, message: 'Host đã đóng phòng này.' });
-          for (const displayWs of room.displays) {
-            if (displayWs.readyState === WebSocket.OPEN) {
-              displayWs.send(closedPacket);
-              displayWs.close(1000, 'Room closed by host');
-            }
-          }
-          room.displays.clear();
+          closeRoomForDisplays(room, 'Host đã đóng phòng này.');
           room.hostSocket = null;
+          room.hostDisconnectedAt = null;
           rooms.delete(room.id);
           ws.send(JSON.stringify({ type: 'room:closed', roomId: room.id, message: 'Đã đóng phòng.' }));
           clientRole = null;
@@ -261,6 +337,7 @@ async function startServer() {
         const room = rooms.get(clientRoomId);
         if (room && room.hostSocket === ws) {
           room.hostSocket = null;
+          room.hostDisconnectedAt = Date.now();
         }
       } else if (clientRole === 'display' && clientRoomId) {
         const room = rooms.get(clientRoomId);
