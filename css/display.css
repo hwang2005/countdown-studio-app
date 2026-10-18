@@ -6,6 +6,41 @@
  * coordinates of the 16:9 studio background image at any resolution.
  */
 
+/* One-time browser gesture required before Stage audio can play. */
+.stage-audio-splash {
+  position: fixed;
+  z-index: 1000;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.9rem 1.25rem;
+  border: 1px solid rgba(245, 158, 11, 0.8);
+  border-radius: 0.75rem;
+  background: rgba(15, 23, 42, 0.96);
+  color: #F8FAFC;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.stage-audio-splash__icon {
+  font-size: 1.35rem;
+}
+
+.stage-audio-splash:hover,
+.stage-audio-splash:focus-visible {
+  background: #1E3A8A;
+  outline: 2px solid #F59E0B;
+  outline-offset: 2px;
+}
+
+.stage-audio-splash[hidden] {
+  display: none;
+}
+
 .stage-viewport {
   position: relative;
   width: 100vw;

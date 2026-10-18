@@ -608,11 +608,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const splash = document.getElementById('stage-audio-splash');
   if (splash) {
     splash.addEventListener('click', async () => {
-      await audio.unlock();
+      const unlocked = await audio.unlock();
+      if (!unlocked) return;
       // If the countdown started before the browser gesture, retry the first
       // clock cue after unlocking instead of losing the soundtrack entirely.
       audio.resetClockTracker();
       syncStageClockAudio(currentState);
+
+      // The buzzer may have arrived while the browser still had audio locked.
+      // Replay that active buzzer immediately after the user gesture.
+      if (currentState.roundType === 'C' && currentState.activeBuzzerPlayer) {
+        audio.playContestantBuzz(currentState.activeBuzzerPlayer);
+        lastStageBuzzerPlayer = currentState.activeBuzzerPlayer;
+      }
       splash.hidden = true;
     });
   }

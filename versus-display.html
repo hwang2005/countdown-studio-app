@@ -63,6 +63,17 @@
     <link rel="stylesheet" href="./css/animations.css" />
   </head>
   <body>
+    <!-- Browsers require a user gesture before a projected display may play audio. -->
+    <button
+      type="button"
+      id="stage-audio-splash"
+      class="stage-audio-splash"
+      aria-label="Enable Stage Display audio"
+    >
+      <span class="stage-audio-splash__icon" aria-hidden="true">🔊</span>
+      <span>Click to enable Stage audio</span>
+    </button>
+
     <!-- 16:9 Full-Bleed Projector Stage Viewport -->
     <div class="stage-viewport">
       <main id="stage-canvas" class="stage-canvas" aria-label="Countdown Live Stage Display">
