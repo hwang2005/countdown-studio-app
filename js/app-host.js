@@ -68,7 +68,6 @@ import { loadDictionary, solveLettersRound } from './solver/wordSolver.js';
 import { solveNumbersInWorker } from './solver/numbersSolver.js';
 import { StageSyncChannel } from './net/sync.js';
 import { fetchWordDefinition } from './net/dictionaryApi.js';
-import QRCode from 'qrcode';
 import { renderLetterTiles, renderNumberTiles } from './ui/tiles.js';
 import { renderDictionaryCorner, renderNumbersSolution } from './ui/board.js';
 import { exportMatchSummaryPNG, launchConfetti } from './ui/scoreboard.js';
@@ -85,6 +84,50 @@ const store = new GameStore(createInitialMatchState({ theme: settings.theme }));
 let syncChannel = null;
 let clock = null;
 let buzzerAnswerTimer = null;
+
+/**
+ * Gets a URL relative to the page currently being served.  Using the page URL
+ * (rather than `location.origin`) is important for static hosts such as GitHub
+ * Pages, where the app can live under a repository subdirectory.
+ */
+function getStageDisplayUrl(roomId = '') {
+  const url = new URL('./versus-display.html', window.location.href);
+  if (roomId) url.searchParams.set('room', roomId);
+  return url.toString();
+}
+
+/**
+ * The QR code is a convenience for the remote-display feature.  Do not make
+ * the entire Host console depend on an npm-only import: browsers serving the
+ * source files directly cannot resolve bare module specifiers such as
+ * `qrcode`.  A deploy may optionally provide a global QRCode library; without
+ * it the copyable room link remains fully usable.
+ */
+function renderQrCode(canvas, value) {
+  const qrCode = window.QRCode;
+  if (qrCode?.toCanvas) {
+    qrCode.toCanvas(canvas, value, {
+      width: 200,
+      margin: 1,
+      color: { dark: '#030712', light: '#FFFFFF' },
+    }, (error) => {
+      if (error) console.error('Failed to generate QR Code:', error);
+    });
+    return;
+  }
+
+  const context = canvas?.getContext?.('2d');
+  if (!context) return;
+  canvas.width = 200;
+  canvas.height = 200;
+  context.fillStyle = '#FFFFFF';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = '#030712';
+  context.font = '600 14px sans-serif';
+  context.textAlign = 'center';
+  context.fillText('Copy the display link', 100, 92);
+  context.fillText('to open it on another device.', 100, 114);
+}
 
 function broadcastState(state) {
   if (syncChannel) {
@@ -1006,26 +1049,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   function renderRemoteQR(roomId) {
     const cleanRoom = (roomId || currentRoomId).toUpperCase().trim();
     if (qrRoomText) qrRoomText.textContent = cleanRoom;
-    const origin = window.location.origin || `${window.location.protocol}//${window.location.host}`;
-    const displayUrl = `${origin}/versus-display.html?room=${cleanRoom}`;
+    const displayUrl = getStageDisplayUrl(cleanRoom);
     if (displayUrlPreview) displayUrlPreview.textContent = displayUrl;
 
     if (qrCanvas) {
-      QRCode.toCanvas(
-        qrCanvas,
-        displayUrl,
-        {
-          width: 200,
-          margin: 1,
-          color: {
-            dark: '#030712',
-            light: '#FFFFFF',
-          },
-        },
-        (error) => {
-          if (error) console.error('Failed to generate QR Code:', error);
-        }
-      );
+      renderQrCode(qrCanvas, displayUrl);
     }
     return displayUrl;
   }

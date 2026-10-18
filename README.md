@@ -30,7 +30,7 @@ Then open:
 1. Push this repository to GitHub.
 2. Go to **Settings → Pages**.
 3. Under **Build and deployment**, select **Deploy from a branch**, choose `main` (or `master`) and `/ (root)`, and click **Save**.
-4. All asset and module paths use relative URLs (`./js/...`, `./css/...`, `./data/...`), so the app works both at a root domain and under a project subpath (e.g. `https://<username>.github.io/countdown/`).
+4. All asset and module paths use relative URLs (`./js/...`, `./css/...`, `./data/...`), so the app works both at a root domain and under a project subpath (e.g. `https://<username>.github.io/countdown/`). This includes the **Versus Host** display link and QR-room link.
 5. On first visit, the Service Worker (`sw.js`) caches the application shell and the 106,800-word offline lexicon for full offline play and PWA installation.
 
 ---
@@ -43,6 +43,8 @@ Then open:
 4. Click anywhere once on the Stage Display if you want audio to play from the projector's speakers, or keep audio enabled on the Host laptop.
 5. The Host Console and Stage Display synchronise in real time via the `BroadcastChannel` API (with automatic `localStorage` event fallback) and persist match state across page refreshes.
 6. **Single-Screen Setup:** If you only have one screen, open `/versus-display.html` and press **`H`** to toggle the embedded Host Control Overlay drawer directly on top of the stage!
+
+For Host and Display opened from the same deployed site, the local stage sync works without a backend. The optional **Remote Room** feature (Host and Display on separate devices) requires deploying the included Node server (`npm run build`, then `NODE_ENV=production npm start`) because static hosts such as GitHub Pages cannot provide its `/ws` WebSocket endpoint.
 
 ---
 
