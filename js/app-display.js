@@ -82,7 +82,23 @@ function syncStageClockAudio(state) {
  */
 function getStageQuestionState(state) {
   const roundKey = `${state.matchId}:${state.roundIndex}:${state.roundType}`;
-  if (!state.clockRunning || !stageQuestionSnapshot || stageQuestionSnapshot.key !== roundKey) {
+  const hasQuestion = state.roundType === 'L'
+    ? Array.isArray(state.letters) && state.letters.some(Boolean)
+    : state.roundType === 'N'
+      ? (Array.isArray(state.numbers) && state.numbers.some((value) => value !== null && value !== undefined)) || Boolean(state.target)
+      : Boolean(state.conundrumScrambled || state.conundrumAnswer);
+  const snapshotHasQuestion = stageQuestionSnapshot && (
+    stageQuestionSnapshot.letters?.some(Boolean) ||
+    stageQuestionSnapshot.numbers?.some((value) => value !== null && value !== undefined) ||
+    stageQuestionSnapshot.target ||
+    stageQuestionSnapshot.conundrumScrambled ||
+    stageQuestionSnapshot.conundrumAnswer
+  );
+
+  // Do not overwrite a valid question with an empty intermediate sync packet
+  // while the Host is starting the clock. If the display opens during the
+  // countdown, capture the first non-empty packet it receives.
+  if (!state.clockRunning || !stageQuestionSnapshot || stageQuestionSnapshot.key !== roundKey || (!snapshotHasQuestion && hasQuestion)) {
     stageQuestionSnapshot = {
       key: roundKey,
       letters: Array.isArray(state.letters) ? [...state.letters] : [],
@@ -93,7 +109,16 @@ function getStageQuestionState(state) {
       conundrumRevealed: state.conundrumRevealed
     };
   }
-  return state.clockRunning ? { ...state, ...stageQuestionSnapshot } : state;
+  if (!state.clockRunning || !snapshotHasQuestion) return state;
+  return {
+    ...state,
+    letters: stageQuestionSnapshot.letters,
+    numbers: stageQuestionSnapshot.numbers,
+    target: stageQuestionSnapshot.target,
+    conundrumScrambled: stageQuestionSnapshot.conundrumScrambled,
+    conundrumAnswer: stageQuestionSnapshot.conundrumAnswer,
+    conundrumRevealed: stageQuestionSnapshot.conundrumRevealed
+  };
 }
 
 /**
@@ -260,8 +285,10 @@ function renderStage(state) {
   const targetVal = document.getElementById('stage-target-value');
   const numSolBox = document.getElementById('stage-numbers-solution');
   const endPodium = document.getElementById('stage-match-end-podium');
+  const boardZone = document.getElementById('stage-board-zone');
 
   if (state.phase === 'MATCH_END') {
+    if (boardZone) boardZone.style.display = 'none';
     if (lettersBoard) lettersBoard.hidden = true;
     if (numbersZone) numbersZone.hidden = true;
     if (endPodium) {
@@ -284,6 +311,10 @@ function renderStage(state) {
       }
     }
   } else {
+    if (boardZone) {
+      boardZone.hidden = false;
+      boardZone.style.display = 'flex';
+    }
     if (endPodium) endPodium.hidden = true;
     if (questionState.roundType === 'L') {
       if (lettersBoard) {
