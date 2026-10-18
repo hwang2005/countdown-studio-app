@@ -1,62 +1,130 @@
 # Countdown Studio — Letters, Numbers & Conundrum
 
-A complete, offline-capable web recreation of the British TV game show **Countdown**, built with **vanilla HTML5, CSS3, and ES2022+ JavaScript modules** with zero external runtime dependencies.
+A complete, offline-capable web recreation of the classic TV game show **Countdown**, built with **vanilla HTML5, CSS3, and ES2022+ JavaScript modules** with zero external client runtime dependencies, plus a lightweight **Node.js / TypeScript WebSocket backend** (`server.ts`) for multi-device live stage synchronization.
 
 ---
 
-## 1. Running Locally (No Build Step Required)
+## 1. Quick Start & Running Locally
 
-Because Countdown Studio uses native browser ES modules (`<script type="module">`), CSS custom properties, and static JSON/text datasets, no bundler or build step is required. Serve the root folder over any static HTTP server:
+Countdown Studio offers two running modes: **Full-Stack Mode** (recommended, enables cross-device WebSocket remote stage rooms) and **Static Zero-Build Mode** (uses native browser ES modules, suitable for single-device or offline practice).
+
+### Option A: Full-Stack Mode (Recommended)
+
+Requires Node.js 18+. Runs the Express + WebSocket server (`server.ts`) integrated with Vite for fast local development and remote room synchronization.
 
 ```bash
-# Option A: Python 3 built-in HTTP server
+# 1. Install dependencies
+npm install
+
+# 2. Start the development server (runs tsx server.ts at http://localhost:3000)
+npm run dev
+
+# 3. (Optional) Run TypeScript type checks or build production bundles
+npm run lint    # tsc --noEmit
+npm run build   # vite build (outputs to dist/)
+npm run preview # vite preview
+```
+
+### Option B: Static Mode (No Build Step Required)
+
+Because Countdown Studio uses native browser ES modules (`<script type="module">`), CSS custom properties, and static assets, you can also serve the root directory over any static HTTP server. Local stage sync works seamlessly across tabs or windows on the same machine via `BroadcastChannel` and `localStorage` without any backend.
+
+```bash
+# Python 3 built-in HTTP server
 python3 -m http.server 8000
 
-# Option B: Node.js npx serve
+# or Node.js npx serve
 npx serve . -l 8000
 ```
 
-Then open:
-- **Home & Mode Picker:** `http://localhost:8000/index.html`
-- **Solo Practice Mode:** `http://localhost:8000/solo.html`
-- **Live Versus Host Console:** `http://localhost:8000/versus-host.html`
-- **16:9 Stage Display:** `http://localhost:8000/versus-display.html`
-- **Unit Test Suite:** `http://localhost:8000/tests/index.html`
+### Application URLs
+
+Once running, navigate to:
+- **Studio Hub & Mode Picker:** `http://localhost:3000/index.html`
+- **Solo Practice Mode:** `http://localhost:3000/solo.html`
+- **Live Versus Host Console:** `http://localhost:3000/versus-host.html`
+- **16:9 Stage Display:** `http://localhost:3000/versus-display.html`
+- **Unit Test Suite:** `http://localhost:3000/tests/index.html`
+- **Server Health Endpoint:** `http://localhost:3000/api/health`
+- **Room Inspection Endpoint:** `http://localhost:3000/api/room/:roomId`
 
 ---
 
-## 2. Deploying to GitHub Pages
+## 2. Modes & Feature Highlights
 
-1. Push this repository to GitHub.
-2. Go to **Settings → Pages**.
-3. Under **Build and deployment**, select **Deploy from a branch**, choose `main` (or `master`) and `/ (root)`, and click **Save**.
-4. All asset and module paths use relative URLs (`./js/...`, `./css/...`, `./data/...`), so the app works both at a root domain and under a project subpath (e.g. `https://<username>.github.io/countdown/`). This includes the **Versus Host** display link and QR-room link.
-5. On first visit, the Service Worker (`sw.js`) caches the application shell and the 106,800-word offline lexicon for full offline play and PWA installation.
+### 🎮 Game Rounds
+- **Letters Round:** Contestants pick 9 tiles from separate Vowel (67 tiles) and Consonant (74 tiles) stacks following official TV frequency distributions and constraints (minimum 3 vowels, minimum 4 consonants). Players form the longest valid word within 30 seconds.
+- **Numbers Round:** Contestants choose a combination of Large numbers (`25, 50, 75, 100`) and Small numbers (`1–10` twice). A 3-digit target between `101` and `999` is randomly generated. Players use basic arithmetic operations (`+`, `−`, `×`, `÷`) where intermediate results must be positive integers.
+- **Countdown Conundrum:** A 9-letter anagram scramble. Contestants buzz in to guess the solution within the remaining clock time.
+
+### 🧑‍💻 Solo Practice Mode (`solo.html`)
+- Interactive word-building tray supporting keyboard typing (`A–Z`), Backspace, and tile clicks.
+- Built-in scratchpad and interactive arithmetic expression validator for the Numbers round.
+- Post-round breakdown featuring Trie-based word solver hints and closest numbers calculations.
+- Comprehensive session statistics: win rates, average word lengths, target accuracy, and streak tracking saved in `localStorage`.
+- Dictionary definition lookups powered by the Free Dictionary API with local caching.
+
+### 🎙️ Live Versus Host Console (`versus-host.html`)
+- Dual-contestant scoring and round management.
+- Real-time 30-second studio clock with Start, Pause, Resume, and Reset controls.
+- Declaration and score adjudication: enter words or numeric solutions, view automatic point calculations, and make manual score adjustments.
+- Built-in solver assistance to instantly see the maximum possible word lengths and exact arithmetic solutions.
+- Match schedule selector supporting standard presets or the visual **Custom Schedule Editor** (1 to 25 rounds).
+- Alternating tile picker tracking (automatically indicates whether Contestant 1 or 2 chooses the tiles).
+- Remote Room management: create password-protected rooms, monitor connected display count, display QR codes and direct links, or terminate rooms via the **Close Room** panel.
+
+### 📺 16:9 Stage Display (`versus-display.html`)
+- Designed for projection on secondary monitors, TVs, and auditorium displays.
+- Responsive 16:9 presentation container with full-bleed fullscreen mode (`F`).
+- **Interactive Audio Splash (`🔊`):** Overcomes modern browser autoplay restrictions on secondary screens; click once to unlock Web Audio API output through TV/projector speakers.
+- **Projector Calibration Grid (`B` / `L`):** Toggle an on-screen alignment pattern and safe-zone margin guides to adjust projector zoom and keystone.
+- **Panic Blank Screen:** One-click blackout for the stage display during breaks or confidential setup, dismissed via screen button or `Escape`.
+- **Single-Screen Host Drawer (`H`):** Toggle an embedded Host Control drawer directly on top of the stage view when running on a single screen without a secondary monitor.
 
 ---
 
-## 3. Running Live Versus (Stage Mode) with a Projector or TV
+## 3. Real-Time Synchronization Architecture
 
-1. Open `/versus-host.html` on the operator's laptop.
-2. Click **Open 16:9 Stage Display ↗** in the top navigation bar (or **Pop Out Stage Window ↗** above the live monitor).
-3. Drag the newly opened `/versus-display.html` window onto your extended projector or TV screen and press **`F`** to enter full-bleed 16:9 Fullscreen.
-4. Click anywhere once on the Stage Display if you want audio to play from the projector's speakers, or keep audio enabled on the Host laptop.
-5. The Host Console and Stage Display synchronise in real time via the `BroadcastChannel` API (with automatic `localStorage` event fallback) and persist match state across page refreshes.
-6. **Single-Screen Setup:** If you only have one screen, open `/versus-display.html` and press **`H`** to toggle the embedded Host Control Overlay drawer directly on top of the stage!
+Countdown Studio provides two complementary synchronization transports:
 
-For Host and Display opened in tabs/windows of the same browser/device, the local stage sync works without a backend. Open `versus-display.html` without a `?room=` parameter for this mode. The Display no longer re-joins a stale room saved in the browser automatically.
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                        Local Transport (Zero-Backend)                  │
+│                                                                        │
+│   Host Console  ◄── BroadcastChannel API / localStorage ──►   Stage    │
+│  (versus-host)  ◄── window.postMessage (iframes/opener) ──►  Display   │
+└────────────────────────────────────────────────────────────────────────┘
 
-The optional **Remote Room** feature (Host and Display on separate devices) requires a WebSocket backend. Static hosts such as GitHub Pages cannot provide the `/ws` WebSocket endpoint. Deploy the included Node server with `npm run build`, then `NODE_ENV=production npm start`, and serve the Host and Display from that same server.
-
-If the frontend and backend are hosted separately, start the Host page with the backend endpoint in the URL, for example:
-
-```text
-https://your-static-site.example/versus-host.html?ws=wss%3A%2F%2Fyour-websocket-server.example%2Fws
+┌────────────────────────────────────────────────────────────────────────┐
+│                       Remote Transport (WebSocket /ws)                 │
+│                                                                        │
+│   Host Console  ──── ws.send('host:broadcast') ────►   Node Server     │
+│  (versus-host)                                        (server.ts)      │
+│                                                            │           │
+│   Stage Display ◄─── ws.send('stage:sync') ────────────────┘           │
+│ (versus-display)                                                       │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-The generated Display link and QR code carry this `ws` setting automatically. Use `wss://` when the website is served over HTTPS; otherwise browsers will block the connection as mixed content.
+### Local Transport (Same Device / Dual-Screen)
+- Communicates across windows, tabs, or popouts using the `BroadcastChannel` API (`countdown_studio_stage_sync_v1`), direct `window.postMessage`, and `localStorage` storage event fallbacks.
+- Requires zero backend servers; runs fully client-side on static hosts (e.g., GitHub Pages).
+- State is persisted across browser refreshes. Open `versus-display.html` without a `?room=` parameter to use local sync.
 
-The Node server supports multiple independent Rooms at the same time. Each Room has one active Host and can have multiple Display connections. By default, a Room accepts up to 20 Displays; set `MAX_DISPLAYS_PER_ROOM` in the server environment to change this limit. A second active Host using the same Room Code is rejected, and an orphaned Room is closed after the Host has been disconnected for approximately 30 seconds. The `/api/health` endpoint reports active Room and connection counts.
+### Remote Transport (Cross-Device via WebSocket)
+- Connects host laptops and remote display devices (smart TVs, iPads, secondary computers) over WebSockets at `/ws`.
+- **Room Authentication:** Host specifies a Room Code (3–32 alphanumeric characters) and a 4-digit PIN. Displays join read-only without requiring a password.
+- **Direct Joining & QR Codes:** Host Console generates a direct link (`versus-display.html?room=ROOMCODE`) and dynamic QR code for quick scanning.
+- **Decoupled Backend Support (`?ws=` parameter):** If the frontend is hosted statically (e.g., GitHub Pages) while the WebSocket backend is hosted separately (e.g., Cloud Run or a VPS), pass the backend endpoint via `?ws=`:
+  ```text
+  https://your-static-site.example/versus-host.html?ws=wss%3A%2F%2Fyour-ws-server.example%2Fws
+  ```
+  Generated Display links and QR codes carry the `ws` parameter automatically.
+- **Configurable Display Limits:** The server limits displays per room via the `MAX_DISPLAYS_PER_ROOM` environment variable (default: `20`).
+- **Lifecycle & Cleanup:** 
+  - Host can explicitly terminate the room via the **Close Room** panel, which notifies and disconnects all displays.
+  - Orphaned rooms (host disconnected for > 30 seconds) and idle rooms (> 12 hours) are automatically reaped.
+  - Second host connection attempts with the same room ID while an active host is connected are safely rejected (`ROOM_OCCUPIED`).
 
 ---
 
@@ -66,36 +134,197 @@ The Node server supports multiple independent Rooms at the same time. Each Room 
 | :--- | :--- | :--- |
 | **`C`** | Letters Picking (Solo & Host) | Pick a **Consonant** tile |
 | **`V`** | Letters Picking (Solo & Host) | Pick a **Vowel** tile |
-| **`R`** | Letters Picking (Solo & Host) | Fill remaining tiles with a valid **Random** mix |
+| **`R`** | Letters Picking (Solo & Host) | Fill remaining slots with a valid **Random** mix |
 | **`SPACE`** | Host Console | **Start / Pause / Resume** the 30-second studio clock |
 | **`D`** | Host Console | Focus Contestant 1 **Declaration** input field |
 | **`N`** | Host Console | Advance to the **Next Round** |
-| **`Q` / `Left Shift`** | Conundrum (Host & Display) | **Contestant 1 Buzzer** (also supports Gamepad 1) |
-| **`P` / `Right Shift`** | Conundrum (Host & Display) | **Contestant 2 Buzzer** (also supports Gamepad 2) |
-| **`H`** | Stage Display | Toggle single-window **Host Control Overlay** |
-| **`F`** | Stage Display | Toggle **Fullscreen** stage projection |
-| **`A–Z` / `Backspace` / `Enter`** | Solo Letters Round | Type letters into the word tray, delete, or submit |
+| **`Q` / `Left Shift`** | Conundrum (Host & Display) | **Contestant 1 Buzzer** (also supports Gamepad 1 button 0) |
+| **`P` / `Right Shift`** | Conundrum (Host & Display) | **Contestant 2 Buzzer** (also supports Gamepad 2 button 0) |
+| **`H`** | Stage Display | Toggle single-window **Host Control Overlay** drawer |
+| **`F`** | Stage Display | Toggle **Fullscreen** 16:9 stage projection |
+| **`B` / `L`** | Stage Display | Toggle **Projector Calibration Grid** & alignment toolbar |
+| **`C`** | Stage Display | Toggle stage controls & toolbar visibility |
+| **`Escape`** | Stage Display | Dismiss **Panic Blank Screen** |
+| **`A–Z`** | Solo Letters Round | Type letters into the word tray |
+| **`Backspace`** | Solo Letters Round | Remove the last letter tile from word tray |
+| **`Enter`** | Solo Letters Round | Submit word answer |
+| **`Enter`** | Solo Conundrum Round | Submit conundrum guess |
+| **`Enter`** | Solo Reveal Phase | Advance to next round |
 
 ---
 
-## 5. Swapping or Customising the Dictionary
+## 5. Match Formats & Custom Schedule
 
-- The primary offline word list lives at `/data/words.txt` (one lowercase word per line, `a–z` only, 2 to 9 letters).
-- To replace the dictionary (for example, with an official club lexicon or another language's word list), overwrite `/data/words.txt` with your newline-separated word list and bump `CACHE_NAME` in `/sw.js`.
-- Curated 9-letter Conundrum words live in `/data/conundrums.json` as a JSON array of 9-letter uppercase strings.
-- Tile frequency weights live in `/js/game/letters.js` (`LETTER_DISTRIBUTION`) and `/data/letterDistribution.json`.
+Countdown Studio supports official and custom round configurations:
 
----
-
-## 6. Known Limitations & Next Steps
-
-- **Inflected Forms & Proper Nouns:** The offline lexicon (`/data/words.txt`) is derived from the public-domain ENABLE1 word list (106,899 words of length 2–9). While comprehensive, minor differences exist between North American scrabble/ENABLE word lists and the Oxford Dictionary of English used on TV; a "Strict UK Approximation" mode is available in Settings.
-- **Online Definitions:** Word definitions in Dictionary Corner are fetched from the public Free Dictionary API (`api.dictionaryapi.dev`) with a 4-second timeout and cached locally. When offline, words are validated using the bundled offline lexicon without definition prose.
-- **Next Steps:** Future enhancements include WebRTC peer-to-peer remote multiplayer across separate devices and full Vietnamese (`vi`) dictionary pack support via `/js/i18n.js`.
+- **TV Format (15 Rounds):** Standard Channel 4 broadcast structure:
+  `L - L - N - L - L - N - L - L - N - L - L - N - L - L - C` (11 Letters, 3 Numbers, 1 Conundrum).
+- **Quick Match (5 Rounds):** `L - N - L - N - C`.
+- **Letters Only (6 Rounds):** `L - L - L - L - L - L`.
+- **Numbers Only (6 Rounds):** `N - N - N - N - N - N`.
+- **Conundrum Sprint (5 Rounds):** `C - C - C - C - C`.
+- **Custom Schedule Editor:** An interactive visual builder in the Host Console allowing event organizers to configure between 1 and 25 rounds in any custom sequence, complete with drag-and-drop or click-to-reorder, add, and remove controls.
+- **Alternating Pickers:** In multi-round matches, the system tracks and visually indicates which contestant has the honor of picking tiles for each Letters and Numbers round.
 
 ---
 
-## 7. Licence & Attribution
+## 6. Audio Engine & Sound Design
 
-- **Educational Fan Project Disclaimer:** Countdown Studio is an independent, fan-made educational project built for students, language/maths clubs, teachers, and quiz organisers. It is **not** affiliated with, endorsed by, or connected to Channel 4 Television Corporation, ITV Studios, or the producers of *Countdown*. No official logos, trademarks, or copyrighted broadcast audio are used; all visual assets and Web Audio API "think music" compositions are 100% original creations.
-- **Word List Licence:** `/data/words.txt` and `/data/conundrums.json` are derived from the public-domain ENABLE lexicon (CC0 / Public Domain). See `/data/LICENSE-words.txt`.
+Countdown Studio features a 100% synthesized audio engine built on the browser **Web Audio API** (`js/core/audio.js`), requiring zero external audio assets:
+
+- **Studio Clock Tick:** Analog-modeled woodblock/rimshot tick on every elapsed second.
+- **30-Second Think Music:** Original melodic chime composition that builds suspense toward zero; dynamically pauses and resumes with clock state, and automatically halts on round submission via `stopClockMusic()`.
+- **Warning Chime:** Distinctive 10-second warning bell alerting contestants of impending time.
+- **Time's Up Buzzer:** Dual-tone studio finish buzzer.
+- **Conundrum Buzzer:** Low-latency buzz sound for contestant buzzer lockouts.
+- **Victory Fanfare:** Harmonized arpeggiated fanfare for match conclusions.
+
+---
+
+## 7. Built-in Solvers & Lexicon
+
+- **Letters Word Solver (`js/solver/wordSolver.js`):** High-performance Trie implementation loaded with the bundled 106,899-word lexicon (`data/words.txt`). Finds all possible anagram words of lengths 2 through 9 in under 15ms.
+- **Numbers Solver (`js/solver/numbersSolver.js`):** Exhaustive recursive arithmetic solver that finds exact solutions or the closest reachable approximations using standard arithmetic rules (no negative numbers, no fractions).
+- **Conundrum Engine (`js/game/conundrum.js`):** Anagram generator using curated 9-letter words (`data/conundrums.json`) ensuring single-solution fairness.
+- **Dictionary Corner (`js/net/dictionaryApi.js`):** Queries definitions, parts of speech, and etymology from the public Free Dictionary API with a 10-second timeout, falling back gracefully to offline word validity checks when disconnected.
+
+---
+
+## 8. Deployment Options
+
+### Deploying to GitHub Pages (Static Hosting)
+
+1. Push this repository to GitHub.
+2. In your repository, go to **Settings → Pages**.
+3. Under **Build and deployment**, select **Deploy from a branch**, choose `main` (or `master`) and `/ (root)` or `/dist`, and click **Save**.
+4. Custom domain support is preconfigured via the included [`CNAME`](file:///d:/drive-download-20240827T165320Z-001/GSA-project/countdown-studio-app/CNAME) file (`www.countdown-studio.id.vn`).
+5. All assets, modules, and stylesheets use relative paths, ensuring compatibility both at the root domain and under repository subpaths.
+6. The Service Worker (`sw.js`) caches the core application shell, styles, scripts, and lexicon for offline use and PWA installation.
+
+### Deploying to Node.js / Docker / Cloud Run
+
+To support cross-device remote WebSocket rooms without an external WebSocket service:
+
+```bash
+# 1. Build the frontend bundles
+npm run build
+
+# 2. Start the production server
+NODE_ENV=production npm start
+```
+
+#### Environment Variables
+
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `PORT` | HTTP/WebSocket listening port | `3000` |
+| `MAX_DISPLAYS_PER_ROOM` | Maximum connected stage displays allowed per live room | `20` |
+| `APP_URL` | Public canonical URL for QR codes and self-referential links | `http://localhost:3000` |
+| `GEMINI_API_KEY` | Optional API key for Google Gemini AI features | — |
+
+---
+
+## 9. Codebase Architecture
+
+```
+countdown-studio-app/
+├── index.html                  # Studio Hub & Mode Picker
+├── solo.html                   # Solo Practice interface
+├── versus-host.html            # Live Versus Host Operator Console
+├── versus-display.html         # 16:9 Stage Presentation Display
+├── server.ts                   # Express & WebSocket server (Node.js/TypeScript)
+├── vite.config.ts              # Vite multi-page build configuration
+├── package.json                # Dependencies and npm scripts
+├── tsconfig.json               # TypeScript compiler configuration
+├── sw.js                       # Service Worker for offline PWA caching
+├── manifest.webmanifest        # Progressive Web App manifest
+├── CNAME                       # Custom domain definition
+│
+├── css/                        # Modular Vanilla CSS System
+│   ├── theme.css               # Design tokens, color palettes, and themes
+│   ├── base.css                # CSS resets, typography, and container layout
+│   ├── components.css          # Buttons, forms, panels, badges, modal dialogs
+│   ├── display.css             # 16:9 stage layout, tiles, clock, and calibration
+│   └── animations.css          # Clock hand animations, tile flips, and transitions
+│
+├── js/                         # ES2022+ Application Logic
+│   ├── app-home.js             # Studio Hub logic and settings modal
+│   ├── app-solo.js             # Solo Practice state machine and UI controller
+│   ├── app-host.js             # Host Console match orchestration and controls
+│   ├── app-display.js          # Stage Display receiver, calibration, and audio splash
+│   ├── i18n.js                 # English and Vietnamese UI localisation
+│   │
+│   ├── core/                   # Platform & Infrastructure
+│   │   ├── audio.js            # Web Audio API sound synthesizer
+│   │   ├── clock.js            # Precise 30-second countdown timer
+│   │   ├── events.js           # Lightweight Pub/Sub event bus
+│   │   ├── rng.js              # Seeded pseudo-random number generator
+│   │   ├── state.js            # Finite state machine and match store
+│   │   └── storage.js          # LocalStorage persistence layer
+│   │
+│   ├── game/                   # Rules, Mechanics & Scoring
+│   │   ├── letters.js          # Vowel/consonant distribution & validation
+│   │   ├── numbers.js          # Numbers draw mechanics and arithmetic checks
+│   │   ├── conundrum.js        # Anagram scrambling and buzzer adjudication
+│   │   ├── schedule.js         # Match presets and custom schedule resolver
+│   │   └── scoring.js          # Official Countdown scoring algorithms
+│   │
+│   ├── net/                    # Networking & Synchronization
+│   │   ├── sync.js             # Dual-transport sync (BroadcastChannel & WebSocket)
+│   │   └── dictionaryApi.js    # External dictionary definition fetcher
+│   │
+│   ├── solver/                 # Algorithmic Solvers
+│   │   ├── trie.js             # Prefix tree data structure
+│   │   ├── wordSolver.js       # High-speed Trie word searcher
+│   │   └── numbersSolver.js    # Exhaustive recursive arithmetic solver
+│   │
+│   └── ui/                     # UI Helpers & Components
+│       ├── a11y.js             # Screen reader announcements and focus management
+│       ├── board.js            # Board rendering helpers
+│       ├── modal.js            # Accessible modal dialog controllers
+│       ├── scoreboard.js       # Scoreboard DOM updater
+│       ├── tiles.js            # Flip tile animation and rendering
+│       └── toast.js            # Non-blocking notification toasts
+│
+├── data/                       # Dictionaries and Game Assets
+│   ├── words.txt               # Offline lexicon (106,899 words, 2–9 letters)
+│   ├── conundrums.json         # Curated 9-letter anagram database
+│   ├── letterDistribution.json # Official tile weights and frequencies
+│   └── LICENSE-words.txt       # Lexicon public-domain licence details
+│
+└── tests/
+    └── index.html              # Zero-dependency browser-based unit test suite
+```
+
+---
+
+## 10. Testing & Quality Assurance
+
+Countdown Studio includes an authoritative, self-contained unit test suite at `tests/index.html`. It tests game logic, FSM transitions, constraint enforcement, and algorithmic solvers without requiring external testing libraries.
+
+### Verified Test Categories
+- **Letter Stacks & Constraints:** Validates tile frequencies (67 vowels, 74 consonants), minimum 3 vowels / 4 consonants selection constraints, and random pick distribution.
+- **Word Validation & Multiset Checks:** Ensures word submissions only use available board tiles and match the dictionary.
+- **Numbers Generation & Arithmetic Sequences:** Validates large/small tile drawing rules and order of operations.
+- **Conundrum Scrambling & Buzzer Adjudication:** Verifies anagram validity and timestamp-based buzzer prioritization.
+- **Scoring Rules:** Tests standard rules, 9-letter word double bonuses (18 points), and proximity scoring for numbers.
+- **Algorithmic Solvers:** Benchmarks Trie lookup and recursive numbers solver accuracy against edge cases.
+
+To run the unit tests, open `http://localhost:3000/tests/index.html` in any browser.
+
+---
+
+## 11. Internationalisation (i18n)
+
+The interface supports bilingual operation out of the box via `js/i18n.js`:
+- **English (`en`):** Default studio interface.
+- **Vietnamese (`vi`):** Complete UI translations for menus, round titles, button labels, and system status notices.
+
+Language preferences are persisted in `localStorage` and can be toggled via the Settings modal.
+
+---
+
+## 12. Licence & Attribution
+
+- **Educational Fan Project Disclaimer:** Countdown Studio is an independent, open-source educational project developed for classrooms, language clubs, math enthusiasts, and quiz organizers. It is **not** affiliated with, endorsed by, or connected to Channel 4 Television Corporation, ITV Studios, or the creators of *Countdown*. No copyrighted broadcast logos, trademarks, or recorded audio assets are used; all visual designs and Web Audio API compositions are original creations.
+- **Word List Licence:** `data/words.txt` and `data/conundrums.json` are derived from the public-domain ENABLE lexicon (CC0 / Public Domain). See [`data/LICENSE-words.txt`](file:///d:/drive-download-20240827T165320Z-001/GSA-project/countdown-studio-app/data/LICENSE-words.txt) for details.
