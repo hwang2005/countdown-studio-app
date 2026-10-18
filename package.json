@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "start": "tsx server.ts",
+    "start": "node dist-server/server.js",
     "build": "vite build",
+    "build:server": "tsc -p tsconfig.server.json",
+    "build:all": "npm run build && npm run build:server",
     "preview": "vite preview",
-    "clean": "rm -rf dist server.js",
+    "clean": "rm -rf dist dist-server",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

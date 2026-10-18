@@ -3,7 +3,7 @@ services:
     name: countdown-studio
     runtime: node
     plan: free
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci && npm run build:all
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:

@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import http from 'http';
 import express, { Request, Response } from 'express';
 import { WebSocketServer, WebSocket } from 'ws';
@@ -25,6 +26,28 @@ const ROOM_ID_PATTERN = /^[A-Z0-9][A-Z0-9-]{2,31}$/;
 const ROOM_IDLE_TIMEOUT_MS = 12 * 60 * 60 * 1000;
 const ORPHANED_ROOM_TIMEOUT_MS = 30 * 1000;
 const MAX_DISPLAYS_PER_ROOM = readPositiveInteger(process.env.MAX_DISPLAYS_PER_ROOM, 20);
+const DEFAULT_ALLOWED_ORIGINS = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://www.countdown-studio.id.vn',
+  'https://www.countdown-studio.id.vn',
+  'http://countdown-studio.id.vn',
+  'https://countdown-studio.id.vn',
+];
+
+const ALLOWED_ORIGINS = new Set([
+  ...DEFAULT_ALLOWED_ORIGINS,
+  ...(process.env.CORS_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+]);
+
+function isAllowedOrigin(origin: string | undefined): boolean {
+  // Non-browser clients do not send an Origin header. Keep those clients
+  // compatible while validating every browser-originated request.
+  return !origin || ALLOWED_ORIGINS.has(origin);
+}
 
 function readPositiveInteger(value: string | undefined, fallback: number): number {
   const parsed = Number(value);
@@ -85,6 +108,30 @@ setInterval(() => {
 
 async function startServer() {
   const app = express();
+
+  // CORS is needed by the GitHub Pages/custom-domain frontend when it calls
+  // the hosted backend. The same allowlist is applied to WebSocket upgrades
+  // below so an arbitrary website cannot open a browser session to this server.
+  app.use((req: Request, res: Response, next) => {
+    const origin = req.get('Origin');
+
+    if (origin && !isAllowedOrigin(origin)) {
+      return res.status(403).json({ error: 'Origin not allowed' });
+    }
+
+    if (origin) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(204);
+    }
+
+    return next();
+  });
   app.use(express.json());
 
   const server = http.createServer(app);
@@ -111,7 +158,12 @@ async function startServer() {
   });
 
   // Setup WebSocket Server attached to the same HTTP server on /ws
-  const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 1024 * 1024 });
+  const wss = new WebSocketServer({
+    server,
+    path: '/ws',
+    maxPayload: 1024 * 1024,
+    verifyClient: (info: { origin: string }) => isAllowedOrigin(info.origin),
+  });
 
   wss.on('connection', (ws: WebSocket) => {
     let clientRole: 'host' | 'display' | null = null;

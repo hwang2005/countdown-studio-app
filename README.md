@@ -22,6 +22,7 @@ npm run dev
 # 3. (Optional) Run TypeScript type checks or build production bundles
 npm run lint    # tsc --noEmit
 npm run build   # vite build (outputs to dist/)
+npm run build:server # compile server.ts to dist-server/
 npm run preview # vite preview
 ```
 
@@ -213,8 +214,8 @@ keep Pages as the frontend and provide a separate `?ws=wss://.../ws` backend).
 To support cross-device remote WebSocket rooms without an external WebSocket service:
 
 ```bash
-# 1. Build the frontend bundles
-npm run build
+# 1. Build the frontend bundles and server output
+npm run build:all
 
 # 2. Start the production server
 NODE_ENV=production npm start
@@ -231,6 +232,7 @@ origin when the frontend uses the default endpoint.
 | :--- | :--- | :--- |
 | `PORT` | HTTP/WebSocket listening port | `3000` |
 | `MAX_DISPLAYS_PER_ROOM` | Maximum connected stage displays allowed per live room | `20` |
+| `CORS_ORIGINS` | Additional comma-separated browser origins allowed for HTTP/WebSocket access | Built-in localhost and `countdown-studio.id.vn` origins |
 | `APP_URL` | Public canonical URL for QR codes and self-referential links | `http://localhost:3000` |
 | `GEMINI_API_KEY` | Optional API key for Google Gemini AI features | — |
 
