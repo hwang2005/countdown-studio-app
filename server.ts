@@ -416,9 +416,12 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static(path.resolve(__dirname, 'dist')));
+    // The compiled server runs from dist-server, while Vite outputs the
+    // frontend one directory above it in dist.
+    const frontendDistPath = path.resolve(__dirname, '..', 'dist');
+    app.use(express.static(frontendDistPath));
     app.get('*', (_req, res) => {
-      res.sendFile(path.resolve(__dirname, 'dist/index.html'));
+      res.sendFile(path.join(frontendDistPath, 'index.html'));
     });
   }
 
