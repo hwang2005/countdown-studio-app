@@ -148,18 +148,15 @@ async function startServer() {
           const rawRoomId = String(msg.roomId || '').toUpperCase().trim();
           let room = rooms.get(rawRoomId);
 
-          if (!room) {
-            // Auto-create room placeholder if display joins before host
-            room = {
-              id: rawRoomId,
-              pin: '0000',
-              hostToken: '',
-              hostSocket: null,
-              displays: new Set(),
-              latestState: null,
-              lastActive: Date.now(),
-            };
-            rooms.set(rawRoomId, room);
+          // A display may only join a room that is currently owned by a host.
+          // Never create placeholder rooms from an unauthenticated display.
+          if (!room || !room.hostSocket) {
+            ws.send(JSON.stringify({
+              type: 'error',
+              code: 'ROOM_NOT_FOUND',
+              message: 'Phòng không tồn tại hoặc chưa được mở bởi Host.',
+            }));
+            return;
           }
 
           clientRole = 'display';
@@ -191,6 +188,35 @@ async function startServer() {
               displayCount: room.displays.size,
             }));
           }
+          return;
+        }
+
+        // Host closes the room permanently. Displays are notified and removed
+        // so an old QR/link cannot keep accessing the room afterwards.
+        if (type === 'host:close_room') {
+          if (clientRole !== 'host' || !clientRoomId || !clientHostToken) {
+            ws.send(JSON.stringify({ type: 'error', code: 'UNAUTHORIZED', message: 'Bạn không có quyền Host' }));
+            return;
+          }
+          const room = rooms.get(clientRoomId);
+          if (!room || room.hostToken !== clientHostToken || room.hostSocket !== ws) {
+            ws.send(JSON.stringify({ type: 'error', code: 'SESSION_EXPIRED', message: 'Phiên Host đã hết hạn' }));
+            return;
+          }
+          const closedPacket = JSON.stringify({ type: 'room:closed', roomId: room.id, message: 'Host đã đóng phòng này.' });
+          for (const displayWs of room.displays) {
+            if (displayWs.readyState === WebSocket.OPEN) {
+              displayWs.send(closedPacket);
+              displayWs.close(1000, 'Room closed by host');
+            }
+          }
+          room.displays.clear();
+          room.hostSocket = null;
+          rooms.delete(room.id);
+          ws.send(JSON.stringify({ type: 'room:closed', roomId: room.id, message: 'Đã đóng phòng.' }));
+          clientRole = null;
+          clientRoomId = null;
+          clientHostToken = null;
           return;
         }
 

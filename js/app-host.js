@@ -1030,6 +1030,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const hostDisplayCountBadge = document.getElementById('host-display-count-badge');
   const btnStartBroadcast = document.getElementById('host-btn-start-broadcast');
   const btnDisconnectRemote = document.getElementById('host-btn-disconnect-remote');
+  const btnCloseRemote = document.getElementById('host-btn-close-remote-room');
 
   function generateRandomRoomCode() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -1100,6 +1101,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (btnDisconnectRemote) {
       btnDisconnectRemote.hidden = !isOnline;
     }
+    if (btnCloseRemote) {
+      btnCloseRemote.hidden = !isOnline;
+    }
   });
 
   const openRemoteModal = () => {
@@ -1159,6 +1163,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   btnDisconnectRemote?.addEventListener('click', () => {
     syncChannel.disconnectRemote();
     showToast('Đã ngắt phát sóng trực tuyến.', 'info');
+  });
+
+  btnCloseRemote?.addEventListener('click', () => {
+    if (!syncChannel?.isRemoteConnected || !syncChannel.ws || syncChannel.ws.readyState !== WebSocket.OPEN) {
+      showToast('Phòng chưa được mở.', 'info');
+      return;
+    }
+    if (!window.confirm('Đóng phòng này? Mọi màn hình đang xem sẽ bị ngắt và mã phòng không còn truy cập được.')) return;
+    syncChannel.ws.send(JSON.stringify({ type: 'host:close_room', roomId: syncChannel.roomId, token: syncChannel.hostToken }));
+    syncChannel.disconnectRemote();
+    showToast('Đã đóng phòng. Mã phòng cũ không còn truy cập được.', 'success');
   });
 
   document.getElementById('btn-test-display')?.addEventListener('click', () => {

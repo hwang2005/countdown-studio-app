@@ -35,6 +35,7 @@ export class StageSyncChannel {
     this.heartbeatTimer = null;
     this.onStatusChangeCallbacks = new Set();
     this.displayCount = 0;
+    this.roomClosed = false;
 
     if (typeof BroadcastChannel !== 'undefined') {
       try {
@@ -115,6 +116,7 @@ export class StageSyncChannel {
       connected: this.isRemoteConnected,
       roomId: this.roomId,
       displayCount: this.displayCount,
+      roomClosed: this.roomClosed,
       ...extra,
     };
     for (const cb of this.onStatusChangeCallbacks) {
@@ -137,6 +139,7 @@ export class StageSyncChannel {
     this.roomId = roomId.toUpperCase().trim();
     this.role = role;
     this.hostPin = hostPin ? String(hostPin).trim() : '';
+    this.roomClosed = false;
 
     if (this.remoteReconnectTimer) {
       clearTimeout(this.remoteReconnectTimer);
@@ -212,6 +215,19 @@ export class StageSyncChannel {
             return;
           }
 
+          if (msg.type === 'room:closed') {
+            const closedRoomId = this.roomId;
+            this.roomClosed = true;
+            this.isRemoteConnected = false;
+            clearInterval(this.heartbeatTimer);
+            this.notifyStatus({ roomClosed: true, roomId: closedRoomId, error: msg.message || 'Phòng đã được Host đóng.' });
+            if (this.ws) {
+              try { this.ws.close(); } catch {}
+              this.ws = null;
+            }
+            return;
+          }
+
           if (msg.type === 'stage:sync' && msg.payload) {
             // Received state from Host across the network
             this.handleIncoming({
@@ -223,6 +239,16 @@ export class StageSyncChannel {
           }
 
           if (msg.type === 'error') {
+            if (msg.code === 'ROOM_NOT_FOUND') {
+              this.roomClosed = true;
+              this.isRemoteConnected = false;
+              this.notifyStatus({ roomClosed: true, error: msg.message });
+              if (this.ws) {
+                try { this.ws.close(); } catch {}
+                this.ws = null;
+              }
+              return;
+            }
             this.notifyStatus({ error: msg.message });
           }
         } catch (err) {
@@ -236,7 +262,7 @@ export class StageSyncChannel {
         this.notifyStatus();
 
         // Auto-reconnect if roomId is still configured
-        if (this.roomId) {
+        if (this.roomId && !this.roomClosed) {
           this.remoteReconnectTimer = setTimeout(() => {
             if (this.roomId) {
               this._initWebSocket();
@@ -272,6 +298,7 @@ export class StageSyncChannel {
     this.hostToken = null;
     this.isRemoteConnected = false;
     this.displayCount = 0;
+    this.roomClosed = false;
     this.notifyStatus();
   }
 

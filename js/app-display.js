@@ -598,7 +598,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Listen to remote connection status changes
   syncChannel.onStatusChange((status) => {
-    if (status.roomId && status.connected) {
+    if (status.roomClosed) {
+      localStorage.removeItem('countdown_studio_last_room');
+      if (roomDot) roomDot.className = 'status-dot status-dot--offline';
+      if (roomText) roomText.textContent = 'Phòng đã đóng / không tồn tại';
+      if (btnDisconnectRoom) btnDisconnectRoom.hidden = true;
+      if (btnJoinRemote) btnJoinRemote.textContent = '🌐 Mã Phòng (Online)';
+      showToast(status.error || 'Phòng đã đóng hoặc không tồn tại.', 'error');
+    } else if (status.roomId && status.connected) {
       if (roomDot) roomDot.className = 'status-dot status-dot--online';
       if (roomText) roomText.textContent = `Phòng: ${status.roomId}`;
       if (btnDisconnectRoom) btnDisconnectRoom.hidden = false;
