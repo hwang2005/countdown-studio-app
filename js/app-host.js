@@ -86,6 +86,7 @@ let syncChannel = null;
 let clock = null;
 let buzzerAnswerTimer = null;
 let hostCustomSchedule = [];
+let lastRenderedPreviewBoardKey = null;
 
 /**
  * Gets a URL relative to the page currently being served.  Using the page URL
@@ -470,6 +471,7 @@ function toggleClockRunPause() {
 
   if (clock.running) {
     clock.pause();
+    audio.pauseClockMusic();
     store.update(
       {
         clockRunning: false,
@@ -498,6 +500,7 @@ function toggleClockRunPause() {
       );
     }
     clock.start(st.clockRemainingMs > 0 ? st.clockRemainingMs : st.clockDuration * 1000);
+    audio.resumeClockMusic();
   }
 }
 
@@ -532,6 +535,10 @@ function handleContestantBuzz(playerNum, timestamp = performance.now()) {
   if (clock && clock.running) {
     clock.pause();
   }
+  // A buzzer freezes the complete studio clock: pause the soundtrack at the
+  // same moment as the analogue hand. It will be resumed only after an
+  // incorrect answer when the opponent gets the next attempt.
+  audio.pauseClockMusic();
   audio.playContestantBuzz(adj.winner);
 
   store.update(
@@ -770,13 +777,21 @@ function renderHostConsole(state) {
 
   const prevBoard = document.getElementById('preview-board-container');
   if (prevBoard) {
-    if (state.roundType === 'L') {
-      renderLetterTiles(prevBoard, state.letters);
-    } else if (state.roundType === 'N') {
-      renderNumberTiles(prevBoard, state.numbers);
-    } else {
-      const word = state.conundrumRevealed ? state.conundrumAnswer : state.conundrumScrambled;
-      renderLetterTiles(prevBoard, word ? word.split('') : [], { isConundrum: true });
+    const word = state.conundrumRevealed ? state.conundrumAnswer : state.conundrumScrambled;
+    const prevBoardKey = state.roundType === 'L'
+      ? `L:${(state.letters || []).join('')}`
+      : state.roundType === 'N'
+        ? `N:${(state.numbers || []).join(',')}`
+        : `C:${word || ''}:${Boolean(state.conundrumRevealed)}`;
+    if (prevBoardKey !== lastRenderedPreviewBoardKey) {
+      if (state.roundType === 'L') {
+        renderLetterTiles(prevBoard, state.letters, { noAnim: Boolean(state.clockRunning) });
+      } else if (state.roundType === 'N') {
+        renderNumberTiles(prevBoard, state.numbers, { noAnim: Boolean(state.clockRunning) });
+      } else {
+        renderLetterTiles(prevBoard, word ? word.split('') : [], { isConundrum: true, noAnim: Boolean(state.clockRunning) });
+      }
+      lastRenderedPreviewBoardKey = prevBoardKey;
     }
   }
 
@@ -1130,6 +1145,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnStartBroadcast = document.getElementById('host-btn-start-broadcast');
   const btnDisconnectRemote = document.getElementById('host-btn-disconnect-remote');
   const btnCloseRemote = document.getElementById('host-btn-close-remote-room');
+  const closeRoomPanel = document.getElementById('host-close-room-panel');
 
   function generateRandomRoomCode() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -1203,6 +1219,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (btnCloseRemote) {
       btnCloseRemote.hidden = !isOnline;
     }
+    if (closeRoomPanel) {
+      closeRoomPanel.hidden = !isOnline;
+    }
   });
 
   const openRemoteModal = () => {
@@ -1270,9 +1289,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
     if (!window.confirm('Đóng phòng này? Mọi màn hình đang xem sẽ bị ngắt và mã phòng không còn truy cập được.')) return;
-    syncChannel.ws.send(JSON.stringify({ type: 'host:close_room', roomId: syncChannel.roomId, token: syncChannel.hostToken }));
-    syncChannel.disconnectRemote();
-    showToast('Đã đóng phòng. Mã phòng cũ không còn truy cập được.', 'success');
+    if (syncChannel.closeRemoteRoom()) {
+      showToast('Đang đóng phòng và ngắt các màn hình đang xem...', 'info');
+    }
   });
 
   document.getElementById('btn-test-display')?.addEventListener('click', () => {

@@ -24,7 +24,8 @@ export function renderLetterTiles(container, letters = [], options = {}) {
     isConundrum = false,
     interactive = false,
     onTileClick = null,
-    onReorder = null
+    onReorder = null,
+    noAnim = false
   } = options;
 
   const usedSet = new Set(usedIndices);
@@ -54,8 +55,11 @@ export function renderLetterTiles(container, letters = [], options = {}) {
     if (interactive && isRevealed) classes.push('tile--interactive');
     if (isUsed) classes.push('tile--used');
     if (isRevealed) {
-      classes.push('is-revealed', 'anim-flip-in');
-      tileEl.style.animationDelay = `${i * 35}ms`;
+      classes.push('is-revealed');
+      if (!noAnim) {
+        classes.push('anim-flip-in');
+        tileEl.style.animationDelay = `${i * 35}ms`;
+      }
     } else {
       classes.push('is-unrevealed');
     }
@@ -132,7 +136,8 @@ export function renderNumberTiles(container, numbers = [], options = {}) {
     selectedIndex = null,
     consumedIndices = [],
     interactive = false,
-    onTileClick = null
+    onTileClick = null,
+    noAnim = false
   } = options;
 
   const consumedSet = new Set(consumedIndices);
@@ -158,8 +163,11 @@ export function renderNumberTiles(container, numbers = [], options = {}) {
     if (interactive && hasVal) classes.push('tile--interactive');
     if (isConsumed) classes.push('tile--used');
     if (hasVal) {
-      classes.push('is-revealed', 'anim-flip-in');
-      tileEl.style.animationDelay = `${i * 45}ms`;
+      classes.push('is-revealed');
+      if (!noAnim) {
+        classes.push('anim-flip-in');
+        tileEl.style.animationDelay = `${i * 45}ms`;
+      }
     } else {
       classes.push('is-unrevealed');
     }

@@ -19,6 +19,7 @@ class StudioAudioEngine {
     this.volume = 0.75;
     this.unlocked = false;
     this.lastScheduledSecond = -1;
+    this.clockMusicGeneration = 0;
     this.thinkMusic = new Audio('./assets/The%20Countdown%20Clock.mp3');
     this.thinkMusic.preload = 'auto';
   }
@@ -105,11 +106,21 @@ class StudioAudioEngine {
    * @param {number} totalSeconds Usually 30
    */
   playClockSecond(elapsedSeconds, totalSeconds = 30) {
-    if (this.muted || elapsedSeconds === this.lastScheduledSecond) return;
+    if (this.muted) return;
+
+    // A paused clock can emit the same elapsed second when it resumes. In
+    // that case the cue is already scheduled, but the soundtrack still needs
+    // to be resumed from its current position.
+    if (elapsedSeconds === this.lastScheduledSecond) {
+      this.resumeClockMusic();
+      return;
+    }
+
     this.lastScheduledSecond = elapsedSeconds;
+    const generation = this.clockMusicGeneration;
 
     this.unlock().then((ok) => {
-      if (!ok || !this.ctx) return;
+      if (!ok || !this.ctx || generation !== this.clockMusicGeneration) return;
       const remaining = totalSeconds - elapsedSeconds;
 
       if (remaining <= 0) {
@@ -117,11 +128,13 @@ class StudioAudioEngine {
         return;
       }
 
-      if (elapsedSeconds === 0) {
+      // Start a new soundtrack at its intended intro offset. When resuming
+      // after pause, currentTime is kept intact and is therefore not reset.
+      if (this.thinkMusic.currentTime <= 0 || this.thinkMusic.ended) {
         this.thinkMusic.currentTime = 2;
-        this.thinkMusic.volume = this.volume;
-        this.thinkMusic.play().catch(() => {});
       }
+      this.thinkMusic.volume = this.volume;
+      this.thinkMusic.play().catch(() => {});
     });
   }
 
@@ -137,8 +150,30 @@ class StudioAudioEngine {
    * Stops the countdown music immediately when a round is submitted.
    */
   stopClockMusic() {
+    this.clockMusicGeneration += 1;
     this.thinkMusic.pause();
     this.thinkMusic.currentTime = 0;
+  }
+
+  /**
+   * Pauses the countdown soundtrack without resetting its playback position.
+   * Used when the clock is paused so resume can continue at the same point.
+   */
+  pauseClockMusic() {
+    this.clockMusicGeneration += 1;
+    this.lastScheduledSecond = -1;
+    this.thinkMusic.pause();
+  }
+
+  /**
+   * Resumes the countdown soundtrack from its current playback position.
+   * A fresh clock is started by playClockSecond(), so this is intentionally a
+   * no-op until the track has a saved position.
+   */
+  resumeClockMusic() {
+    if (this.muted || this.thinkMusic.currentTime <= 0 || this.thinkMusic.ended) return;
+    this.thinkMusic.volume = this.volume;
+    this.thinkMusic.play().catch(() => {});
   }
 
   /**

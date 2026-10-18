@@ -630,15 +630,22 @@
             </div>
           </div>
 
-          <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: var(--space-2);">
+          <div class="remote-room-actions">
             <button type="button" id="host-btn-disconnect-remote" class="btn btn--secondary btn--sm" hidden>
               Ngắt phát sóng
             </button>
-            <button type="button" id="host-btn-close-remote-room" class="btn btn--danger btn--sm" hidden>
-              Đóng phòng
-            </button>
             <button type="button" id="host-btn-start-broadcast" class="btn btn--primary btn--sm">
               🚀 Bắt Đầu Phát Sóng
+            </button>
+          </div>
+
+          <div id="host-close-room-panel" class="remote-room-close-panel" hidden>
+            <div class="remote-room-close-panel__copy">
+              <strong>⚠️ Kết thúc phòng</strong>
+              <span>Ngắt toàn bộ màn hình Display và làm mã phòng này không thể truy cập lại.</span>
+            </div>
+            <button type="button" id="host-btn-close-remote-room" class="btn btn--danger remote-room-close-button" aria-label="Đóng và xóa phòng trực tuyến">
+              🔒 ĐÓNG PHÒNG
             </button>
           </div>
         </div>

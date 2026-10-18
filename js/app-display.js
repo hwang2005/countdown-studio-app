@@ -43,6 +43,42 @@ let stageControlsHidden = loadStageControlsHidden();
 let stageAudioWasRunning = false;
 let stageQuestionSnapshot = null;
 let lastStageBuzzerPlayer = null;
+let lastRenderedBoardKey = null;
+
+function setRemoteDisplayGate(blocked, message = 'Đang xác thực phòng hiển thị...') {
+  const canvas = document.getElementById('stage-canvas');
+  if (!canvas) return;
+
+  let gate = document.getElementById('stage-remote-gate');
+  if (!gate) {
+    gate = document.createElement('div');
+    gate.id = 'stage-remote-gate';
+    gate.style.cssText = [
+      'position:fixed', 'inset:0', 'z-index:9999', 'display:flex',
+      'align-items:center', 'justify-content:center', 'padding:2rem',
+      'background:#081229', 'color:#F8FAFC', 'text-align:center',
+      'font-family:var(--font-body, sans-serif)'
+    ].join(';');
+    gate.innerHTML = `
+      <div style="max-width:34rem;display:grid;gap:0.85rem;justify-items:center">
+        <strong id="stage-remote-gate-title" style="font-size:clamp(1.3rem,3vw,2rem)"></strong>
+        <span id="stage-remote-gate-message" style="color:#CBD5E1"></span>
+        <button type="button" id="stage-remote-gate-join" class="btn btn--primary btn--sm">Nhập mã phòng khác</button>
+      </div>`;
+    document.body.appendChild(gate);
+    gate.querySelector('#stage-remote-gate-join')?.addEventListener('click', () => {
+      document.getElementById('btn-join-remote-stage')?.click();
+    });
+  }
+
+  const title = gate.querySelector('#stage-remote-gate-title');
+  const detail = gate.querySelector('#stage-remote-gate-message');
+  if (title) title.textContent = blocked ? 'Stage Display chưa được kết nối' : '';
+  if (detail) detail.textContent = message;
+  gate.hidden = !blocked;
+  gate.style.display = blocked ? 'flex' : 'none';
+  canvas.style.visibility = blocked ? 'hidden' : '';
+}
 
 /**
  * Keep the Stage Display's audio limited to the clock soundtrack.  The Host
@@ -65,11 +101,16 @@ function syncStageClockAudio(state) {
   if (stageAudioWasRunning) {
     if (remaining <= 0) {
       audio.playClockSecond(duration, duration);
+      stageAudioWasRunning = false;
+    } else if (state.phase === 'CLOCK_RUNNING') {
+      // A paused clock keeps the soundtrack position for resume.
+      audio.pauseClockMusic();
     } else {
+      // Scoring/reveal/reset ends the round, so the next round starts fresh.
       audio.stopClockMusic();
       audio.resetClockTracker();
+      stageAudioWasRunning = false;
     }
-    stageAudioWasRunning = false;
   }
 }
 
@@ -87,7 +128,8 @@ function getStageQuestionState(state) {
     : state.roundType === 'N'
       ? (Array.isArray(state.numbers) && state.numbers.some((value) => value !== null && value !== undefined)) || Boolean(state.target)
       : Boolean(state.conundrumScrambled || state.conundrumAnswer);
-  const snapshotHasQuestion = stageQuestionSnapshot && (
+  const snapshotIsCurrentRound = stageQuestionSnapshot?.key === roundKey;
+  const snapshotHasQuestion = snapshotIsCurrentRound && (
     stageQuestionSnapshot.letters?.some(Boolean) ||
     stageQuestionSnapshot.numbers?.some((value) => value !== null && value !== undefined) ||
     stageQuestionSnapshot.target ||
@@ -95,10 +137,17 @@ function getStageQuestionState(state) {
     stageQuestionSnapshot.conundrumAnswer
   );
 
-  // Do not overwrite a valid question with an empty intermediate sync packet
-  // while the Host is starting the clock. If the display opens during the
-  // countdown, capture the first non-empty packet it receives.
-  if (!state.clockRunning || !stageQuestionSnapshot || stageQuestionSnapshot.key !== roundKey || (!snapshotHasQuestion && hasQuestion)) {
+  // While the 30-second clock is running we MUST keep the question visible.
+  // Rules:
+  //  1. If clock is not running → always refresh snapshot from state (normal flow).
+  //  2. If clock IS running:
+  //     a. No snapshot yet, or snapshot is for a different round, and state has
+  //        a question → capture this state as the new snapshot.
+  //     b. Snapshot already has a question for this round → never overwrite it
+  //        (protects against empty intermediate sync packets from the Host).
+  //     c. Neither snapshot nor state has a question yet → wait; do not erase.
+  if (!state.clockRunning) {
+    // Clock is stopped: always update snapshot from current state
     stageQuestionSnapshot = {
       key: roundKey,
       letters: Array.isArray(state.letters) ? [...state.letters] : [],
@@ -108,17 +157,47 @@ function getStageQuestionState(state) {
       conundrumAnswer: state.conundrumAnswer,
       conundrumRevealed: state.conundrumRevealed
     };
+    return state;
   }
-  if (!state.clockRunning || !snapshotHasQuestion) return state;
-  return {
-    ...state,
-    letters: stageQuestionSnapshot.letters,
-    numbers: stageQuestionSnapshot.numbers,
-    target: stageQuestionSnapshot.target,
-    conundrumScrambled: stageQuestionSnapshot.conundrumScrambled,
-    conundrumAnswer: stageQuestionSnapshot.conundrumAnswer,
-    conundrumRevealed: stageQuestionSnapshot.conundrumRevealed
-  };
+
+  // Clock IS running from here on.
+  // If the snapshot belongs to a different round and the incoming state has
+  // a question, or we have no snapshot at all, capture the incoming state.
+  if (!snapshotHasQuestion && hasQuestion) {
+    stageQuestionSnapshot = {
+      key: roundKey,
+      letters: Array.isArray(state.letters) ? [...state.letters] : [],
+      numbers: Array.isArray(state.numbers) ? [...state.numbers] : [],
+      target: state.target,
+      conundrumScrambled: state.conundrumScrambled,
+      conundrumAnswer: state.conundrumAnswer,
+      conundrumRevealed: state.conundrumRevealed
+    };
+    return state;
+  }
+
+  // If a valid snapshot exists, always serve it during the countdown,
+  // ignoring any empty/partial packets the Host may send.
+  if (snapshotHasQuestion) {
+    if (state.conundrumRevealed) {
+      stageQuestionSnapshot.conundrumRevealed = true;
+    }
+    if (state.conundrumAnswer) {
+      stageQuestionSnapshot.conundrumAnswer = state.conundrumAnswer;
+    }
+    return {
+      ...state,
+      letters: stageQuestionSnapshot.letters,
+      numbers: stageQuestionSnapshot.numbers,
+      target: stageQuestionSnapshot.target,
+      conundrumScrambled: stageQuestionSnapshot.conundrumScrambled,
+      conundrumAnswer: stageQuestionSnapshot.conundrumAnswer,
+      conundrumRevealed: stageQuestionSnapshot.conundrumRevealed
+    };
+  }
+
+  // No snapshot and no question in current state — return raw state as fallback.
+  return state;
 }
 
 /**
@@ -288,6 +367,7 @@ function renderStage(state) {
   const boardZone = document.getElementById('stage-board-zone');
 
   if (state.phase === 'MATCH_END') {
+    lastRenderedBoardKey = null;
     if (boardZone) boardZone.style.display = 'none';
     if (lettersBoard) lettersBoard.hidden = true;
     if (numbersZone) numbersZone.hidden = true;
@@ -313,26 +393,36 @@ function renderStage(state) {
   } else {
     if (boardZone) {
       boardZone.hidden = false;
+      // Always keep board visible while the clock is running so the
+      // question is never hidden from the Stage Display during countdown.
       boardZone.style.display = 'flex';
     }
     if (endPodium) endPodium.hidden = true;
     if (questionState.roundType === 'L') {
+      if (numbersZone) numbersZone.hidden = true;
       if (lettersBoard) {
         lettersBoard.hidden = false;
-        renderLetterTiles(lettersBoard, questionState.letters);
+        const boardKey = `L:${(questionState.letters || []).join('')}`;
+        if (boardKey !== lastRenderedBoardKey) {
+          renderLetterTiles(lettersBoard, questionState.letters, { noAnim: Boolean(state.clockRunning) });
+          lastRenderedBoardKey = boardKey;
+        }
       }
-      if (numbersZone) numbersZone.hidden = true;
     } else if (questionState.roundType === 'N') {
       if (lettersBoard) lettersBoard.hidden = true;
       if (numbersZone) {
         numbersZone.hidden = false;
-        renderNumberTiles(numbersBoard, questionState.numbers);
-        if (targetVal) targetVal.textContent = questionState.target ? String(questionState.target) : '000';
-        if (numSolBox) {
-          numSolBox.hidden = !state.showNumbersSolutionOnDisplay || !state.numbersSolution;
-          if (state.showNumbersSolutionOnDisplay && state.numbersSolution) {
-            renderNumbersSolution(numSolBox, state.numbersSolution, state.target);
+        const boardKey = `N:${(questionState.numbers || []).join(',')}:${questionState.target || ''}:${Boolean(state.showNumbersSolutionOnDisplay)}:${state.numbersSolution || ''}`;
+        if (boardKey !== lastRenderedBoardKey) {
+          renderNumberTiles(numbersBoard, questionState.numbers, { noAnim: Boolean(state.clockRunning) });
+          if (targetVal) targetVal.textContent = questionState.target ? String(questionState.target) : '000';
+          if (numSolBox) {
+            numSolBox.hidden = !state.showNumbersSolutionOnDisplay || !state.numbersSolution;
+            if (state.showNumbersSolutionOnDisplay && state.numbersSolution) {
+              renderNumbersSolution(numSolBox, state.numbersSolution, state.target);
+            }
           }
+          lastRenderedBoardKey = boardKey;
         }
       }
     } else {
@@ -341,7 +431,11 @@ function renderStage(state) {
       if (lettersBoard) {
         lettersBoard.hidden = false;
         const word = questionState.conundrumRevealed ? questionState.conundrumAnswer : questionState.conundrumScrambled;
-        renderLetterTiles(lettersBoard, word ? word.split('') : [], { isConundrum: true });
+        const boardKey = `C:${word || ''}:${Boolean(questionState.conundrumRevealed)}`;
+        if (boardKey !== lastRenderedBoardKey) {
+          renderLetterTiles(lettersBoard, word ? word.split('') : [], { isConundrum: true, noAnim: Boolean(state.clockRunning) });
+          lastRenderedBoardKey = boardKey;
+        }
       }
     }
   }
@@ -670,8 +764,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  const urlParams = new URLSearchParams(window.location.search);
+  const requestedRoom = (urlParams.get('room') || localStorage.getItem('countdown_studio_last_room') || '').toUpperCase().trim();
+  // A remote display must not reveal a locally cached match while its room is
+  // being checked. This also prevents an old QR/link from showing stale data
+  // when the room no longer exists.
+  if (requestedRoom) setRemoteDisplayGate(true);
+
   const persisted = syncChannel.recoverPersistedState();
-  if (persisted) {
+  if (persisted && !requestedRoom) {
     renderStage(persisted);
   } else {
     renderStage(currentState);
@@ -710,6 +811,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Listen to remote connection status changes
   syncChannel.onStatusChange((status) => {
     if (status.roomClosed) {
+      setRemoteDisplayGate(true, status.error || 'Phòng không tồn tại hoặc đã được Host đóng.');
       localStorage.removeItem('countdown_studio_last_room');
       if (roomDot) roomDot.className = 'status-dot status-dot--offline';
       if (roomText) roomText.textContent = 'Phòng đã đóng / không tồn tại';
@@ -717,16 +819,22 @@ document.addEventListener('DOMContentLoaded', () => {
       if (btnJoinRemote) btnJoinRemote.textContent = '🌐 Mã Phòng (Online)';
       showToast(status.error || 'Phòng đã đóng hoặc không tồn tại.', 'error');
     } else if (status.roomId && status.connected) {
+      setRemoteDisplayGate(false);
       if (roomDot) roomDot.className = 'status-dot status-dot--online';
       if (roomText) roomText.textContent = `Phòng: ${status.roomId}`;
       if (btnDisconnectRoom) btnDisconnectRoom.hidden = false;
       if (btnJoinRemote) btnJoinRemote.textContent = `🌐 ${status.roomId}`;
     } else if (status.roomId && !status.connected) {
+      setRemoteDisplayGate(true, status.error || 'Đang kiểm tra phòng với máy chủ...');
       if (roomDot) roomDot.className = 'status-dot status-dot--connecting';
       if (roomText) roomText.textContent = `Kết nối: ${status.roomId}...`;
       if (btnDisconnectRoom) btnDisconnectRoom.hidden = false;
       if (btnJoinRemote) btnJoinRemote.textContent = `🌐 ${status.roomId}...`;
     } else {
+      // Keep the gate up for a URL/localStorage room until the first join
+      // response arrives. Otherwise the initial status callback briefly
+      // exposes the locally cached display before validation completes.
+      if (!requestedRoom) setRemoteDisplayGate(false);
       if (roomDot) roomDot.className = 'status-dot status-dot--offline';
       if (roomText) roomText.textContent = 'Local Sync';
       if (btnDisconnectRoom) btnDisconnectRoom.hidden = true;
@@ -772,13 +880,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   btnDisconnectRoom?.addEventListener('click', () => {
     syncChannel.disconnectRemote();
+    setRemoteDisplayGate(false);
     localStorage.removeItem('countdown_studio_last_room');
     closeJoinModal();
     showToast('Đã rời phòng trực tuyến. Chuyển về chế độ đồng bộ cục bộ (Local).', 'info');
   });
 
   // Check URL param ?room=CODE (e.g. from QR code or shared link)
-  const urlParams = new URLSearchParams(window.location.search);
   const roomFromUrl = urlParams.get('room');
   if (roomFromUrl) {
     const cleanRoom = roomFromUrl.toUpperCase().trim();

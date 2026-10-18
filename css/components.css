@@ -82,6 +82,68 @@
   font-size: 1.0625rem;
 }
 
+/* Remote Room destructive action: keep it visually separate from normal controls. */
+.remote-room-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: var(--space-2);
+}
+
+.remote-room-close-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: var(--space-3);
+  padding: 0.85rem 1rem;
+  border: 2px solid rgba(239, 68, 68, 0.62);
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.34), rgba(69, 10, 10, 0.22));
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.12), 0 8px 24px rgba(69, 10, 10, 0.18);
+}
+
+.remote-room-close-panel__copy {
+  display: grid;
+  gap: 0.2rem;
+  color: #FCA5A5;
+  font-size: 0.8rem;
+}
+
+.remote-room-close-panel__copy strong {
+  color: #FECACA;
+  font-size: 0.9rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.remote-room-close-button {
+  min-height: 44px;
+  padding-inline: 1rem;
+  border-color: #F87171;
+  color: #FFF1F2;
+  font-weight: 800;
+  letter-spacing: 0.035em;
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.2);
+}
+
+.remote-room-close-button:hover:not(:disabled) {
+  background: #B91C1C;
+  border-color: #FCA5A5;
+  box-shadow: 0 0 22px rgba(239, 68, 68, 0.34);
+}
+
+@media (max-width: 560px) {
+  .remote-room-close-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .remote-room-close-button {
+    width: 100%;
+  }
+}
+
 /* Segmented Controls (Interactive Filter / Drill Tabs) */
 .segmented-control {
   display: inline-flex;

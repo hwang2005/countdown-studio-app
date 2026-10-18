@@ -19,7 +19,7 @@ const KEYS = {
  * - Studio Clock centered in the upper-middle background wall (50%, 35%)
  * - Contestant 1 Name & Score in the Left Podium slots (16.15%, 70.0% and 16.15%, 82.87%)
  * - Contestant 2 Name & Score in the Right Podium slots (83.85%, 70.0% and 83.85%, 82.87%)
- * - Central Letters/Numbers Board in the center studio rack (50%, 81.8%)
+ * - Central Letters/Numbers Board centered in the rectangular studio housing (50%, 76.94%)
  */
 export const DEFAULT_STAGE_LAYOUT = {
   clockX: 50,
@@ -40,7 +40,7 @@ export const DEFAULT_STAGE_LAYOUT = {
   p2ScoreY: 82.87,
   p2ScoreW: 13.2,
   boardX: 50,
-  boardY: 81.8,
+  boardY: 76.94,
   boardW: 41.2
 };
 
@@ -52,7 +52,17 @@ export function loadStageLayout() {
   try {
     const raw = localStorage.getItem(KEYS.STAGE_LAYOUT);
     if (!raw) return { ...DEFAULT_STAGE_LAYOUT };
-    return { ...DEFAULT_STAGE_LAYOUT, ...JSON.parse(raw) };
+    const parsed = JSON.parse(raw);
+    if (parsed) {
+      const bY = Number(parsed.boardY);
+      if (isNaN(bY) || bY >= 80) {
+        parsed.boardY = DEFAULT_STAGE_LAYOUT.boardY;
+        try {
+          localStorage.setItem(KEYS.STAGE_LAYOUT, JSON.stringify({ ...DEFAULT_STAGE_LAYOUT, ...parsed }));
+        } catch {}
+      }
+    }
+    return { ...DEFAULT_STAGE_LAYOUT, ...parsed };
   } catch {
     return { ...DEFAULT_STAGE_LAYOUT };
   }

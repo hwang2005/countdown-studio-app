@@ -302,6 +302,33 @@ export class StageSyncChannel {
     this.notifyStatus();
   }
 
+  /**
+   * Ask the server to permanently close the currently authenticated room.
+   * The server sends the acknowledgement/closed event back to this socket;
+   * keeping the socket open until that event prevents the close packet from
+   * being lost when the browser closes the connection immediately after send.
+   * @returns {boolean}
+   */
+  closeRemoteRoom() {
+    if (
+      this.role !== 'host' ||
+      !this.isRemoteConnected ||
+      !this.ws ||
+      this.ws.readyState !== WebSocket.OPEN ||
+      !this.roomId ||
+      !this.hostToken
+    ) {
+      return false;
+    }
+
+    this.ws.send(JSON.stringify({
+      type: 'host:close_room',
+      roomId: this.roomId,
+      token: this.hostToken,
+    }));
+    return true;
+  }
+
   handleIncoming(packet) {
     if (packet && packet.type === 'STATE_SYNC' && packet.payload) {
       try {
