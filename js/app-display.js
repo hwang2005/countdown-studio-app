@@ -40,6 +40,61 @@ let syncChannel = null;
 let rafId = null;
 let lastCelebratedMatchId = null;
 let stageControlsHidden = loadStageControlsHidden();
+let stageAudioWasRunning = false;
+let stageQuestionSnapshot = null;
+let lastStageBuzzerPlayer = null;
+
+/**
+ * Keep the Stage Display's audio limited to the clock soundtrack.  The Host
+ * remains the source for tile, buzzer, answer and celebration sounds.
+ * @param {object} state
+ */
+function syncStageClockAudio(state) {
+  const duration = Number(state.clockDuration || 30);
+  const remaining = Math.max(0, Number(state.clockRemainingMs || 0));
+
+  if (state.clockRunning) {
+    const elapsed = Math.min(duration, Math.floor((duration * 1000 - remaining) / 1000));
+    audio.playClockSecond(elapsed, duration);
+    stageAudioWasRunning = true;
+    return;
+  }
+
+  // The final host tick can arrive together with clockRunning=false.  Give
+  // the Stage Display the same final buzzer as the Host in that case.
+  if (stageAudioWasRunning) {
+    if (remaining <= 0) {
+      audio.playClockSecond(duration, duration);
+    } else {
+      audio.stopClockMusic();
+      audio.resetClockTracker();
+    }
+    stageAudioWasRunning = false;
+  }
+}
+
+/**
+ * Preserve the active round's question/tiles for the complete 30-second
+ * thinking period, even if a sync update briefly contains an intermediate
+ * state while the Host starts the clock.
+ * @param {object} state
+ * @returns {object}
+ */
+function getStageQuestionState(state) {
+  const roundKey = `${state.matchId}:${state.roundIndex}:${state.roundType}`;
+  if (!state.clockRunning || !stageQuestionSnapshot || stageQuestionSnapshot.key !== roundKey) {
+    stageQuestionSnapshot = {
+      key: roundKey,
+      letters: Array.isArray(state.letters) ? [...state.letters] : [],
+      numbers: Array.isArray(state.numbers) ? [...state.numbers] : [],
+      target: state.target,
+      conundrumScrambled: state.conundrumScrambled,
+      conundrumAnswer: state.conundrumAnswer,
+      conundrumRevealed: state.conundrumRevealed
+    };
+  }
+  return state.clockRunning ? { ...state, ...stageQuestionSnapshot } : state;
+}
 
 /**
  * Toggles or sets visibility of stage control buttons on the 16:9 stage display.
@@ -142,6 +197,17 @@ function applyStageLayoutToDOM(layout = stageLayout, customBg = loadCustomStageB
 
 function renderStage(state) {
   currentState = state;
+  syncStageClockAudio(state);
+  const questionState = getStageQuestionState(state);
+
+  // Mirror the Host's Conundrum buzzer sound on the Stage Display once per
+  // buzzer event. Other Host-only sounds remain local to the Host console.
+  const buzzerPlayer = state.roundType === 'C' ? state.activeBuzzerPlayer : null;
+  if (buzzerPlayer && buzzerPlayer !== lastStageBuzzerPlayer) {
+    audio.playContestantBuzz(buzzerPlayer);
+  }
+  lastStageBuzzerPlayer = buzzerPlayer || null;
+
   document.documentElement.setAttribute('data-theme', state.theme || 'classic-blue');
 
   // Panic blank screen check
@@ -219,18 +285,18 @@ function renderStage(state) {
     }
   } else {
     if (endPodium) endPodium.hidden = true;
-    if (state.roundType === 'L') {
+    if (questionState.roundType === 'L') {
       if (lettersBoard) {
         lettersBoard.hidden = false;
-        renderLetterTiles(lettersBoard, state.letters);
+        renderLetterTiles(lettersBoard, questionState.letters);
       }
       if (numbersZone) numbersZone.hidden = true;
-    } else if (state.roundType === 'N') {
+    } else if (questionState.roundType === 'N') {
       if (lettersBoard) lettersBoard.hidden = true;
       if (numbersZone) {
         numbersZone.hidden = false;
-        renderNumberTiles(numbersBoard, state.numbers);
-        if (targetVal) targetVal.textContent = state.target ? String(state.target) : '000';
+        renderNumberTiles(numbersBoard, questionState.numbers);
+        if (targetVal) targetVal.textContent = questionState.target ? String(questionState.target) : '000';
         if (numSolBox) {
           numSolBox.hidden = !state.showNumbersSolutionOnDisplay || !state.numbersSolution;
           if (state.showNumbersSolutionOnDisplay && state.numbersSolution) {
@@ -243,7 +309,7 @@ function renderStage(state) {
       if (numbersZone) numbersZone.hidden = true;
       if (lettersBoard) {
         lettersBoard.hidden = false;
-        const word = state.conundrumRevealed ? state.conundrumAnswer : state.conundrumScrambled;
+        const word = questionState.conundrumRevealed ? questionState.conundrumAnswer : questionState.conundrumScrambled;
         renderLetterTiles(lettersBoard, word ? word.split('') : [], { isConundrum: true });
       }
     }
@@ -533,14 +599,20 @@ function initStageCalibration() {
 document.addEventListener('DOMContentLoaded', () => {
   const settings = loadSettings();
   applySettingsToDOM(settings);
+  audio.setMuted(!settings.soundEnabled);
+  audio.setVolume(settings.volume);
   applyStageLayoutToDOM(loadStageLayout(), loadCustomStageBackground());
   requestWakeLock();
 
   // Audio unlock splash for stage display
   const splash = document.getElementById('stage-audio-splash');
   if (splash) {
-    splash.addEventListener('click', () => {
-      audio.unlock();
+    splash.addEventListener('click', async () => {
+      await audio.unlock();
+      // If the countdown started before the browser gesture, retry the first
+      // clock cue after unlocking instead of losing the soundtrack entirely.
+      audio.resetClockTracker();
+      syncStageClockAudio(currentState);
       splash.hidden = true;
     });
   }

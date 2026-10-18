@@ -482,6 +482,7 @@
                 <option value="letters-only">Letters Only (6 Rounds)</option>
                 <option value="numbers-only">Numbers Only (6 Rounds)</option>
                 <option value="conundrum-only">Conundrum Sprint (5 Rounds)</option>
+                <option value="custom">Custom Schedule</option>
               </select>
             </label>
             <label>
@@ -491,6 +492,20 @@
                 <option value="2">Contestant 2 starts (Odd rounds)</option>
               </select>
             </label>
+          </div>
+
+          <div id="host-custom-schedule-editor" hidden style="padding: 0.85rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: rgba(5, 11, 28, 0.35);">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 0.65rem;">
+              <span style="font-size: 0.85rem; color: var(--text-secondary);">Custom round order</span>
+              <select id="host-add-round-type" class="input-field" style="width: auto; min-width: 110px;">
+                <option value="L">+ Letters</option>
+                <option value="N">+ Numbers</option>
+                <option value="C">+ Conundrum</option>
+              </select>
+              <button type="button" id="host-add-round-btn" class="btn btn--secondary btn--sm">Add round</button>
+            </div>
+            <div id="host-custom-schedule-list" style="display: flex; flex-wrap: wrap; gap: 0.4rem;"></div>
+            <small style="display: block; margin-top: 0.65rem; color: var(--text-muted);">Drag rounds to reorder. You can use 1–25 rounds.</small>
           </div>
 
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: var(--space-3);">

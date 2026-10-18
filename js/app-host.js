@@ -60,6 +60,7 @@ import {
   scoreVersusNumbersRound
 } from './game/scoring.js';
 import {
+  SCHEDULE_PRESETS,
   getScheduleRounds,
   getPickerForRound,
   getRoundTypeName
@@ -84,6 +85,7 @@ const store = new GameStore(createInitialMatchState({ theme: settings.theme }));
 let syncChannel = null;
 let clock = null;
 let buzzerAnswerTimer = null;
+let hostCustomSchedule = [];
 
 /**
  * Gets a URL relative to the page currently being served.  Using the page URL
@@ -165,6 +167,86 @@ function initClock() {
   });
 }
 
+function initHostScheduleEditor() {
+  const presetSelect = document.getElementById('setup-schedule');
+  const editor = document.getElementById('host-custom-schedule-editor');
+  const list = document.getElementById('host-custom-schedule-list');
+  const addSelect = document.getElementById('host-add-round-type');
+  const addButton = document.getElementById('host-add-round-btn');
+  if (!presetSelect || !editor || !list || !addSelect || !addButton) return;
+
+  const initialPreset = settings.schedulePreset || 'tv-15';
+  presetSelect.value = SCHEDULE_PRESETS[initialPreset] || initialPreset === 'custom'
+    ? initialPreset
+    : 'tv-15';
+  hostCustomSchedule = getScheduleRounds('custom', settings.customSchedule);
+  if (hostCustomSchedule.length === 0) hostCustomSchedule = [...SCHEDULE_PRESETS['tv-15'].rounds];
+
+  const render = () => {
+    const isCustom = presetSelect.value === 'custom';
+    editor.hidden = !isCustom;
+    if (!isCustom) return;
+
+    list.replaceChildren();
+    hostCustomSchedule.forEach((code, index) => {
+      const item = document.createElement('div');
+      item.draggable = true;
+      item.className = 'btn btn--sm btn--secondary';
+      item.style.cursor = 'grab';
+      item.setAttribute('aria-label', `Round ${index + 1}: ${getRoundTypeName(code)}. Drag to reorder.`);
+
+      const label = document.createElement('span');
+      label.textContent = `R${index + 1}: ${getRoundTypeName(code)}`;
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'btn btn--sm';
+      remove.style.marginLeft = '0.35rem';
+      remove.style.padding = '0 0.25rem';
+      remove.textContent = '×';
+      remove.title = `Remove round ${index + 1}`;
+      remove.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (hostCustomSchedule.length <= 1) {
+          showToast('A match must contain at least 1 round.', 'error');
+          return;
+        }
+        hostCustomSchedule.splice(index, 1);
+        render();
+      });
+      item.append(label, remove);
+
+      let dragIndex = null;
+      item.addEventListener('dragstart', () => { dragIndex = index; });
+      item.addEventListener('dragover', (event) => event.preventDefault());
+      item.addEventListener('drop', (event) => {
+        event.preventDefault();
+        if (dragIndex === null || dragIndex === index) return;
+        const [moved] = hostCustomSchedule.splice(dragIndex, 1);
+        hostCustomSchedule.splice(index, 0, moved);
+        render();
+      });
+      list.appendChild(item);
+    });
+  };
+
+  presetSelect.addEventListener('change', () => {
+    if (presetSelect.value !== 'custom') {
+      hostCustomSchedule = [...SCHEDULE_PRESETS[presetSelect.value].rounds];
+    }
+    render();
+  });
+  addButton.addEventListener('click', () => {
+    if (hostCustomSchedule.length >= 25) {
+      showToast('Maximum 25 rounds per match.', 'error');
+      return;
+    }
+    hostCustomSchedule.push(addSelect.value);
+    presetSelect.value = 'custom';
+    render();
+  });
+  render();
+}
+
 function startNewMatchFromSetup() {
   const p1Name = document.getElementById('setup-p1-name')?.value.trim() || 'Contestant 1';
   const p2Name = document.getElementById('setup-p2-name')?.value.trim() || 'Contestant 2';
@@ -185,7 +267,13 @@ function startNewMatchFromSetup() {
   requestWakeLock();
 
   letterStacks = createLetterStacks(rng);
-  const schedule = getScheduleRounds(preset, settings.customSchedule);
+  const selectedSchedule = preset === 'custom' ? hostCustomSchedule : SCHEDULE_PRESETS[preset]?.rounds;
+  const schedule = getScheduleRounds(preset, selectedSchedule);
+  if (schedule.length < 1 || schedule.length > 25) {
+    showToast('Custom schedule must contain between 1 and 25 rounds.', 'error');
+    return;
+  }
+  settings = saveSettings({ schedulePreset: preset, customSchedule: [...schedule] });
   const firstType = schedule[0] || 'L';
 
   const fresh = createInitialMatchState({
@@ -923,6 +1011,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   startGamepadPolling();
 
   // Pre-match setup buttons
+  initHostScheduleEditor();
   document.getElementById('btn-start-match')?.addEventListener('click', startNewMatchFromSetup);
 
   const hostBgInput = document.getElementById('host-bg-file-input');
