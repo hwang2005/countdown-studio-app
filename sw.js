@@ -5,7 +5,7 @@
  * while full offline capability is preserved when disconnected.
  */
 
-const CACHE_NAME = 'countdown-studio-v2.2.3';
+const CACHE_NAME = 'countdown-studio-v2.2.4';
 
 const CORE_ASSETS = [
   './',
@@ -17,6 +17,7 @@ const CORE_ASSETS = [
   './manifest.webmanifest',
   './assets/icon.svg',
   './assets/stage-bg.svg',
+  './assets/The%20Countdown%20Clock.mp3',
   './css/base.css',
   './css/theme.css',
   './css/components.css',

@@ -1,8 +1,7 @@
 /**
  * @file js/core/audio.js
- * Synthesised Web Audio API sound engine for Countdown Studio.
- * 100% original procedural synthesis:
- *   - 30-second "Think Music" (woodwind/marimba motif + bass pulse + final ticking + brass buzzer)
+ * Web Audio API sound engine for Countdown Studio.
+ *   - 30-second "Think Music" MP3 + final buzzer
  *   - Tile flip / deal click
  *   - Target slot roll ticks
  *   - Contestant buzzer alert
@@ -20,6 +19,8 @@ class StudioAudioEngine {
     this.volume = 0.75;
     this.unlocked = false;
     this.lastScheduledSecond = -1;
+    this.thinkMusic = new Audio('./assets/The%20Countdown%20Clock.mp3');
+    this.thinkMusic.preload = 'auto';
   }
 
   /**
@@ -59,6 +60,7 @@ class StudioAudioEngine {
         0.02
       );
     }
+    this.thinkMusic.volume = this.muted ? 0 : this.volume;
   }
 
   /**
@@ -70,6 +72,7 @@ class StudioAudioEngine {
     if (this.masterGain && this.ctx && !this.muted) {
       this.masterGain.gain.setTargetAtTime(this.volume, this.ctx.currentTime, 0.02);
     }
+    this.thinkMusic.volume = this.muted ? 0 : this.volume;
   }
 
   /**
@@ -95,8 +98,9 @@ class StudioAudioEngine {
   }
 
   /**
-   * Plays a subtle tick for every elapsed second of the 30s clock,
-   * plus the original synthesised studio "think music" motif.
+   * Starts the supplied 30-second studio "think music" once per clock.
+   * The elapsed-second callback is retained so the final buzzer remains
+   * synchronised with the clock.
    * @param {number} elapsedSeconds Integer 0..30
    * @param {number} totalSeconds Usually 30
    */
@@ -106,7 +110,6 @@ class StudioAudioEngine {
 
     this.unlock().then((ok) => {
       if (!ok || !this.ctx) return;
-      const now = this.ctx.currentTime;
       const remaining = totalSeconds - elapsedSeconds;
 
       if (remaining <= 0) {
@@ -114,62 +117,10 @@ class StudioAudioEngine {
         return;
       }
 
-      // 1. Crisp studio clock tick (higher pitch on even seconds, deeper on odd)
-      const tickOsc = this.ctx.createOscillator();
-      const tickGain = this.ctx.createGain();
-      tickOsc.type = 'sine';
-      const isFinalTen = remaining <= 10;
-      tickOsc.frequency.setValueAtTime(
-        elapsedSeconds % 2 === 0 ? (isFinalTen ? 1180 : 880) : (isFinalTen ? 980 : 660),
-        now
-      );
-      tickGain.gain.setValueAtTime(isFinalTen ? 0.25 : 0.14, now);
-      tickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
-      tickOsc.connect(tickGain);
-      tickGain.connect(this.masterGain);
-      tickOsc.start(now);
-      tickOsc.stop(now + 0.08);
-
-      // 2. Original procedural "think music" arpeggio motif
-      // 4-bar phrase cycling through Fmaj7 -> Em7 -> Dm7 -> G7 -> Cmaj9
-      const motifNotes = [
-        [523.25, 659.25], // C5, E5
-        [587.33, 698.46], // D5, F5
-        [659.25, 783.99], // E5, G5
-        [587.33, 783.99], // D5, G5
-        [523.25, 659.25], // C5, E5
-        [493.88, 587.33], // B4, D5
-        [440.00, 523.25], // A4, C5
-        [392.00, 493.88]  // G4, B4
-      ];
-      const pair = motifNotes[elapsedSeconds % motifNotes.length];
-
-      pair.forEach((freq, idx) => {
-        const noteOsc = this.ctx.createOscillator();
-        const noteGain = this.ctx.createGain();
-        noteOsc.type = isFinalTen ? 'sawtooth' : 'triangle';
-        const start = now + idx * 0.42;
-        noteOsc.frequency.setValueAtTime(freq, start);
-        noteGain.gain.setValueAtTime(isFinalTen ? 0.11 : 0.09, start);
-        noteGain.gain.exponentialRampToValueAtTime(0.001, start + 0.36);
-        noteOsc.connect(noteGain);
-        noteGain.connect(this.masterGain);
-        noteOsc.start(start);
-        noteOsc.stop(start + 0.38);
-      });
-
-      // 3. Warm bass pulse on final 10 seconds
-      if (isFinalTen) {
-        const bassOsc = this.ctx.createOscillator();
-        const bassGain = this.ctx.createGain();
-        bassOsc.type = 'triangle';
-        bassOsc.frequency.setValueAtTime(remaining <= 5 ? 146.83 : 130.81, now);
-        bassGain.gain.setValueAtTime(0.22, now);
-        bassGain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
-        bassOsc.connect(bassGain);
-        bassGain.connect(this.masterGain);
-        bassOsc.start(now);
-        bassOsc.stop(now + 0.48);
+      if (elapsedSeconds === 0) {
+        this.thinkMusic.currentTime = 0;
+        this.thinkMusic.volume = this.volume;
+        this.thinkMusic.play().catch(() => {});
       }
     });
   }
@@ -179,6 +130,8 @@ class StudioAudioEngine {
    */
   resetClockTracker() {
     this.lastScheduledSecond = -1;
+    this.thinkMusic.pause();
+    this.thinkMusic.currentTime = 0;
   }
 
   /**
