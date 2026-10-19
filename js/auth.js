@@ -1,4 +1,6 @@
 /** Shared login, registration and client-side feature guard. */
+import { apiFetch, readApiJson } from './net/api.js';
+
 const TOKEN_KEY = 'countdown_studio_auth_token_v1';
 const USER_KEY = 'countdown_studio_auth_user_v1';
 const path = location.pathname.toLowerCase();
@@ -55,7 +57,7 @@ function addModal() {
     event.preventDefault();
     showMessage('Signing in…');
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await apiFetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -63,7 +65,7 @@ function addModal() {
           password: document.getElementById('auth-password').value,
         }),
       });
-      const data = await response.json();
+      const data = await readApiJson(response);
       if (!response.ok) throw new Error(data.message || 'Login failed.');
       saveSession(data);
     } catch (error) {
@@ -79,8 +81,8 @@ async function guardFeature() {
     return;
   }
   try {
-    const response = await fetch('/api/auth/me', { headers: authHeaders() });
-    const data = await response.json();
+    const response = await apiFetch('/api/auth/me', { headers: authHeaders() });
+    const data = await readApiJson(response);
     if (!response.ok || !data.user.permissions.includes(requiredPermission)) throw new Error();
     localStorage.setItem(USER_KEY, JSON.stringify(data.user));
   } catch {

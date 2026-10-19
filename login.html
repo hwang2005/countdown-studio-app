@@ -367,6 +367,8 @@
     </main>
 
     <script type="module">
+      import { apiFetch, readApiJson } from './js/net/api.js';
+
       const TOKEN_KEY = 'countdown_studio_auth_token_v1';
       const USER_KEY = 'countdown_studio_auth_user_v1';
 
@@ -529,13 +531,13 @@
         setSubmitting(btnSubmitLogin, true, 'Signing in...');
 
         try {
-          const response = await fetch('/api/auth/login', {
+          const response = await apiFetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ identifier, password }),
           });
 
-          const data = await response.json();
+          const data = await readApiJson(response);
           if (!response.ok) {
             throw new Error(data.message || data.error || 'Invalid credentials.');
           }
@@ -585,7 +587,7 @@
         setSubmitting(btnSubmitRegister, true, 'Creating Account...');
 
         try {
-          const response = await fetch('/api/auth/register', {
+          const response = await apiFetch('/api/auth/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -597,7 +599,7 @@
             }),
           });
 
-          const data = await response.json();
+          const data = await readApiJson(response);
           if (!response.ok) {
             throw new Error(data.message || data.error || 'Registration failed.');
           }

@@ -225,6 +225,13 @@ serve the `/ws` WebSocket endpoint. For cross-device rooms, deploy the
 full-stack service below and point the production domain to that service (or
 keep Pages as the frontend and provide a separate `?ws=wss://.../ws` backend).
 
+When the authentication API is hosted separately from the static frontend,
+provide its origin with `?api=https://api.example.com` (or set
+`VITE_API_URL=https://api.example.com` at build time, or set
+`window.__COUNTDOWN_API_URL__` before the application modules load). For
+example, open `https://www.example.com/login.html?api=https%3A%2F%2Fapi.example.com`.
+The same-origin default is used automatically by the full-stack deployment.
+
 ### Deploying to Node.js / Docker / Cloud Run
 
 To support cross-device remote WebSocket rooms without an external WebSocket service:
