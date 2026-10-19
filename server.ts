@@ -82,7 +82,7 @@ function verifyPassword(password: string, stored: string): boolean {
 function publicUser(user: AuthUser) { return { id: user.publicId, username: user.username, email: user.email, displayName: user.displayName, role: user.role, permissions: user.permissions }; }
 async function loadUser(userId: number): Promise<AuthUser | null> {
   const { rows } = await getDbPool().query<any>(`SELECT u.id, u.public_id, u.username, e.email, p.display_name, r.code role
-    FROM users u JOIN user_emails e ON e.user_id=u.id AND e.is_primary=1 JOIN user_profiles p ON p.user_id=u.id
+    FROM users u JOIN user_emails e ON e.user_id=u.id AND e.is_primary=TRUE JOIN user_profiles p ON p.user_id=u.id
     JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id
     JOIN user_statuses s ON s.id=u.status_id AND s.code='active' WHERE u.id=$1 AND (ur.expires_at IS NULL OR ur.expires_at>NOW())`, [userId]);
   const row = rows[0]; if (!row || !['individual', 'organization', 'admin'].includes(row.role)) return null;
