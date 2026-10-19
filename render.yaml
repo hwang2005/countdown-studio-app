@@ -11,3 +11,9 @@ services:
         value: production
       - key: MAX_DISPLAYS_PER_ROOM
         value: "20"
+      - key: DATABASE_URL
+        sync: false
+      - key: DB_SSL
+        value: "true"
+      - key: AUTH_TOKEN_SECRET
+        sync: false
