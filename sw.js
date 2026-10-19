@@ -5,7 +5,7 @@
  * while full offline capability is preserved when disconnected.
  */
 
-const CACHE_NAME = 'countdown-studio-v2.2.4';
+const CACHE_NAME = 'countdown-studio-v2.2.5';
 
 const CORE_ASSETS = [
   './',

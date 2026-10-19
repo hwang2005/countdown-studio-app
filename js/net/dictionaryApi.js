@@ -7,7 +7,7 @@
 
 import { cacheWordDefinition, getCachedWordDefinition } from '../core/storage.js';
 
-const TIMEOUT_MS = 10000;
+const TIMEOUT_MS = 3500;
 
 /**
  * Fetches part of speech and concise definition for a word.
@@ -27,6 +27,43 @@ export async function fetchWordDefinition(word) {
     return null;
   }
 
+  // 1. Try Datamuse API (fast, high-coverage WordNet/GCIDE definitions for Countdown words)
+  const dmController = new AbortController();
+  const dmTimer = setTimeout(() => dmController.abort(), TIMEOUT_MS);
+
+  try {
+    const res = await fetch(
+      `https://api.datamuse.com/words?sp=${encodeURIComponent(clean)}&md=d&max=1`,
+      { signal: dmController.signal }
+    );
+    clearTimeout(dmTimer);
+
+    if (res.ok) {
+      const items = await res.json();
+      if (Array.isArray(items) && items.length > 0 && Array.isArray(items[0].defs) && items[0].defs.length > 0) {
+        const rawDef = items[0].defs[0];
+        const tabIdx = rawDef.indexOf('\t');
+        const posCode = tabIdx !== -1 ? rawDef.slice(0, tabIdx).trim() : 'word';
+        const posMap = { n: 'noun', v: 'verb', adj: 'adjective', adv: 'adverb', u: 'word' };
+        const partOfSpeech = posMap[posCode] || posCode || 'word';
+        const defText = tabIdx !== -1 ? rawDef.slice(tabIdx + 1).trim() : rawDef.trim();
+
+        const entry = {
+          word: clean.toUpperCase(),
+          partOfSpeech,
+          definition: defText || 'Valid entry in lexicon.',
+          phonetic: ''
+        };
+
+        cacheWordDefinition(clean, entry);
+        return entry;
+      }
+    }
+  } catch {
+    clearTimeout(dmTimer);
+  }
+
+  // 2. Fallback to Free Dictionary API
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 

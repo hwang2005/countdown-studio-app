@@ -43,20 +43,7 @@ export async function renderDictionaryCorner(container, solverResult, playerWord
   container.innerHTML = '';
 
   const candidateWords = Array.isArray(solverResult?.topWords) ? solverResult.topWords : [];
-  const loading = document.createElement('p');
-  loading.style.color = 'var(--text-muted)';
-  loading.textContent = 'Checking words in the online dictionary...';
-  container.appendChild(loading);
-
-  // The offline lexicon only supplies solver candidates. Display only words
-  // confirmed by the dictionary API or its API-backed local cache.
-  const checkedWords = await Promise.all(
-    candidateWords.map(async (word) => ({ word, definition: await fetchWordDefinition(word) }))
-  );
-  const definedWords = checkedWords
-    .filter(({ definition }) => definition)
-    .map(({ word }) => word);
-  container.innerHTML = '';
+  const cleanPlayer = (playerWord || '').trim().toUpperCase();
 
   const header = document.createElement('div');
   header.style.display = 'flex';
@@ -71,18 +58,15 @@ export async function renderDictionaryCorner(container, solverResult, playerWord
 
   const meta = document.createElement('div');
   meta.className = 'meta-inline';
-  const cleanPlayer = (playerWord || '').trim().toUpperCase();
+
+  const longestLen = solverResult?.maxLength || (candidateWords[0]?.length || 0);
   const foundMax =
     cleanPlayer.length > 0 &&
-    definedWords.includes(cleanPlayer);
+    (candidateWords.includes(cleanPlayer) || (longestLen > 0 && cleanPlayer.length >= longestLen));
 
-  meta.textContent = `${solverResult.totalFound} valid words in lexicon · Longest: ${
-    solverResult.maxLength || 0
+  meta.textContent = `${solverResult?.totalFound || candidateWords.length} valid words in lexicon · Longest: ${
+    longestLen
   } letters${foundMax ? ' · You matched the maximum length!' : ''}`;
-
-  meta.textContent = `${definedWords.length} words with definitions - Longest: ${
-    definedWords[0]?.length || 0
-  } letters${foundMax ? ' - You matched the maximum length!' : ''}`;
 
   header.appendChild(title);
   header.appendChild(meta);
@@ -97,15 +81,15 @@ export async function renderDictionaryCorner(container, solverResult, playerWord
   const grid = document.createElement('div');
   grid.className = 'dict-word-grid';
 
-  if (definedWords.length === 0) {
+  if (candidateWords.length === 0) {
     const empty = document.createElement('p');
     empty.style.color = 'var(--text-muted)';
-    empty.textContent = 'No words with dictionary definitions were found for this draw.';
+    empty.textContent = 'No words found in lexicon for this draw.';
     container.appendChild(empty);
     return;
   }
 
-  definedWords.forEach((word, index) => {
+  candidateWords.forEach((word, index) => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'dict-word-btn';
@@ -130,8 +114,6 @@ export async function renderDictionaryCorner(container, solverResult, playerWord
       if (info) {
         defBox.textContent = `${info.word} (${info.partOfSpeech}): ${info.definition}`;
       } else {
-        defBox.textContent = 'Definition unavailable.';
-        return;
         defBox.textContent = `${word} (${word.length} letters) — Valid offline Countdown lexicon word.`;
       }
     };
