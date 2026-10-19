@@ -990,3 +990,149 @@
   color: var(--text-primary);
 }
 
+/* ==========================================================================
+   RBAC & PERMISSION LOCK STYLES (Accessible, Impressive, Zero-Glitch)
+   ========================================================================== */
+
+/* Outer wrapper provides the not-allowed cursor and tooltip positioning */
+.auth-restricted-wrap {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  cursor: not-allowed !important;
+  vertical-align: middle;
+  border-radius: var(--radius-md, 6px);
+  max-width: 100%;
+}
+
+.auth-restricted-wrap--block {
+  display: block;
+  width: 100%;
+}
+
+/* Ensure the disabled link itself rejects pointer events ("không thể trỏ vào") */
+.auth-restricted-wrap > a,
+.auth-restricted-wrap > button,
+a.is-permission-locked,
+button.is-permission-locked {
+  pointer-events: none !important;
+  cursor: not-allowed !important;
+  opacity: 0.44 !important;
+  filter: grayscale(0.85) contrast(0.9) !important;
+  box-shadow: none !important;
+  transform: none !important;
+  text-decoration: none !important;
+  user-select: none !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  color: var(--text-muted, #94a3b8) !important;
+  background: rgba(148, 163, 184, 0.06) !important;
+  outline: none !important;
+}
+
+/* Top bar specific locked link */
+.top-bar__link.is-permission-locked,
+.top-bar__link.is-permission-locked:hover {
+  border-bottom-color: transparent !important;
+  color: var(--text-muted, #64748b) !important;
+  background: transparent !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+}
+
+/* Elegant lock badge appended or inline */
+.auth-lock-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-family: var(--font-body, system-ui);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.125rem 0.45rem;
+  border-radius: var(--radius-sm, 4px);
+  background: rgba(239, 68, 68, 0.14);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  margin-left: 0.45rem;
+  line-height: 1.25;
+  pointer-events: none;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.auth-lock-badge__icon {
+  font-size: 0.85em;
+  line-height: 1;
+}
+
+/* Mode Card Restricted Notice */
+.mode-card-restricted-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md, 8px);
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.22);
+  color: #fecaca;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  margin-bottom: var(--space-4, 1rem);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.mode-card-restricted-banner__icon {
+  font-size: 1.15rem;
+  flex-shrink: 0;
+  line-height: 1.2;
+}
+
+/* Toast alert for unauthorized direct URL access */
+.auth-toast-alert {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  max-width: 440px;
+  background: #0f172a;
+  color: #f8fafc;
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 0 16px rgba(239, 68, 68, 0.22);
+  padding: 0.875rem 1.15rem;
+  border-radius: var(--radius-lg, 10px);
+  z-index: 9999;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  animation: slideInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.auth-toast-alert__icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  line-height: 1;
+  color: #f87171;
+}
+
+.auth-toast-alert__close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0.2rem;
+  display: flex;
+  align-items: center;
+  font-size: 1.15rem;
+  line-height: 1;
+  border-radius: 4px;
+}
+
+.auth-toast-alert__close:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+

@@ -88,9 +88,9 @@
       <a href="./index.html" class="top-bar__brand">Countdown Studio</a>
 
       <nav class="top-bar__nav" aria-label="Primary navigation">
-        <a href="./solo.html" class="top-bar__link">Solo Practice</a>
-        <a href="./versus-host.html" class="top-bar__link">Versus Host</a>
-        <a href="./versus-display.html" class="top-bar__link">Stage Display</a>
+        <a href="./solo.html" class="top-bar__link" data-auth-permission="solo:practice">Solo Practice</a>
+        <a href="./versus-host.html" class="top-bar__link" data-auth-permission="host:operations">Versus Host</a>
+        <a href="./versus-display.html" class="top-bar__link" data-auth-permission="stage:display">Stage Display</a>
       </nav>
 
       <div class="top-bar__action">
@@ -128,9 +128,9 @@
             </p>
 
             <div style="display: flex; flex-wrap: wrap; gap: 0.75rem;">
-              <a href="./solo.html" class="btn btn--primary btn--lg">Play Solo Practice</a>
-              <a href="./solo.html?drill=daily" class="btn btn--royal btn--lg">Daily Challenge</a>
-              <a href="./versus-host.html" class="btn btn--secondary btn--lg">Launch Versus Stage Host</a>
+              <a href="./solo.html" class="btn btn--primary btn--lg" data-auth-permission="solo:practice">Play Solo Practice</a>
+              <a href="./solo.html?drill=daily" class="btn btn--royal btn--lg" data-auth-permission="solo:practice">Daily Challenge</a>
+              <a href="./versus-host.html" class="btn btn--secondary btn--lg" data-auth-permission="host:operations">Launch Versus Stage Host</a>
               <button type="button" id="pwa-install-btn" class="btn btn--secondary btn--lg">
                 Install Offline App
               </button>
@@ -189,14 +189,14 @@
               best-word lookups.
             </p>
             <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-              <a href="./solo.html?drill=full" class="btn btn--secondary btn--sm">Full 15-Round Match</a>
-              <a href="./solo.html?drill=letters" class="btn btn--secondary btn--sm">Letters Drill</a>
-              <a href="./solo.html?drill=numbers" class="btn btn--secondary btn--sm">Numbers Drill</a>
-              <a href="./solo.html?drill=conundrum" class="btn btn--secondary btn--sm">Conundrums Only</a>
+              <a href="./solo.html?drill=full" class="btn btn--secondary btn--sm" data-auth-permission="solo:practice">Full 15-Round Match</a>
+              <a href="./solo.html?drill=letters" class="btn btn--secondary btn--sm" data-auth-permission="solo:practice">Letters Drill</a>
+              <a href="./solo.html?drill=numbers" class="btn btn--secondary btn--sm" data-auth-permission="solo:practice">Numbers Drill</a>
+              <a href="./solo.html?drill=conundrum" class="btn btn--secondary btn--sm" data-auth-permission="solo:practice">Conundrums Only</a>
             </div>
           </div>
           <div>
-            <a href="./solo.html" class="btn btn--primary" style="width: 100%;">Enter Solo Studio →</a>
+            <a href="./solo.html" class="btn btn--primary" style="width: 100%;" data-auth-permission="solo:practice">Enter Solo Studio →</a>
           </div>
         </article>
 
@@ -215,7 +215,7 @@
               or TV.
             </p>
             <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-              <a href="./versus-display.html" target="_blank" rel="noopener" class="btn btn--secondary btn--sm">
+              <a href="./versus-display.html" target="_blank" rel="noopener" class="btn btn--secondary btn--sm" data-auth-permission="stage:display">
                 Open 16:9 Stage Display ↗
               </a>
               <button type="button" class="btn btn--secondary btn--sm" data-modal-open="modal-shortcuts">
@@ -224,7 +224,7 @@
             </div>
           </div>
           <div>
-            <a href="./versus-host.html" class="btn btn--royal" style="width: 100%;">Open Host Operator Console →</a>
+            <a href="./versus-host.html" class="btn btn--royal" style="width: 100%;" data-auth-permission="host:operations">Open Host Operator Console →</a>
           </div>
         </article>
       </section>

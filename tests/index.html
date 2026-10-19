@@ -56,9 +56,9 @@
     <header class="top-bar">
       <a href="../index.html" class="top-bar__brand">Countdown Studio</a>
       <nav class="top-bar__nav" aria-label="Primary navigation">
-        <a href="../solo.html" class="top-bar__link">Solo Practice</a>
-        <a href="../versus-host.html" class="top-bar__link">Versus Host</a>
-        <a href="../versus-display.html" class="top-bar__link">Stage Display</a>
+        <a href="../solo.html" class="top-bar__link" data-auth-permission="solo:practice">Solo Practice</a>
+        <a href="../versus-host.html" class="top-bar__link" data-auth-permission="host:operations">Versus Host</a>
+        <a href="../versus-display.html" class="top-bar__link" data-auth-permission="stage:display">Stage Display</a>
       </nav>
       <div class="top-bar__action">
         <a href="../index.html" class="btn btn--secondary btn--sm">Back to Studio</a>
@@ -111,6 +111,12 @@
       } from '../js/game/scoring.js';
       import { buildCustomDictionary, solveLettersRound } from '../js/solver/wordSolver.js';
       import { solveNumbersRound } from '../js/solver/numbersSolver.js';
+      import {
+        getRequiredPermissionForHref,
+        getPermissionMetadata,
+        hasPermission,
+        applyPermissionGuards
+      } from '../js/auth.js';
 
       const listEl = document.getElementById('test-results-list');
       const summaryEl = document.getElementById('test-summary-badge');
@@ -251,6 +257,47 @@
           threw = true;
         }
         assert('GameStore throws error on illegal state transition', threw === true);
+      }
+
+      // 8. RBAC and Link Protection Enforcement
+      {
+        assert('Route resolver maps solo.html to solo:practice', getRequiredPermissionForHref('./solo.html') === 'solo:practice');
+        assert('Route resolver maps versus-host.html to host:operations', getRequiredPermissionForHref('./versus-host.html') === 'host:operations');
+        assert('Route resolver maps versus-display.html to stage:display', getRequiredPermissionForHref('./versus-display.html') === 'stage:display');
+        assert('Route resolver ignores general links', getRequiredPermissionForHref('./index.html') === null);
+
+        const testContainer = document.createElement('div');
+        testContainer.id = 'test-rbac-container';
+        testContainer.innerHTML = `
+          <a id="test-link-solo" href="./solo.html">Solo</a>
+          <a id="test-link-host" href="./versus-host.html">Host</a>
+          <a id="test-link-display" href="./versus-display.html">Display</a>
+        `;
+        document.body.appendChild(testContainer);
+
+        // Simulate Individual player account
+        localStorage.setItem('countdown_studio_auth_user_v1', JSON.stringify({
+          username: 'player_test',
+          role: 'individual',
+          permissions: ['solo:practice']
+        }));
+
+        applyPermissionGuards();
+
+        const soloLink = document.getElementById('test-link-solo');
+        const hostLink = document.getElementById('test-link-host');
+        const displayLink = document.getElementById('test-link-display');
+
+        assert('Player can access solo link (not locked)', !soloLink.classList.contains('is-permission-locked') && soloLink.hasAttribute('href'));
+        assert('Player cannot access host link (is locked)', hostLink.classList.contains('is-permission-locked'));
+        assert('Player host link href removed to data-restricted-href', !hostLink.hasAttribute('href') && hostLink.getAttribute('data-restricted-href') === './versus-host.html');
+        assert('Player host link has aria-disabled and tabindex=-1', hostLink.getAttribute('aria-disabled') === 'true' && hostLink.getAttribute('tabindex') === '-1');
+        assert('Player host link wrapped in not-allowed container', hostLink.parentElement.classList.contains('auth-restricted-wrap'));
+        assert('Player cannot access display link (is locked)', displayLink.classList.contains('is-permission-locked'));
+
+        // Clean up test elements
+        testContainer.remove();
+        localStorage.removeItem('countdown_studio_auth_user_v1');
       }
 
       summaryEl.textContent = `${passed} Passed · ${failed} Failed`;

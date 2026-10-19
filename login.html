@@ -32,12 +32,12 @@
 
       <nav class="top-bar__nav" aria-label="Primary navigation">
         <a href="./index.html" class="top-bar__link">Home</a>
-        <a href="./solo.html" class="top-bar__link">Solo Practice</a>
+        <a href="./solo.html" class="top-bar__link" data-auth-permission="solo:practice">Solo Practice</a>
       </nav>
 
       <div class="top-bar__action">
-        <a href="./solo.html" class="btn btn--secondary btn--sm" id="btn-guest-entry">
-          Continue as Guest
+        <a href="./index.html" class="btn btn--secondary btn--sm">
+          ← Back to Studio
         </a>
       </div>
     </header>
@@ -614,5 +614,6 @@
       // Initialize requested view mode
       setMode(initialMode === 'register' ? 'register' : 'login');
     </script>
+    <script type="module" src="./js/auth.js"></script>
   </body>
 </html>

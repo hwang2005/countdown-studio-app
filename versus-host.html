@@ -70,13 +70,13 @@
       <a href="./index.html" class="top-bar__brand">Countdown Studio</a>
 
       <nav class="top-bar__nav" aria-label="Primary navigation">
-        <a href="./solo.html" class="top-bar__link">Solo Practice</a>
-        <a href="./versus-host.html" class="top-bar__link" aria-current="page">Versus Host</a>
+        <a href="./solo.html" class="top-bar__link" data-auth-permission="solo:practice">Solo Practice</a>
+        <a href="./versus-host.html" class="top-bar__link" aria-current="page" data-auth-permission="host:operations">Versus Host</a>
         <button type="button" id="host-btn-remote-room" class="btn btn--secondary btn--sm" title="Phát sóng trận đấu đến máy khác qua mã phòng và QR code">
           <span class="status-dot status-dot--offline" id="host-remote-dot"></span>
           🌐 <span id="host-remote-btn-text">Phòng Trực Tuyến</span>
         </button>
-        <button type="button" id="host-btn-embedded-display" class="btn btn--royal btn--sm" title="View the live 16:9 Stage Display in a full-screen window/modal">
+        <button type="button" id="host-btn-embedded-display" class="btn btn--royal btn--sm" title="View the live 16:9 Stage Display in a full-screen window/modal" data-auth-permission="stage:display">
           📺 Open Stage Display
         </button>
       </nav>
@@ -336,7 +336,7 @@
               <button type="button" id="host-btn-toggle-display-controls" class="btn btn--secondary btn--sm" title="Ẩn hoặc hiện các nút điều khiển trên màn hình Stage Display (Phím C trên Display)">
                 👁 Display Controls
               </button>
-              <a href="./versus-display.html" target="_blank" rel="noopener" class="btn btn--royal btn--sm" title="Open Stage Display in a separate browser window/tab">
+              <a href="./versus-display.html" target="_blank" rel="noopener" class="btn btn--royal btn--sm" title="Open Stage Display in a separate browser window/tab" data-auth-permission="stage:display">
                 Pop Out Window ↗
               </a>
             </div>
@@ -690,7 +690,7 @@
             border: 1px solid var(--border-subtle);
           "
         >
-          <a href="./versus-display.html" target="_blank" rel="noopener" class="btn btn--sm btn--secondary">
+          <a href="./versus-display.html" target="_blank" rel="noopener" class="btn btn--sm btn--secondary" data-auth-permission="stage:display">
             Pop Out New Window ↗
           </a>
           <button type="button" id="btn-close-stage-modal" class="btn btn--sm btn--primary">
