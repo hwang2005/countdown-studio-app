@@ -238,12 +238,16 @@ async function startServer() {
     if (!identifier || !password) return res.status(400).json({ error: 'INVALID_INPUT' });
     try {
       const { rows } = await getDbPool().query<any>(`SELECT u.id, c.password_hash FROM users u JOIN user_credentials c ON c.user_id=u.id
-        LEFT JOIN user_emails e ON e.user_id=u.id WHERE (LOWER(u.username)=LOWER($1) OR LOWER(e.email)=LOWER($2)) AND e.is_primary=TRUE LIMIT 1`, [identifier, identifier]);
+        JOIN user_emails e ON e.user_id=u.id AND e.is_primary=TRUE
+        WHERE LOWER(u.username)=LOWER($1) OR LOWER(e.email)=LOWER($2) LIMIT 1`, [identifier, identifier]);
       if (!rows[0] || !verifyPassword(password, rows[0].password_hash)) return res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Thông tin đăng nhập không đúng.' });
       const user = await loadUser(rows[0].id); if (!user) return res.status(403).json({ error: 'ACCOUNT_INACTIVE_OR_ROLE_INVALID' });
       await getDbPool().query('UPDATE user_credentials SET last_login_at=NOW(), failed_attempts=0 WHERE user_id=$1', [user.id]);
       return res.json({ user: publicUser(user), token: signSession(user) });
-    } catch { return res.status(503).json({ error: 'AUTH_DATABASE_UNAVAILABLE', message: 'Không thể kết nối cơ sở dữ liệu.' }); }
+    } catch (error) {
+      console.error('[Auth] Login failed:', error);
+      return res.status(503).json({ error: 'AUTH_DATABASE_UNAVAILABLE', message: 'Không thể kết nối cơ sở dữ liệu.' });
+    }
   });
   app.get('/api/auth/me', async (req: Request, res: Response) => { try { const user = await authenticateToken(bearer(req)); if (!user) return res.status(401).json({ error: 'UNAUTHENTICATED' }); return res.json({ user: publicUser(user) }); } catch { return res.status(503).json({ error: 'AUTH_DATABASE_UNAVAILABLE' }); } });
   app.get('/api/auth/config', (_req, res) => res.json({ adminRegistrationEnabled: Boolean(process.env.ADMIN_REGISTRATION_CODE) }));
