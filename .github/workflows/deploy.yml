@@ -34,6 +34,8 @@ jobs:
 
       - name: Build static site with Vite
         run: npm run build
+        env:
+          VITE_API_URL: https://countdown-studio-app.onrender.com/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
