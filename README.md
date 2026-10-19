@@ -20,10 +20,12 @@ npm install
 npm run dev
 
 # 3. (Optional) Run TypeScript type checks or build production bundles
-npm run lint    # tsc --noEmit
-npm run build   # vite build (outputs to dist/)
+npm run lint         # tsc --noEmit
+npm run build        # vite build (outputs to dist/)
 npm run build:server # compile server.ts to dist-server/
-npm run preview # vite preview
+npm run build:all    # run both build and build:server
+npm run preview      # vite preview
+npm run clean        # rm -rf dist dist-server
 ```
 
 ### Option B: Static Mode (No Build Step Required)
@@ -249,10 +251,14 @@ countdown-studio-app/
 ├── server.ts                   # Express & WebSocket server (Node.js/TypeScript)
 ├── vite.config.ts              # Vite multi-page build configuration
 ├── package.json                # Dependencies and npm scripts
-├── tsconfig.json               # TypeScript compiler configuration
+├── tsconfig.json               # TypeScript compiler configuration (client)
+├── tsconfig.server.json        # TypeScript compiler configuration (server)
 ├── sw.js                       # Service Worker for offline PWA caching
 ├── manifest.webmanifest        # Progressive Web App manifest
 ├── CNAME                       # Custom domain definition
+├── Dockerfile                  # Container build specification
+├── render.yaml                 # Render cloud deployment blueprint
+├── .env.example                # Sample environment configuration
 │
 ├── css/                        # Modular Vanilla CSS System
 │   ├── theme.css               # Design tokens, color palettes, and themes
