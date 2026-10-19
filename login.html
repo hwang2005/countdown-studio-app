@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="en" data-theme="classic-blue">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sign In &amp; Register — Countdown Studio</title>
+    <meta
+      name="description"
+      content="Sign in or create an Individual account to access Countdown Solo Practice, the Oxford Dictionary Corner solver, and 30-second broadcast drills."
+    />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="./assets/icon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Fraunces:opsz,wght@9..144,700;9..144,800&family=JetBrains+Mono:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./css/theme.css" />
+    <link rel="stylesheet" href="./css/base.css" />
+    <link rel="stylesheet" href="./css/components.css" />
+    <link rel="stylesheet" href="./css/animations.css" />
+  </head>
+  <body class="auth-page">
+    <a href="#auth-card-section" class="skip-link">Skip to authentication form</a>
+
+    <!-- Top Navigation Bar -->
+    <header class="top-bar" role="banner">
+      <a href="./index.html" class="top-bar__brand" aria-label="Countdown Studio Home">
+        Countdown Studio
+      </a>
+
+      <nav class="top-bar__nav" aria-label="Primary navigation">
+        <a href="./index.html" class="top-bar__link">Home</a>
+        <a href="./solo.html" class="top-bar__link">Solo Practice</a>
+      </nav>
+
+      <div class="top-bar__action">
+        <a href="./solo.html" class="btn btn--secondary btn--sm" id="btn-guest-entry">
+          Continue as Guest
+        </a>
+      </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="auth-main" id="auth-card-section">
+      <div class="auth-container">
+        <div class="auth-split-grid">
+          
+          <!-- Left Column: Individual Role Showcase -->
+          <section class="auth-showcase" aria-labelledby="showcase-title">
+            <div class="auth-showcase__glow" aria-hidden="true"></div>
+
+            <div>
+              <div class="auth-showcase__header">
+                <!-- 3D Countdown Studio Tiles -->
+                <div class="auth-showcase__tiles" aria-label="Tiles spelling SOLO">
+                  <span class="auth-showcase__tile">S</span>
+                  <span class="auth-showcase__tile">O</span>
+                  <span class="auth-showcase__tile">L</span>
+                  <span class="auth-showcase__tile">O</span>
+                </div>
+                <h1 class="auth-showcase__title" id="showcase-title">
+                  Solo Practice Studio
+                </h1>
+                <p class="auth-showcase__desc">
+                  An authentic broadcast recreation of the UK's iconic 30-second word and mental arithmetic television game.
+                </p>
+              </div>
+
+              <!-- Individual Features List -->
+              <div class="auth-perks-list">
+                <div class="auth-perk-item">
+                  <div class="auth-perk-icon" aria-hidden="true">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="4 7 4 4 20 4 20 7"></polyline>
+                      <line x1="9" y1="20" x2="15" y2="20"></line>
+                      <line x1="12" y1="4" x2="12" y2="20"></line>
+                    </svg>
+                  </div>
+                  <div>
+                    <h4>Letters Game &amp; Dictionary Corner</h4>
+                    <p>Pick vowels &amp; consonants, test your solutions against 370,000+ words from official Scrabble/Oxford lexicons.</p>
+                  </div>
+                </div>
+
+                <div class="auth-perk-item">
+                  <div class="auth-perk-icon" aria-hidden="true">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="4" y="4" width="16" height="16" rx="2"></rect>
+                      <line x1="8" y1="12" x2="16" y2="12"></line>
+                      <line x1="12" y1="8" x2="12" y2="16"></line>
+                    </svg>
+                  </div>
+                  <div>
+                    <h4>Numbers Game Arithmetic Engine</h4>
+                    <p>Target numbers from 101 to 999 with recursive solver breakdowns and interactive scratchboard calculation.</p>
+                  </div>
+                </div>
+
+                <div class="auth-perk-item">
+                  <div class="auth-perk-icon" aria-hidden="true">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                  </div>
+                  <div>
+                    <h4>30-Second Broadcast Clock</h4>
+                    <p>Authentic audio-visual sweep hand, chime cues, and tension drills for tournament preparation.</p>
+                  </div>
+                </div>
+
+                <div class="auth-perk-item">
+                  <div class="auth-perk-icon" aria-hidden="true">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                      <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                      <polyline points="7 3 7 8 15 8"></polyline>
+                    </svg>
+                  </div>
+                  <div>
+                    <h4>Offline-Ready Local Storage</h4>
+                    <p>Practice smoothly anywhere without an active connection; stats and custom seeds stay cached locally.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Role Summary Callout -->
+            <div class="auth-role-summary-box">
+              <span class="auth-role-summary-box__badge">Individual Role</span>
+              <span class="auth-role-summary-box__text">
+                Self-registered account with permanent access to Solo Practice. No organization code or host pass needed.
+              </span>
+            </div>
+          </section>
+
+          <!-- Right Column: Interactive Login / Register Form -->
+          <section class="auth-card" aria-label="Account Authentication">
+            
+            <!-- Tab Controls -->
+            <div class="auth-tabs" role="tablist" aria-label="Sign In or Register options">
+              <button
+                type="button"
+                role="tab"
+                id="tab-btn-login"
+                class="auth-tab-btn is-active"
+                aria-selected="true"
+                aria-controls="auth-form-login"
+              >
+                Sign In
+              </button>
+              <button
+                type="button"
+                role="tab"
+                id="tab-btn-register"
+                class="auth-tab-btn"
+                aria-selected="false"
+                aria-controls="auth-form-register"
+              >
+                Create Account
+              </button>
+            </div>
+
+            <!-- Dynamic Alert Box -->
+            <div id="auth-alert" class="auth-alert auth-alert--info" role="alert" aria-live="polite" hidden>
+              <span id="auth-alert-icon" aria-hidden="true">ℹ️</span>
+              <span id="auth-alert-text"></span>
+            </div>
+
+            <!-- ===================== -->
+            <!-- 1. SIGN IN FORM       -->
+            <!-- ===================== -->
+            <form id="auth-form-login" class="auth-form anim-fade-in" role="tabpanel" aria-labelledby="tab-btn-login" novalidate>
+              <div class="auth-field">
+                <label for="login-identifier" class="auth-label">
+                  Username or Email
+                </label>
+                <input
+                  id="login-identifier"
+                  type="text"
+                  name="identifier"
+                  class="input-field"
+                  placeholder="e.g. rachel_riley or player@example.com"
+                  autocomplete="username"
+                  required
+                  spellcheck="false"
+                />
+              </div>
+
+              <div class="auth-field">
+                <div class="auth-label">
+                  <label for="login-password">Password</label>
+                  <a href="#help" id="link-forgot-pass" class="auth-label-help">Forgot credentials?</a>
+                </div>
+                <div class="auth-input-wrapper">
+                  <input
+                    id="login-password"
+                    type="password"
+                    name="password"
+                    class="input-field"
+                    placeholder="Enter your account password"
+                    autocomplete="current-password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    class="auth-input-toggle"
+                    data-toggle-target="login-password"
+                    aria-label="Toggle password visibility"
+                  >
+                    <svg class="icon-eye" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <div class="auth-field" style="flex-direction:row;align-items:center;gap:.6rem;margin-top:.2rem">
+                <input type="checkbox" id="login-remember" checked style="accent-color:var(--accent-primary);width:16px;height:16px;cursor:pointer">
+                <label for="login-remember" style="font-size:0.8125rem;color:var(--text-secondary);cursor:pointer">
+                  Remember my session on this device
+                </label>
+              </div>
+
+              <button type="submit" class="btn btn--primary btn--block btn--lg" id="btn-submit-login">
+                Sign In to Studio
+              </button>
+
+              <p class="auth-footer-note">
+                New to Countdown Studio?
+                <a href="#register" id="link-switch-to-register">Create an Individual account</a>.
+              </p>
+            </form>
+
+            <!-- ===================== -->
+            <!-- 2. REGISTER FORM      -->
+            <!-- ===================== -->
+            <form id="auth-form-register" class="auth-form anim-fade-in" role="tabpanel" aria-labelledby="tab-btn-register" hidden novalidate>
+              
+              <div class="auth-field">
+                <label for="register-display-name" class="auth-label">
+                  Display Name
+                  <span class="auth-label-help">Shown on your practice drills</span>
+                </label>
+                <input
+                  id="register-display-name"
+                  type="text"
+                  name="displayName"
+                  class="input-field"
+                  placeholder="e.g. Susie Dent"
+                  autocomplete="name"
+                  required
+                />
+              </div>
+
+              <div class="auth-field">
+                <label for="register-username" class="auth-label">
+                  Username
+                  <span class="auth-label-help">3–32 characters</span>
+                </label>
+                <input
+                  id="register-username"
+                  type="text"
+                  name="username"
+                  class="input-field"
+                  placeholder="e.g. dictionary_whiz"
+                  autocomplete="username"
+                  required
+                  pattern="[a-zA-Z0-9_.-]{3,32}"
+                  spellcheck="false"
+                />
+                <span class="auth-field-hint">Allowed: letters, numbers, hyphens, dots, and underscores</span>
+              </div>
+
+              <div class="auth-field">
+                <label for="register-email" class="auth-label">
+                  Email Address
+                </label>
+                <input
+                  id="register-email"
+                  type="email"
+                  name="email"
+                  class="input-field"
+                  placeholder="e.g. wordsmith@example.com"
+                  autocomplete="email"
+                  required
+                />
+              </div>
+
+              <div class="auth-field">
+                <label for="register-password" class="auth-label">
+                  Password
+                  <span class="auth-label-help">Minimum 8 characters</span>
+                </label>
+                <div class="auth-input-wrapper">
+                  <input
+                    id="register-password"
+                    type="password"
+                    name="password"
+                    class="input-field"
+                    placeholder="Create a strong password"
+                    autocomplete="new-password"
+                    minlength="8"
+                    required
+                  />
+                  <button
+                    type="button"
+                    class="auth-input-toggle"
+                    data-toggle-target="register-password"
+                    aria-label="Toggle password visibility"
+                  >
+                    <svg class="icon-eye" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                  </button>
+                </div>
+
+                <!-- Password strength indicator -->
+                <div class="auth-strength" aria-live="polite">
+                  <div class="auth-strength__bar-wrap">
+                    <div id="password-strength-bar" class="auth-strength__bar"></div>
+                  </div>
+                  <div class="auth-strength__text">
+                    <span id="password-strength-label">Security check</span>
+                    <span id="password-strength-hint">At least 8 characters</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Role Confirmation Card (Preset to Individual) -->
+              <div class="auth-field">
+                <span class="auth-label">Account Role</span>
+                <div class="auth-role-pill-group">
+                  <div class="auth-role-pill-info">
+                    <span class="auth-role-pill-title">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--status-valid)">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                      </svg>
+                      Individual Player
+                    </span>
+                    <span class="auth-role-pill-desc">Solo Practice &amp; Dictionary Corner included</span>
+                  </div>
+                  <span class="auth-role-tag">Ready Instantly</span>
+                </div>
+                <input type="hidden" id="register-role" name="role" value="individual" />
+              </div>
+
+              <button type="submit" class="btn btn--primary btn--block btn--lg" id="btn-submit-register">
+                Create Individual Account
+              </button>
+
+              <p class="auth-footer-note">
+                Already registered?
+                <a href="#login" id="link-switch-to-login">Sign into your account</a>.
+              </p>
+            </form>
+
+          </section>
+
+        </div>
+      </div>
+    </main>
+
+    <script type="module">
+      const TOKEN_KEY = 'countdown_studio_auth_token_v1';
+      const USER_KEY = 'countdown_studio_auth_user_v1';
+
+      // Elements
+      const tabBtnLogin = document.getElementById('tab-btn-login');
+      const tabBtnRegister = document.getElementById('tab-btn-register');
+      const formLogin = document.getElementById('auth-form-login');
+      const formRegister = document.getElementById('auth-form-register');
+      const alertBox = document.getElementById('auth-alert');
+      const alertText = document.getElementById('auth-alert-text');
+      const alertIcon = document.getElementById('auth-alert-icon');
+      const linkSwitchRegister = document.getElementById('link-switch-to-register');
+      const linkSwitchLogin = document.getElementById('link-switch-to-login');
+      const linkForgotPass = document.getElementById('link-forgot-pass');
+      const registerPasswordInput = document.getElementById('register-password');
+      const strengthBar = document.getElementById('password-strength-bar');
+      const strengthLabel = document.getElementById('password-strength-label');
+      const strengthHint = document.getElementById('password-strength-hint');
+      const btnSubmitLogin = document.getElementById('btn-submit-login');
+      const btnSubmitRegister = document.getElementById('btn-submit-register');
+
+      // Query param handling
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirectTarget = urlParams.get('redirect') || './solo.html';
+      const initialMode = urlParams.get('mode') || (window.location.hash === '#register' ? 'register' : 'login');
+
+      // Check if user is already logged in
+      try {
+        const existingToken = localStorage.getItem(TOKEN_KEY);
+        const existingUser = JSON.parse(localStorage.getItem(USER_KEY) || 'null');
+        if (existingToken && existingUser) {
+          showAlert(`Signed in as ${existingUser.displayName || existingUser.username}. Redirecting to Solo Practice...`, 'success');
+          setTimeout(() => {
+            window.location.href = redirectTarget;
+          }, 800);
+        }
+      } catch (err) {}
+
+      // Tab Switcher
+      function setMode(mode) {
+        const isLogin = mode === 'login';
+
+        tabBtnLogin.classList.toggle('is-active', isLogin);
+        tabBtnLogin.setAttribute('aria-selected', isLogin ? 'true' : 'false');
+        formLogin.hidden = !isLogin;
+
+        tabBtnRegister.classList.toggle('is-active', !isLogin);
+        tabBtnRegister.setAttribute('aria-selected', isLogin ? 'false' : 'true');
+        formRegister.hidden = isLogin;
+
+        hideAlert();
+
+        if (isLogin) {
+          document.getElementById('login-identifier')?.focus();
+        } else {
+          document.getElementById('register-display-name')?.focus();
+        }
+      }
+
+      tabBtnLogin.addEventListener('click', () => setMode('login'));
+      tabBtnRegister.addEventListener('click', () => setMode('register'));
+      linkSwitchRegister.addEventListener('click', (e) => {
+        e.preventDefault();
+        setMode('register');
+      });
+      linkSwitchLogin.addEventListener('click', (e) => {
+        e.preventDefault();
+        setMode('login');
+      });
+
+      linkForgotPass.addEventListener('click', (e) => {
+        e.preventDefault();
+        showAlert('Password recovery is handled locally or via server administrator. If testing locally, you can register a new username instantly.', 'info');
+      });
+
+      // Show / Hide password toggles
+      document.querySelectorAll('.auth-input-toggle').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const targetId = btn.getAttribute('data-toggle-target');
+          const input = document.getElementById(targetId);
+          if (!input) return;
+
+          const isPassword = input.getAttribute('type') === 'password';
+          input.setAttribute('type', isPassword ? 'text' : 'password');
+          btn.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
+          btn.style.color = isPassword ? 'var(--accent-primary)' : 'var(--text-muted)';
+        });
+      });
+
+      // Password Strength Checker
+      registerPasswordInput.addEventListener('input', () => {
+        const val = registerPasswordInput.value;
+        if (!val) {
+          strengthBar.className = 'auth-strength__bar';
+          strengthLabel.textContent = 'Security check';
+          strengthHint.textContent = 'At least 8 characters';
+          return;
+        }
+
+        let score = 0;
+        if (val.length >= 8) score++;
+        if (/[A-Z]/.test(val) && /[a-z]/.test(val)) score++;
+        if (/[0-9]/.test(val)) score++;
+        if (/[^A-Za-z0-9]/.test(val)) score++;
+
+        if (val.length < 8) {
+          strengthBar.className = 'auth-strength__bar is-weak';
+          strengthLabel.textContent = 'Too short';
+          strengthHint.textContent = `${8 - val.length} more characters needed`;
+        } else if (score <= 2) {
+          strengthBar.className = 'auth-strength__bar is-medium';
+          strengthLabel.textContent = 'Good password';
+          strengthHint.textContent = 'Add numbers or symbols to strengthen';
+        } else {
+          strengthBar.className = 'auth-strength__bar is-strong';
+          strengthLabel.textContent = 'Strong password';
+          strengthHint.textContent = 'Excellent protection';
+        }
+      });
+
+      // Alert helper
+      function showAlert(message, type = 'info') {
+        alertBox.hidden = false;
+        alertBox.className = `auth-alert auth-alert--${type} anim-fade-in`;
+        alertText.textContent = message;
+        alertIcon.textContent = type === 'error' ? '⚠️' : type === 'success' ? '✅' : 'ℹ️';
+      }
+
+      function hideAlert() {
+        alertBox.hidden = true;
+      }
+
+      function setSubmitting(button, isSubmitting, text) {
+        button.disabled = isSubmitting;
+        button.textContent = text;
+      }
+
+      function saveSession(data) {
+        localStorage.setItem(TOKEN_KEY, data.token);
+        localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+        showAlert(`Welcome, ${data.user.displayName || data.user.username}! Loading Solo Practice...`, 'success');
+        setTimeout(() => {
+          window.location.href = redirectTarget;
+        }, 600);
+      }
+
+      // Handle Login Submit
+      formLogin.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        hideAlert();
+
+        const identifier = document.getElementById('login-identifier').value.trim();
+        const password = document.getElementById('login-password').value;
+
+        if (!identifier || !password) {
+          showAlert('Please provide both username/email and password.', 'error');
+          return;
+        }
+
+        setSubmitting(btnSubmitLogin, true, 'Signing in...');
+
+        try {
+          const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier, password }),
+          });
+
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.message || data.error || 'Invalid credentials.');
+          }
+
+          saveSession(data);
+        } catch (err) {
+          showAlert(err.message || 'Unable to connect to the authentication service.', 'error');
+          setSubmitting(btnSubmitLogin, false, 'Sign In to Studio');
+        }
+      });
+
+      // Handle Register Submit (Individual role)
+      formRegister.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        hideAlert();
+
+        const displayName = document.getElementById('register-display-name').value.trim();
+        const username = document.getElementById('register-username').value.trim();
+        const email = document.getElementById('register-email').value.trim();
+        const password = document.getElementById('register-password').value;
+        const role = 'individual';
+
+        if (!displayName) {
+          showAlert('Please enter your display name.', 'error');
+          document.getElementById('register-display-name').focus();
+          return;
+        }
+
+        if (!/^[a-zA-Z0-9_.-]{3,32}$/.test(username)) {
+          showAlert('Username must be 3 to 32 characters (letters, numbers, hyphens, dots, underscores).', 'error');
+          document.getElementById('register-username').focus();
+          return;
+        }
+
+        if (!/^\S+@\S+\.\S+$/.test(email)) {
+          showAlert('Please enter a valid email address.', 'error');
+          document.getElementById('register-email').focus();
+          return;
+        }
+
+        if (password.length < 8) {
+          showAlert('Password must contain at least 8 characters.', 'error');
+          document.getElementById('register-password').focus();
+          return;
+        }
+
+        setSubmitting(btnSubmitRegister, true, 'Creating Account...');
+
+        try {
+          const response = await fetch('/api/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              displayName,
+              username,
+              email,
+              password,
+              role,
+            }),
+          });
+
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.message || data.error || 'Registration failed.');
+          }
+
+          saveSession(data);
+        } catch (err) {
+          showAlert(err.message || 'Unable to complete registration.', 'error');
+          setSubmitting(btnSubmitRegister, false, 'Create Individual Account');
+        }
+      });
+
+      // Initialize requested view mode
+      setMode(initialMode === 'register' ? 'register' : 'login');
+    </script>
+  </body>
+</html>

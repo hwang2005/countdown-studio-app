@@ -18,6 +18,7 @@ export default defineConfig(() => {
           solo: path.resolve(__dirname, 'solo.html'),
           host: path.resolve(__dirname, 'versus-host.html'),
           display: path.resolve(__dirname, 'versus-display.html'),
+          login: path.resolve(__dirname, 'login.html'),
           tests: path.resolve(__dirname, 'tests/index.html'),
         },
       },

@@ -16,6 +16,7 @@ const REMOTE_RECONNECT_DELAY_MS = 1000;
 const MAX_REMOTE_CONNECT_ATTEMPTS = 2;
 const STAGE_WS_QUERY_PARAM = 'ws';
 const STAGE_WS_GLOBAL_CONFIG = '__COUNTDOWN_STAGE_WS_URL__';
+const AUTH_TOKEN_KEY = 'countdown_studio_auth_token_v1';
 
 function getBrowserLocation() {
   return typeof window !== 'undefined' ? window.location : null;
@@ -262,11 +263,13 @@ export class StageSyncChannel {
             type: 'host:auth',
             roomId: this.roomId,
             pin: this.hostPin,
+            authToken: localStorage.getItem(AUTH_TOKEN_KEY) || '',
           }));
         } else {
           socket.send(JSON.stringify({
             type: 'display:join',
             roomId: this.roomId,
+            authToken: localStorage.getItem(AUTH_TOKEN_KEY) || '',
           }));
         }
 

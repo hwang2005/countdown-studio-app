@@ -51,6 +51,20 @@ Once running, navigate to:
 - **Server Health Endpoint:** `http://localhost:3000/api/health`
 - **Room Inspection Endpoint:** `http://localhost:3000/api/room/:roomId`
 
+### Authentication & roles
+
+The backend exposes `/api/auth/register`, `/api/auth/login`, and `/api/auth/me`.
+Run `database/auth-rbac.sql` after the schema from `chat/chat3.md` to add the
+application roles and permissions. Public registration accepts `individual`
+(Solo Practice) and `admin` (requires `ADMIN_REGISTRATION_CODE`); `organization`
+accounts are provisioned by an administrator and can use Stage Display and Host
+Operations. Admin accounts can use all three features.
+
+Copy `.env.example` to `.env` and set `DB_HOST`, `DB_PORT`, `DB_NAME`,
+`DB_USER`, `DB_PASSWORD`, and a long random `AUTH_TOKEN_SECRET` before starting
+the server. The frontend stores the signed session token locally and sends it
+to the REST and WebSocket APIs.
+
 ---
 
 ## 2. Modes & Feature Highlights

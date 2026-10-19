@@ -5,6 +5,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
+import mysql, { Pool, PoolConnection } from 'mysql2/promise';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,6 +22,64 @@ interface GameRoom {
 }
 
 const rooms = new Map<string, GameRoom>();
+
+type AppRole = 'individual' | 'organization' | 'admin';
+type AuthUser = { id: number; publicId: string; username: string; email: string; displayName: string; role: AppRole; permissions: string[] };
+
+let dbPool: Pool | null = null;
+function getDbPool(): Pool {
+  if (!dbPool) {
+    const host = process.env.DB_HOST || process.env.MARIADB_HOST || '127.0.0.1';
+    const database = process.env.DB_NAME || process.env.MARIADB_DATABASE;
+    const user = process.env.DB_USER || process.env.MARIADB_USER;
+    const password = process.env.DB_PASSWORD || process.env.MARIADB_PASSWORD;
+    if (!database || !user) throw new Error('Database configuration is missing (DB_NAME and DB_USER are required).');
+    dbPool = mysql.createPool({ host, port: Number(process.env.DB_PORT) || 3306, database, user, password, connectionLimit: 10, charset: 'utf8mb4' });
+  }
+  return dbPool;
+}
+
+const ROLE_PERMISSIONS: Record<AppRole, string[]> = {
+  individual: ['solo:practice'],
+  organization: ['stage:display', 'host:operations'],
+  admin: ['solo:practice', 'stage:display', 'host:operations', 'user:manage', 'role:manage'],
+};
+const TOKEN_TTL_SECONDS = readPositiveInteger(process.env.AUTH_TOKEN_TTL_SECONDS, 60 * 60 * 24 * 7);
+
+function encodeTokenPart(value: string): string { return Buffer.from(value).toString('base64url'); }
+function signSession(user: AuthUser): string {
+  const payload = encodeTokenPart(JSON.stringify({ sub: user.id, iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS }));
+  const secret = process.env.AUTH_TOKEN_SECRET || process.env.SESSION_SECRET;
+  if (!secret) throw new Error('AUTH_TOKEN_SECRET is not configured.');
+  return `${payload}.${crypto.createHmac('sha256', secret).update(payload).digest('base64url')}`;
+}
+function readSessionToken(token: string): { sub: number; exp: number } | null {
+  try {
+    const [payload, signature] = token.split('.');
+    const secret = process.env.AUTH_TOKEN_SECRET || process.env.SESSION_SECRET;
+    if (!payload || !signature || !secret || !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(crypto.createHmac('sha256', secret).update(payload).digest('base64url')))) return null;
+    const data = JSON.parse(Buffer.from(payload, 'base64url').toString()) as { sub: number; exp: number };
+    return data.exp > Math.floor(Date.now() / 1000) ? data : null;
+  } catch { return null; }
+}
+function hashPassword(password: string, salt = crypto.randomBytes(16).toString('hex')) {
+  return `scrypt$${salt}$${crypto.scryptSync(password, salt, 64).toString('hex')}`;
+}
+function verifyPassword(password: string, stored: string): boolean {
+  try { const [, salt, hash] = stored.split('$'); const actual = crypto.scryptSync(password, salt, 64); return crypto.timingSafeEqual(actual, Buffer.from(hash, 'hex')); } catch { return false; }
+}
+function publicUser(user: AuthUser) { return { id: user.publicId, username: user.username, email: user.email, displayName: user.displayName, role: user.role, permissions: user.permissions }; }
+async function loadUser(userId: number): Promise<AuthUser | null> {
+  const [rows] = await getDbPool().query<any[]>(`SELECT u.id, HEX(u.public_id) public_id, u.username, e.email, p.display_name, r.code role
+    FROM users u JOIN user_emails e ON e.user_id=u.id AND e.is_primary=1 JOIN user_profiles p ON p.user_id=u.id
+    JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id
+    JOIN user_statuses s ON s.id=u.status_id AND s.code='active' WHERE u.id=? AND (ur.expires_at IS NULL OR ur.expires_at>UTC_TIMESTAMP(3))`, [userId]);
+  const row = rows[0]; if (!row || !['individual', 'organization', 'admin'].includes(row.role)) return null;
+  const role = row.role as AppRole; return { id: row.id, publicId: row.public_id, username: row.username, email: row.email, displayName: row.display_name, role, permissions: ROLE_PERMISSIONS[role] };
+}
+async function authenticateToken(token: string | undefined): Promise<AuthUser | null> { const session = token ? readSessionToken(token) : null; return session ? loadUser(session.sub) : null; }
+function bearer(req: Request): string | undefined { return req.get('Authorization')?.replace(/^Bearer\s+/i, '') || undefined; }
+function requirePermission(permission: string) { return async (req: Request, res: Response, next: () => void) => { try { const user = await authenticateToken(bearer(req)); if (!user) return res.status(401).json({ error: 'UNAUTHENTICATED' }); if (!user.permissions.includes(permission)) return res.status(403).json({ error: 'FORBIDDEN' }); (req as any).user = user; next(); } catch { res.status(503).json({ error: 'AUTH_DATABASE_UNAVAILABLE' }); } }; }
 
 const ROOM_ID_PATTERN = /^[A-Z0-9][A-Z0-9-]{2,31}$/;
 const ROOM_IDLE_TIMEOUT_MS = 12 * 60 * 60 * 1000;
@@ -124,7 +183,7 @@ async function startServer() {
       res.setHeader('Vary', 'Origin');
     }
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
     if (req.method === 'OPTIONS') {
       return res.sendStatus(204);
@@ -133,6 +192,49 @@ async function startServer() {
     return next();
   });
   app.use(express.json());
+
+  // Authentication and RBAC API. Organization accounts are provisioned by an
+  // administrator; public registration intentionally exposes only Individual
+  // and Admin (the latter requires the private bootstrap code).
+  app.post('/api/auth/register', async (req: Request, res: Response) => {
+    const { username, email, password, displayName, role = 'individual', adminCode } = req.body || {};
+    const normalizedRole = String(role).toLowerCase() as AppRole;
+    if (!/^[a-zA-Z0-9_.-]{3,32}$/.test(String(username || '')) || !/^\S+@\S+\.\S+$/.test(String(email || '')) || String(password || '').length < 8 || !String(displayName || '').trim()) {
+      return res.status(400).json({ error: 'INVALID_INPUT', message: 'Username, email, display name và mật khẩu tối thiểu 8 ký tự là bắt buộc.' });
+    }
+    if (normalizedRole !== 'individual' && normalizedRole !== 'admin') return res.status(403).json({ error: 'ROLE_NOT_REGISTERABLE', message: 'Organization chỉ được cấp bởi quản trị viên.' });
+    if (normalizedRole === 'admin' && (!process.env.ADMIN_REGISTRATION_CODE || adminCode !== process.env.ADMIN_REGISTRATION_CODE)) return res.status(403).json({ error: 'INVALID_ADMIN_CODE' });
+    let connection: PoolConnection | undefined;
+    try {
+      connection = await getDbPool().getConnection(); await connection.beginTransaction();
+      const publicId = crypto.randomUUID();
+      const [userResult] = await connection.query<any>('INSERT INTO users (public_id, username, status_id) SELECT UNHEX(REPLACE(?, "-", "")), ?, id FROM user_statuses WHERE code="active"', [publicId, String(username).trim()]);
+      const userId = userResult.insertId;
+      await connection.query('INSERT INTO user_credentials (user_id, password_hash) VALUES (?, ?)', [userId, hashPassword(String(password))]);
+      await connection.query('INSERT INTO user_emails (user_id, email, is_primary, verified_at) VALUES (?, LOWER(?), 1, UTC_TIMESTAMP(3))', [userId, String(email).trim()]);
+      await connection.query('INSERT INTO user_profiles (user_id, display_name) VALUES (?, ?)', [userId, String(displayName).trim()]);
+      await connection.query('INSERT INTO user_roles (user_id, role_id) SELECT ?, id FROM roles WHERE code=?', [userId, normalizedRole]);
+      await connection.commit();
+      const user = await loadUser(userId); if (!user) throw new Error('Created user could not be loaded.');
+      return res.status(201).json({ user: publicUser(user), token: signSession(user) });
+    } catch (error: any) { if (connection) await connection.rollback(); const duplicate = error?.code === 'ER_DUP_ENTRY'; return res.status(duplicate ? 409 : 503).json({ error: duplicate ? 'ACCOUNT_EXISTS' : 'AUTH_DATABASE_UNAVAILABLE', message: duplicate ? 'Username hoặc email đã tồn tại.' : 'Không thể kết nối cơ sở dữ liệu.' }); }
+    finally { connection?.release(); }
+  });
+
+  app.post('/api/auth/login', async (req: Request, res: Response) => {
+    const identifier = String(req.body?.identifier || '').trim(); const password = String(req.body?.password || '');
+    if (!identifier || !password) return res.status(400).json({ error: 'INVALID_INPUT' });
+    try {
+      const [rows] = await getDbPool().query<any[]>(`SELECT u.id, c.password_hash FROM users u JOIN user_credentials c ON c.user_id=u.id
+        LEFT JOIN user_emails e ON e.user_id=u.id WHERE (LOWER(u.username)=LOWER(?) OR LOWER(e.email)=LOWER(?)) AND e.is_primary=1 LIMIT 1`, [identifier, identifier]);
+      if (!rows[0] || !verifyPassword(password, rows[0].password_hash)) return res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Thông tin đăng nhập không đúng.' });
+      const user = await loadUser(rows[0].id); if (!user) return res.status(403).json({ error: 'ACCOUNT_INACTIVE_OR_ROLE_INVALID' });
+      await getDbPool().query('UPDATE user_credentials SET last_login_at=UTC_TIMESTAMP(3), failed_attempts=0 WHERE user_id=?', [user.id]);
+      return res.json({ user: publicUser(user), token: signSession(user) });
+    } catch { return res.status(503).json({ error: 'AUTH_DATABASE_UNAVAILABLE', message: 'Không thể kết nối cơ sở dữ liệu.' }); }
+  });
+  app.get('/api/auth/me', async (req: Request, res: Response) => { try { const user = await authenticateToken(bearer(req)); if (!user) return res.status(401).json({ error: 'UNAUTHENTICATED' }); return res.json({ user: publicUser(user) }); } catch { return res.status(503).json({ error: 'AUTH_DATABASE_UNAVAILABLE' }); } });
+  app.get('/api/auth/config', (_req, res) => res.json({ adminRegistrationEnabled: Boolean(process.env.ADMIN_REGISTRATION_CODE) }));
 
   const server = http.createServer(app);
 
@@ -169,8 +271,9 @@ async function startServer() {
     let clientRole: 'host' | 'display' | null = null;
     let clientRoomId: string | null = null;
     let clientHostToken: string | null = null;
+    let clientUser: AuthUser | null = null;
 
-    ws.on('message', (raw) => {
+    ws.on('message', async (raw) => {
       try {
         const msg = JSON.parse(raw.toString());
         const type = msg.type;
@@ -188,6 +291,11 @@ async function startServer() {
 
         // Host authenticates / creates room
         if (type === 'host:auth') {
+          clientUser = await authenticateToken(String(msg.authToken || ''));
+          if (!clientUser || !clientUser.permissions.includes('host:operations')) {
+            sendError(ws, 'FORBIDDEN', 'Tài khoản cần quyền Organization hoặc Admin để vận hành Host.');
+            return;
+          }
           const rawRoomId = String(msg.roomId || '').toUpperCase().trim();
           const pin = String(msg.pin || '').trim();
 
@@ -268,6 +376,11 @@ async function startServer() {
 
         // Display connects to watch room (NO password needed, read-only)
         if (type === 'display:join') {
+          clientUser = await authenticateToken(String(msg.authToken || ''));
+          if (!clientUser || !clientUser.permissions.includes('stage:display')) {
+            sendError(ws, 'FORBIDDEN', 'Tài khoản cần quyền Organization hoặc Admin để dùng Stage Display.');
+            return;
+          }
           const rawRoomId = String(msg.roomId || '').toUpperCase().trim();
 
           if (!ROOM_ID_PATTERN.test(rawRoomId)) {
