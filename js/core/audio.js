@@ -9,6 +9,11 @@
  *   - Winner fanfare & studio applause
  */
 
+// Keep the soundtrack in Vite's asset graph. A literal URL to a file under
+// assets/ is not copied by Vite during a production build, which made the
+// countdown music work locally but return 404 after deployment.
+const THINK_MUSIC_URL = new URL('../../assets/countdown-clock-30s.mp3', import.meta.url).href;
+
 class StudioAudioEngine {
   constructor() {
     /** @type {AudioContext|null} */
@@ -20,7 +25,7 @@ class StudioAudioEngine {
     this.unlocked = false;
     this.lastScheduledSecond = -1;
     this.clockMusicGeneration = 0;
-    this.thinkMusic = new Audio('./assets/The%20Countdown%20Clock.mp3');
+    this.thinkMusic = new Audio(THINK_MUSIC_URL);
     this.thinkMusic.preload = 'auto';
   }
 
