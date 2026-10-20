@@ -414,6 +414,55 @@
         localStorage.removeItem('countdown_studio_auth_user_v1');
       }
 
+      // ==========================================
+      // GOOGLE OAUTH & PASSWORD SETUP INTEGRATION
+      // ==========================================
+      {
+        try {
+          const cfgRes = await fetch('/api/auth/config');
+          const cfg = await cfgRes.json();
+          assert('Auth config endpoint returns googleAuthEnabled flag', cfg.googleAuthEnabled === true);
+          assert('Auth config includes googleClientId key', typeof cfg.googleClientId === 'string');
+
+          // Test Google Auth Flow requires password setup for new accounts
+          const testGoogleEmail = `unit_test_${Date.now()}@countdown.example`;
+          const googleRes = await fetch('/api/auth/google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              isDemo: true,
+              demoUser: {
+                email: testGoogleEmail,
+                name: 'Unit Test Player',
+                sub: `test_sub_${Date.now()}`
+              }
+            })
+          });
+          const googleData = await googleRes.json();
+          assert('New Google registration returns requirePasswordSetup: true', googleData.requirePasswordSetup === true);
+          assert('New Google registration returns signed setupToken', typeof googleData.setupToken === 'string' && googleData.setupToken.length > 20);
+          assert('New Google registration suggests sanitized username', typeof googleData.suggestedUsername === 'string');
+
+          // Test Password Setup Endpoint saves credentials to database
+          const setupRes = await fetch('/api/auth/google/set-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              setupToken: googleData.setupToken,
+              password: 'UnitPassword2026!',
+              username: `unit_${Date.now().toString().slice(-8)}`,
+              displayName: 'Unit Test Player'
+            })
+          });
+          const setupData = await setupRes.json();
+          assert('Setting initialized password returns 201 Created', setupRes.status === 201);
+          assert('Setting initialized password returns authenticated session token', typeof setupData.token === 'string' && setupData.token.length > 20);
+          assert('Setting initialized password assigns individual player role', setupData.user && setupData.user.role === 'individual');
+        } catch (e) {
+          assert('Google OAuth and password setup integration tests pass', false);
+        }
+      }
+
       summaryEl.textContent = `${passed} Passed · ${failed} Failed`;
       summaryEl.style.color = failed === 0 ? 'var(--status-valid)' : 'var(--status-invalid)';
     </script>

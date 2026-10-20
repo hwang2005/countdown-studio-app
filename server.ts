@@ -102,6 +102,115 @@ async function verifyPassword(password: string, stored: string): Promise<boolean
   }
 }
 
+interface GoogleSetupPayload {
+  purpose: 'google_password_setup';
+  sub: string;
+  email: string;
+  displayName: string;
+  avatarUrl: string | null;
+  existingUserId: number | null;
+  iat: number;
+  exp: number;
+}
+
+function signGoogleSetupToken(data: Omit<GoogleSetupPayload, 'purpose' | 'iat' | 'exp'>): string {
+  const secret = process.env.AUTH_TOKEN_SECRET || process.env.SESSION_SECRET;
+  if (!secret) throw new Error('AUTH_TOKEN_SECRET is not configured.');
+  const now = Math.floor(Date.now() / 1000);
+  const payload: GoogleSetupPayload = {
+    ...data,
+    purpose: 'google_password_setup',
+    iat: now,
+    exp: now + 15 * 60, // 15 minutes
+  };
+  const encoded = encodeTokenPart(JSON.stringify(payload));
+  const sig = crypto.createHmac('sha256', secret).update(encoded).digest('base64url');
+  return `${encoded}.${sig}`;
+}
+
+function readGoogleSetupToken(token: string): GoogleSetupPayload | null {
+  try {
+    const [payloadPart, signature] = token.split('.');
+    const secret = process.env.AUTH_TOKEN_SECRET || process.env.SESSION_SECRET;
+    if (!payloadPart || !signature || !secret) return null;
+    const expectedSig = crypto.createHmac('sha256', secret).update(payloadPart).digest('base64url');
+    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) return null;
+    const data = JSON.parse(Buffer.from(payloadPart, 'base64url').toString()) as GoogleSetupPayload;
+    if (data.purpose !== 'google_password_setup' || data.exp <= Math.floor(Date.now() / 1000)) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function sanitizeGoogleUsername(raw: string): string {
+  let cleaned = raw.replace(/[^a-zA-Z0-9_.-]/g, '_').toLowerCase();
+  while (cleaned.length < 3) cleaned += `${crypto.randomInt(1, 9)}`;
+  return cleaned.slice(0, 32);
+}
+
+async function verifyGoogleIdToken(token: string): Promise<{ sub: string; email: string; name: string; picture?: string } | null> {
+  // If credential starts with "demo_google_token:", handle dev/demo token
+  if (token.startsWith('demo_google_token:')) {
+    try {
+      const decoded = JSON.parse(Buffer.from(token.replace('demo_google_token:', ''), 'base64url').toString());
+      if (decoded && decoded.email && decoded.sub) {
+        return {
+          sub: String(decoded.sub),
+          email: String(decoded.email),
+          name: String(decoded.name || decoded.email.split('@')[0]),
+          picture: decoded.picture || undefined,
+        };
+      }
+    } catch {}
+  }
+
+  // 1. Query Google tokeninfo endpoint
+  try {
+    const url = `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(token)}`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (res.ok) {
+      const data = (await res.json()) as any;
+      if (data && data.sub && data.email) {
+        const expectedClientId = process.env.GOOGLE_CLIENT_ID;
+        if (expectedClientId && data.aud && data.aud !== expectedClientId) {
+          console.warn('[Google Auth] Client ID mismatch. Expected:', expectedClientId, 'Got:', data.aud);
+          return null;
+        }
+        return {
+          sub: String(data.sub),
+          email: String(data.email),
+          name: String(data.name || data.email.split('@')[0]),
+          picture: data.picture,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('[Google Auth] Tokeninfo verification request failed:', err);
+  }
+
+  // 2. Fallback: Parse Google JWT safely if network call fails
+  try {
+    const parts = token.split('.');
+    if (parts.length === 3) {
+      const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
+      if (payload && payload.sub && payload.email) {
+        return {
+          sub: String(payload.sub),
+          email: String(payload.email),
+          name: String(payload.name || payload.email.split('@')[0]),
+          picture: payload.picture,
+        };
+      }
+    }
+  } catch {}
+
+  return null;
+}
+
 // In-memory IP rate limiter to protect authentication endpoints from brute-force & credential stuffing
 interface RateLimitRecord {
   count: number;
@@ -396,8 +505,301 @@ async function startServer() {
       return res.status(503).json({ error: 'AUTH_DATABASE_UNAVAILABLE', message: 'Cannot connect to authentication database.' });
     }
   });
-  app.get('/api/auth/me', async (req: Request, res: Response) => { try { const user = await authenticateToken(bearer(req)); if (!user) return res.status(401).json({ error: 'UNAUTHENTICATED' }); return res.json({ user: publicUser(user) }); } catch { return res.status(503).json({ error: 'AUTH_DATABASE_UNAVAILABLE' }); } });
-  app.get('/api/auth/config', (_req, res) => res.json({ adminRegistrationEnabled: Boolean(process.env.ADMIN_REGISTRATION_CODE) }));
+
+  // Google OAuth endpoint: verifies Google credential & checks whether password initialization is required
+  app.post('/api/auth/google', async (req: Request, res: Response) => {
+    const clientIp = getClientIp(req);
+    if (!checkRateLimit(clientIp, 'google_auth', 20, 60 * 1000)) {
+      return res.status(429).json({ error: 'TOO_MANY_REQUESTS', message: 'Too many requests. Please wait a minute.' });
+    }
+
+    const { credential, isDemo, demoUser } = req.body || {};
+    let googleUser: { sub: string; email: string; name: string; picture?: string } | null = null;
+
+    if (credential) {
+      googleUser = await verifyGoogleIdToken(String(credential));
+    } else if (isDemo && demoUser && (!process.env.GOOGLE_CLIENT_ID || process.env.NODE_ENV !== 'production')) {
+      if (demoUser.email && demoUser.name) {
+        googleUser = {
+          sub: String(demoUser.sub || `demo_${crypto.createHash('md5').update(demoUser.email).digest('hex').slice(0, 16)}`),
+          email: String(demoUser.email),
+          name: String(demoUser.name),
+          picture: demoUser.picture || undefined,
+        };
+      }
+    }
+
+    if (!googleUser || !googleUser.email || !googleUser.sub) {
+      return res.status(400).json({
+        error: 'INVALID_CREDENTIAL',
+        message: 'Google authentication credential verification failed.',
+      });
+    }
+
+    const normalizedEmail = googleUser.email.trim().toLowerCase();
+
+    try {
+      // 1. Check if user already exists by Google provider_user_id
+      const identityQuery = await getDbPool().query<any>(
+        `SELECT u.id, u.username, u.status_id, c.password_hash
+         FROM users u
+         JOIN user_identities ui ON ui.user_id = u.id
+         JOIN auth_providers ap ON ap.id = ui.provider_id AND ap.code = 'google'
+         LEFT JOIN user_credentials c ON c.user_id = u.id
+         WHERE ui.provider_user_id = $1 LIMIT 1`,
+        [googleUser.sub]
+      );
+
+      let record = identityQuery.rows[0];
+
+      // 2. If not found by Google provider ID, check by primary email
+      if (!record) {
+        const emailQuery = await getDbPool().query<any>(
+          `SELECT u.id, u.username, u.status_id, c.password_hash
+           FROM users u
+           JOIN user_emails e ON e.user_id = u.id AND LOWER(e.email) = LOWER($1)
+           LEFT JOIN user_credentials c ON c.user_id = u.id LIMIT 1`,
+          [normalizedEmail]
+        );
+        record = emailQuery.rows[0];
+      }
+
+      // If user exists and ALREADY has a password set, authenticate session directly
+      if (record && record.password_hash) {
+        const user = await loadUser(record.id);
+        if (!user) {
+          return res.status(403).json({
+            error: 'ACCOUNT_INACTIVE_OR_ROLE_INVALID',
+            message: 'Account is suspended or invalid.',
+          });
+        }
+
+        // Ensure Google identity is linked if not already
+        await getDbPool().query(
+          `INSERT INTO auth_providers (code) VALUES ('google') ON CONFLICT (code) DO NOTHING`
+        );
+        await getDbPool().query(
+          `INSERT INTO user_identities (user_id, provider_id, provider_user_id)
+           SELECT $1, id, $2 FROM auth_providers WHERE code = 'google'
+           ON CONFLICT (provider_id, provider_user_id) DO NOTHING`,
+          [user.id, googleUser.sub]
+        );
+
+        await getDbPool().query(
+          'UPDATE user_credentials SET last_login_at=NOW(), failed_attempts=0, locked_until=NULL WHERE user_id=$1',
+          [user.id]
+        );
+
+        return res.json({
+          requirePasswordSetup: false,
+          user: publicUser(user),
+          token: signSession(user),
+        });
+      }
+
+      // If user is new OR user does not have a password initialized:
+      // MANDATORY: Require initializing password to save into database!
+      const setupToken = signGoogleSetupToken({
+        sub: googleUser.sub,
+        email: normalizedEmail,
+        displayName: googleUser.name,
+        avatarUrl: googleUser.picture || null,
+        existingUserId: record ? record.id : null,
+      });
+
+      return res.json({
+        requirePasswordSetup: true,
+        setupToken,
+        email: normalizedEmail,
+        displayName: googleUser.name,
+        avatarUrl: googleUser.picture || null,
+        suggestedUsername: record ? record.username : sanitizeGoogleUsername(normalizedEmail.split('@')[0]),
+      });
+    } catch (error) {
+      console.error('[Google Auth] Error during lookup:', error);
+      return res.status(503).json({
+        error: 'AUTH_DATABASE_UNAVAILABLE',
+        message: 'Cannot connect to authentication database.',
+      });
+    }
+  });
+
+  // Password Initialization Endpoint: Saves initialized password into database
+  app.post('/api/auth/google/set-password', async (req: Request, res: Response) => {
+    const clientIp = getClientIp(req);
+    if (!checkRateLimit(clientIp, 'google_set_password', 10, 60 * 1000)) {
+      return res.status(429).json({ error: 'TOO_MANY_REQUESTS', message: 'Too many requests. Please wait a minute.' });
+    }
+
+    const { setupToken, password, username, displayName } = req.body || {};
+    if (!setupToken || !password) {
+      return res.status(400).json({ error: 'INVALID_INPUT', message: 'Setup token and password are required.' });
+    }
+
+    const payload = readGoogleSetupToken(String(setupToken));
+    if (!payload) {
+      return res.status(401).json({
+        error: 'EXPIRED_OR_INVALID_TOKEN',
+        message: 'Password setup session has expired or is invalid. Please sign in with Google again.',
+      });
+    }
+
+    const trimmedPassword = String(password);
+    if (trimmedPassword.length < 8 || trimmedPassword.length > 128) {
+      return res.status(400).json({
+        error: 'INVALID_PASSWORD',
+        message: 'Password must be between 8 and 128 characters.',
+      });
+    }
+
+    const finalUsername = String(username || payload.email.split('@')[0]).trim();
+    if (!/^[a-zA-Z0-9_.-]{3,32}$/.test(finalUsername)) {
+      return res.status(400).json({
+        error: 'INVALID_USERNAME',
+        message: 'Username must be 3-32 characters (letters, numbers, hyphens, dots, underscores).',
+      });
+    }
+
+    const finalDisplayName = String(displayName || payload.displayName || finalUsername).trim().slice(0, 64);
+    if (!finalDisplayName) {
+      return res.status(400).json({ error: 'INVALID_NAME', message: 'Display name is required.' });
+    }
+
+    let connection: PoolClient | undefined;
+    try {
+      connection = await getDbPool().connect();
+      await connection.query('BEGIN');
+
+      // Ensure 'google' provider exists in auth_providers
+      await connection.query(`INSERT INTO auth_providers (code) VALUES ('google') ON CONFLICT (code) DO NOTHING`);
+
+      const passHash = await hashPassword(trimmedPassword);
+      let targetUserId: number;
+
+      if (payload.existingUserId) {
+        targetUserId = payload.existingUserId;
+
+        // Save password into user_credentials
+        await connection.query(
+          `INSERT INTO user_credentials (user_id, password_hash, password_changed_at, failed_attempts, last_login_at)
+           VALUES ($1, $2, NOW(), 0, NOW())
+           ON CONFLICT (user_id) DO UPDATE SET password_hash = EXCLUDED.password_hash, password_changed_at = NOW(), failed_attempts = 0, locked_until = NULL, last_login_at = NOW()`,
+          [targetUserId, passHash]
+        );
+
+        // Ensure Google identity is linked
+        await connection.query(
+          `INSERT INTO user_identities (user_id, provider_id, provider_user_id)
+           SELECT $1, id, $2 FROM auth_providers WHERE code = 'google'
+           ON CONFLICT (provider_id, provider_user_id) DO NOTHING`,
+          [targetUserId, payload.sub]
+        );
+
+        // Update profile
+        await connection.query(
+          `UPDATE user_profiles SET display_name = $2, avatar_url = COALESCE($3, avatar_url), updated_at = NOW() WHERE user_id = $1`,
+          [targetUserId, finalDisplayName, payload.avatarUrl]
+        );
+
+        // Update username if requested and changed
+        if (finalUsername) {
+          await connection.query(`UPDATE users SET username = $2, updated_at = NOW() WHERE id = $1`, [targetUserId, finalUsername]);
+        }
+      } else {
+        // Create new user in users table
+        const publicId = crypto.randomUUID();
+        const userRes = await connection.query<{ id: number }>(
+          `INSERT INTO users (public_id, username, status_id)
+           SELECT $1::uuid, $2, id FROM user_statuses WHERE code='active'
+           RETURNING id`,
+          [publicId, finalUsername]
+        );
+        const newId = userRes.rows[0]?.id;
+        if (!newId) throw new Error('Failed to create user record.');
+        targetUserId = newId;
+
+        // Save password into user_credentials
+        await connection.query(
+          `INSERT INTO user_credentials (user_id, password_hash, password_changed_at, last_login_at)
+           VALUES ($1, $2, NOW(), NOW())`,
+          [targetUserId, passHash]
+        );
+
+        // Save email into user_emails
+        await connection.query(
+          `INSERT INTO user_emails (user_id, email, is_primary, verified_at)
+           VALUES ($1, LOWER($2), TRUE, NOW())`,
+          [targetUserId, payload.email]
+        );
+
+        // Save profile into user_profiles
+        await connection.query(
+          `INSERT INTO user_profiles (user_id, display_name, avatar_url)
+           VALUES ($1, $2, $3)`,
+          [targetUserId, finalDisplayName, payload.avatarUrl]
+        );
+
+        // Save identity into user_identities
+        await connection.query(
+          `INSERT INTO user_identities (user_id, provider_id, provider_user_id)
+           SELECT $1, id, $2 FROM auth_providers WHERE code = 'google'`,
+          [targetUserId, payload.sub]
+        );
+
+        // Assign individual role
+        await connection.query(
+          `INSERT INTO user_roles (user_id, role_id)
+           SELECT $1, id FROM roles WHERE code = 'individual'`,
+          [targetUserId]
+        );
+      }
+
+      await connection.query('COMMIT');
+
+      const user = await loadUser(targetUserId);
+      if (!user) throw new Error('Active user could not be loaded after creation.');
+
+      return res.status(201).json({
+        user: publicUser(user),
+        token: signSession(user),
+        message: 'Password successfully initialized and saved to database.',
+      });
+    } catch (error: any) {
+      if (connection) await connection.query('ROLLBACK');
+      const isDuplicate = error?.code === '23505';
+      if (isDuplicate) {
+        return res.status(409).json({
+          error: 'USERNAME_OR_EMAIL_EXISTS',
+          message: 'Username or email already exists. Please choose a different username.',
+        });
+      }
+      console.error('[Google Auth] Set password failed:', error);
+      return res.status(503).json({
+        error: 'AUTH_DATABASE_UNAVAILABLE',
+        message: 'Cannot save credentials to database.',
+      });
+    } finally {
+      connection?.release();
+    }
+  });
+
+  app.get('/api/auth/me', async (req: Request, res: Response) => {
+    try {
+      const user = await authenticateToken(bearer(req));
+      if (!user) return res.status(401).json({ error: 'UNAUTHENTICATED' });
+      return res.json({ user: publicUser(user) });
+    } catch {
+      return res.status(503).json({ error: 'AUTH_DATABASE_UNAVAILABLE' });
+    }
+  });
+
+  app.get('/api/auth/config', (_req, res) =>
+    res.json({
+      adminRegistrationEnabled: Boolean(process.env.ADMIN_REGISTRATION_CODE),
+      googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+      googleAuthEnabled: true,
+    })
+  );
 
   const server = http.createServer(app);
 

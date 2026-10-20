@@ -20,6 +20,7 @@
     <link rel="stylesheet" href="./css/base.css" />
     <link rel="stylesheet" href="./css/components.css" />
     <link rel="stylesheet" href="./css/animations.css" />
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body class="auth-page">
     <a href="#auth-card-section" class="skip-link">Skip to authentication form</a>
@@ -176,6 +177,20 @@
             <!-- 1. SIGN IN FORM       -->
             <!-- ===================== -->
             <form id="auth-form-login" class="auth-form anim-fade-in" role="tabpanel" aria-labelledby="tab-btn-login" novalidate>
+              <button type="button" class="btn btn-google btn--block btn--lg btn-trigger-google" id="btn-google-login">
+                <svg class="google-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                </svg>
+                <span>Sign in with Google</span>
+              </button>
+
+              <div class="auth-divider">
+                <span>or sign in with password</span>
+              </div>
+
               <div class="auth-field">
                 <label for="login-identifier" class="auth-label">
                   Username or Email
@@ -242,7 +257,20 @@
             <!-- 2. REGISTER FORM      -->
             <!-- ===================== -->
             <form id="auth-form-register" class="auth-form anim-fade-in" role="tabpanel" aria-labelledby="tab-btn-register" hidden novalidate>
-              
+              <button type="button" class="btn btn-google btn--block btn--lg btn-trigger-google" id="btn-google-register">
+                <svg class="google-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                </svg>
+                <span>Register with Google</span>
+              </button>
+
+              <div class="auth-divider">
+                <span>or create with email</span>
+              </div>
+
               <div class="auth-field">
                 <label for="register-display-name" class="auth-label">
                   Display Name
@@ -361,13 +389,227 @@
                 Already registered?
                 <a href="#login" id="link-switch-to-login">Sign into your account</a>.
               </p>
+                       <!-- ============================================== -->
+            <!-- 3. GOOGLE PASSWORD INITIALIZATION STEP         -->
+            <!-- ============================================== -->
+            <form id="auth-form-password-setup" class="auth-form anim-fade-in" hidden novalidate>
+              <div class="auth-step-badge">
+                <span>⚡ Step 2 / 2</span>
+                <span>•</span>
+                <span>Initialize Account Password</span>
+              </div>
+
+              <div>
+                <h2 style="font-size:1.35rem;font-weight:700;margin:0 0 0.25rem;color:var(--text-primary)">
+                  Set Account Password
+                </h2>
+                <p class="auth-setup-intro">
+                  Google account verified successfully. Please create a password to store in the Countdown Studio database, allowing you to sign in directly on any device.
+                </p>
+              </div>
+
+              <!-- Google Account Preview Card -->
+              <div class="auth-google-profile-card">
+                <img id="setup-avatar-img" class="auth-google-avatar" src="" alt="Google Avatar" hidden />
+                <div id="setup-avatar-placeholder" class="auth-google-avatar-placeholder" aria-hidden="true">G</div>
+                <div class="auth-google-info">
+                  <div class="auth-google-name">
+                    <span id="setup-google-name-label">Player</span>
+                    <span class="auth-google-verified-tag" title="Google Verified Account">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                      </svg>
+                    </span>
+                  </div>
+                  <div id="setup-google-email-label" class="auth-google-email">email@gmail.com</div>
+                </div>
+              </div>
+
+              <!-- Username Field -->
+              <div class="auth-field">
+                <label for="setup-username" class="auth-label">
+                  Username
+                  <span class="auth-label-help">3–32 characters</span>
+                </label>
+                <input
+                  id="setup-username"
+                  type="text"
+                  class="input-field"
+                  placeholder="e.g. countdown_champ"
+                  required
+                  pattern="[a-zA-Z0-9_.-]{3,32}"
+                  spellcheck="false"
+                />
+                <span class="auth-field-hint">Used to sign in or display on leaderboards</span>
+              </div>
+
+              <!-- Display Name Field -->
+              <div class="auth-field">
+                <label for="setup-display-name" class="auth-label">
+                  Display Name
+                </label>
+                <input
+                  id="setup-display-name"
+                  type="text"
+                  class="input-field"
+                  placeholder="e.g. Susie Dent"
+                  required
+                  maxlength="64"
+                />
+              </div>
+
+              <!-- Password Field -->
+              <div class="auth-field">
+                <label for="setup-password" class="auth-label">
+                  New Password
+                  <span class="auth-label-help">Minimum 8 characters</span>
+                </label>
+                <div class="auth-input-wrapper">
+                  <input
+                    id="setup-password"
+                    type="password"
+                    class="input-field"
+                    placeholder="Enter a secure password"
+                    autocomplete="new-password"
+                    minlength="8"
+                    required
+                  />
+                  <button
+                    type="button"
+                    class="auth-input-toggle"
+                    data-toggle-target="setup-password"
+                    aria-label="Toggle password visibility"
+                  >
+                    <svg class="icon-eye" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                  </button>
+                </div>
+
+                <!-- Strength Meter -->
+                <div class="auth-strength" aria-live="polite">
+                  <div class="auth-strength__bar-wrap">
+                    <div id="setup-password-strength-bar" class="auth-strength__bar"></div>
+                  </div>
+                  <div class="auth-strength__text">
+                    <span id="setup-password-strength-label">Password strength</span>
+                    <span id="setup-password-strength-hint">At least 8 characters</span>
+                  </div>
+                </div>
+
+                <!-- Rules Checklist -->
+                <div class="auth-rules-checklist">
+                  <div class="auth-rule-item" id="rule-len">
+                    <span class="rule-icon">○</span> <span>Minimum 8 characters</span>
+                  </div>
+                  <div class="auth-rule-item" id="rule-case">
+                    <span class="rule-icon">○</span> <span>Uppercase &amp; lowercase</span>
+                  </div>
+                  <div class="auth-rule-item" id="rule-num">
+                    <span class="rule-icon">○</span> <span>Include numbers (0–9)</span>
+                  </div>
+                  <div class="auth-rule-item" id="rule-sym">
+                    <span class="rule-icon">○</span> <span>Special characters</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Confirm Password Field -->
+              <div class="auth-field">
+                <label for="setup-password-confirm" class="auth-label">
+                  Confirm Password
+                </label>
+                <div class="auth-input-wrapper">
+                  <input
+                    id="setup-password-confirm"
+                    type="password"
+                    class="input-field"
+                    placeholder="Re-enter password to confirm"
+                    autocomplete="new-password"
+                    minlength="8"
+                    required
+                  />
+                  <button
+                    type="button"
+                    class="auth-input-toggle"
+                    data-toggle-target="setup-password-confirm"
+                    aria-label="Toggle password visibility"
+                  >
+                    <svg class="icon-eye" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                  </button>
+                </div>
+                <div id="setup-match-indicator" class="auth-match-indicator" hidden>
+                  <span id="setup-match-icon">✓</span>
+                  <span id="setup-match-text">Passwords match</span>
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn--primary btn--block btn--lg" id="btn-submit-setup">
+                Save Password &amp; Finish Setup →
+              </button>
+
+              <button type="button" class="btn btn--secondary btn--block" id="btn-cancel-setup">
+                ← Back to Sign In
+              </button>
             </form>
+
+            <!-- Hidden container for official Google Identity Services iframe button -->
+            <div id="gsi-hidden-wrapper" style="position:absolute; opacity:0.001; pointer-events:none; width:1px; height:1px; overflow:hidden;" aria-hidden="true"></div>
 
           </section>
 
         </div>
       </div>
     </main>
+
+    <!-- Demo / Dev Google Sign-In Simulation Modal -->
+    <div id="auth-demo-modal" class="auth-demo-modal" hidden role="dialog" aria-modal="true" aria-labelledby="demo-modal-title">
+      <div class="auth-demo-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <h3 id="demo-modal-title" style="margin:0;font-size:1.15rem;display:flex;align-items:center;gap:0.5rem;color:var(--text-primary)">
+            <svg width="20" height="20" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+            </svg>
+            Google OAuth (Dev/Demo)
+          </h3>
+          <button type="button" id="btn-close-demo-modal" class="btn btn--secondary btn--sm" aria-label="Close modal">✕</button>
+        </div>
+        <p style="font-size:0.8125rem;color:var(--text-muted);margin:0">
+          No <code>GOOGLE_CLIENT_ID</code> detected in <code>.env</code>. You can select a test account below to test the flow: <strong>Google Sign-In → Password Setup → Database Storage</strong>.
+        </p>
+        <div style="display:grid;gap:0.5rem">
+          <button type="button" class="auth-demo-user-btn" data-demo-email="susie.dent@gmail.com" data-demo-name="Susie Dent">
+            <div style="width:36px;height:36px;border-radius:50%;background:#2563eb;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">S</div>
+            <div>
+              <div style="font-weight:600;font-size:0.875rem">Susie Dent</div>
+              <div style="font-size:0.75rem;color:var(--text-muted)">susie.dent@gmail.com</div>
+            </div>
+          </button>
+          <button type="button" class="auth-demo-user-btn" data-demo-email="rachel.riley@gmail.com" data-demo-name="Rachel Riley">
+            <div style="width:36px;height:36px;border-radius:50%;background:#10b981;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">R</div>
+            <div>
+              <div style="font-weight:600;font-size:0.875rem">Rachel Riley</div>
+              <div style="font-size:0.75rem;color:var(--text-muted)">rachel.riley@gmail.com</div>
+            </div>
+          </button>
+        </div>
+        <div class="auth-field" style="margin-top:0.25rem">
+          <label for="demo-custom-email" class="auth-label">Or enter any Google email</label>
+          <input id="demo-custom-email" type="email" class="input-field" placeholder="player_name@gmail.com" />
+          <button type="button" id="btn-demo-custom-submit" class="btn btn--primary btn--sm" style="margin-top:0.35rem">
+            Authenticate this account →
+          </button>
+        </div>
+      </div>
+    </div>
 
     <script type="module">
       import { apiFetch, readApiJson } from './js/net/api.js';
@@ -376,10 +618,12 @@
       const USER_KEY = 'countdown_studio_auth_user_v1';
 
       // Elements
+      const tabsContainer = document.querySelector('.auth-tabs');
       const tabBtnLogin = document.getElementById('tab-btn-login');
       const tabBtnRegister = document.getElementById('tab-btn-register');
       const formLogin = document.getElementById('auth-form-login');
       const formRegister = document.getElementById('auth-form-register');
+      const formPasswordSetup = document.getElementById('auth-form-password-setup');
       const alertBox = document.getElementById('auth-alert');
       const alertText = document.getElementById('auth-alert-text');
       const alertIcon = document.getElementById('auth-alert-icon');
@@ -393,14 +637,39 @@
       const btnSubmitLogin = document.getElementById('btn-submit-login');
       const btnSubmitRegister = document.getElementById('btn-submit-register');
 
+      // Password Setup Elements
+      const setupUsernameInput = document.getElementById('setup-username');
+      const setupDisplayNameInput = document.getElementById('setup-display-name');
+      const setupPasswordInput = document.getElementById('setup-password');
+      const setupPasswordConfirmInput = document.getElementById('setup-password-confirm');
+      const setupStrengthBar = document.getElementById('setup-password-strength-bar');
+      const setupStrengthLabel = document.getElementById('setup-password-strength-label');
+      const setupStrengthHint = document.getElementById('setup-password-strength-hint');
+      const setupMatchIndicator = document.getElementById('setup-match-indicator');
+      const setupMatchIcon = document.getElementById('setup-match-icon');
+      const setupMatchText = document.getElementById('setup-match-text');
+      const btnSubmitSetup = document.getElementById('btn-submit-setup');
+      const btnCancelSetup = document.getElementById('btn-cancel-setup');
+      const setupGoogleNameLabel = document.getElementById('setup-google-name-label');
+      const setupGoogleEmailLabel = document.getElementById('setup-google-email-label');
+      const setupAvatarImg = document.getElementById('setup-avatar-img');
+      const setupAvatarPlaceholder = document.getElementById('setup-avatar-placeholder');
+
+      // Demo Modal Elements
+      const demoModal = document.getElementById('auth-demo-modal');
+      const btnCloseDemoModal = document.getElementById('btn-close-demo-modal');
+      const demoCustomEmail = document.getElementById('demo-custom-email');
+      const btnDemoCustomSubmit = document.getElementById('btn-demo-custom-submit');
+
+      // State
+      let currentSetupToken = null;
+      let configuredGoogleClientId = '';
+
       function sanitizeRedirect(target) {
         if (!target || typeof target !== 'string') return './solo.html';
         const trimmed = target.trim();
-        // Prevent javascript:, data:, vbscript: execution
         if (/^(?:javascript|data|vbscript):/i.test(trimmed)) return './solo.html';
-        // Prevent protocol-relative URL (//evil.com)
         if (trimmed.startsWith('//')) return './solo.html';
-        // If absolute URL, ensure it is on the same origin
         if (/^https?:\/\//i.test(trimmed)) {
           try {
             const parsed = new URL(trimmed, window.location.origin);
@@ -410,7 +679,6 @@
           } catch {}
           return './solo.html';
         }
-        // Only allow safe relative paths within the app
         if (trimmed.startsWith('./') || (trimmed.startsWith('/') && !trimmed.startsWith('//')) || /^[a-zA-Z0-9_\-./]+\.html/i.test(trimmed)) {
           return trimmed;
         }
@@ -459,22 +727,33 @@
       // Tab Switcher
       function setMode(mode) {
         const isLogin = mode === 'login';
+        const isPasswordSetup = mode === 'password-setup';
+
+        if (isPasswordSetup) {
+          if (tabsContainer) tabsContainer.setAttribute('hidden', '');
+          formLogin.setAttribute('hidden', '');
+          formRegister.setAttribute('hidden', '');
+          formPasswordSetup.removeAttribute('hidden');
+          setupPasswordInput.focus();
+          return;
+        }
+
+        if (tabsContainer) tabsContainer.removeAttribute('hidden');
+        formPasswordSetup.setAttribute('hidden', '');
 
         tabBtnLogin.classList.toggle('is-active', isLogin);
         tabBtnLogin.setAttribute('aria-selected', isLogin ? 'true' : 'false');
-        formLogin.hidden = !isLogin;
-
-        tabBtnRegister.classList.toggle('is-active', !isLogin);
-        tabBtnRegister.setAttribute('aria-selected', isLogin ? 'false' : 'true');
-        formRegister.hidden = isLogin;
-
-        hideAlert();
-
         if (isLogin) {
+          formLogin.removeAttribute('hidden');
+          formRegister.setAttribute('hidden', '');
           document.getElementById('login-identifier')?.focus();
         } else {
+          formLogin.setAttribute('hidden', '');
+          formRegister.removeAttribute('hidden');
           document.getElementById('register-display-name')?.focus();
         }
+
+        hideAlert();
       }
 
       tabBtnLogin.addEventListener('click', () => setMode('login'));
@@ -507,7 +786,7 @@
         });
       });
 
-      // Password Strength Checker
+      // Register Form Password Strength Checker
       registerPasswordInput.addEventListener('input', () => {
         const val = registerPasswordInput.value;
         if (!val) {
@@ -538,6 +817,74 @@
         }
       });
 
+      // Password Setup Real-Time Rules & Strength Checker
+      function updateSetupPasswordRules() {
+        const val = setupPasswordInput.value;
+        const confirmVal = setupPasswordConfirmInput.value;
+
+        // Criteria rules
+        const hasLen = val.length >= 8;
+        const hasCase = /[A-Z]/.test(val) && /[a-z]/.test(val);
+        const hasNum = /[0-9]/.test(val);
+        const hasSym = /[^A-Za-z0-9]/.test(val);
+
+        const updateRule = (id, isMet) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.classList.toggle('is-met', isMet);
+          const icon = el.querySelector('.rule-icon');
+          if (icon) icon.textContent = isMet ? '✓' : '○';
+        };
+
+        updateRule('rule-len', hasLen);
+        updateRule('rule-case', hasCase);
+        updateRule('rule-num', hasNum);
+        updateRule('rule-sym', hasSym);
+
+        // Strength bar
+        let score = 0;
+        if (hasLen) score++;
+        if (hasCase) score++;
+        if (hasNum) score++;
+        if (hasSym) score++;
+
+        if (!val) {
+          setupStrengthBar.className = 'auth-strength__bar';
+          setupStrengthLabel.textContent = 'Password strength';
+          setupStrengthHint.textContent = 'At least 8 characters';
+        } else if (val.length < 8) {
+          setupStrengthBar.className = 'auth-strength__bar is-weak';
+          setupStrengthLabel.textContent = 'Too short';
+          setupStrengthHint.textContent = `Need ${8 - val.length} more character${8 - val.length > 1 ? 's' : ''}`;
+        } else if (score <= 2) {
+          setupStrengthBar.className = 'auth-strength__bar is-medium';
+          setupStrengthLabel.textContent = 'Fair password';
+          setupStrengthHint.textContent = 'Add numbers or special characters';
+        } else {
+          setupStrengthBar.className = 'auth-strength__bar is-strong';
+          setupStrengthLabel.textContent = 'Strong password';
+          setupStrengthHint.textContent = 'Great account protection';
+        }
+
+        // Match indicator
+        if (!confirmVal) {
+          setupMatchIndicator.hidden = true;
+        } else if (val === confirmVal) {
+          setupMatchIndicator.hidden = false;
+          setupMatchIndicator.className = 'auth-match-indicator is-matched';
+          setupMatchIcon.textContent = '✓';
+          setupMatchText.textContent = 'Passwords match';
+        } else {
+          setupMatchIndicator.hidden = false;
+          setupMatchIndicator.className = 'auth-match-indicator is-mismatched';
+          setupMatchIcon.textContent = '✕';
+          setupMatchText.textContent = 'Passwords do not match';
+        }
+      }
+
+      setupPasswordInput.addEventListener('input', updateSetupPasswordRules);
+      setupPasswordConfirmInput.addEventListener('input', updateSetupPasswordRules);
+
       // Alert helper
       function showAlert(message, type = 'info') {
         alertBox.hidden = false;
@@ -552,6 +899,7 @@
 
       function setSubmitting(button, isSubmitting, text) {
         button.disabled = isSubmitting;
+        button.setAttribute('aria-busy', isSubmitting ? 'true' : 'false');
         button.textContent = text;
       }
 
@@ -564,7 +912,264 @@
         }, 600);
       }
 
-      // Handle Login Submit
+      // ========================================================
+      // GOOGLE OAUTH HANDLING
+      // ========================================================
+
+      // Load Auth Config
+      async function loadAuthConfig() {
+        try {
+          const res = await apiFetch('/api/auth/config');
+          const cfg = await readApiJson(res);
+          configuredGoogleClientId = cfg.googleClientId || '';
+          if (configuredGoogleClientId && window.google?.accounts?.id) {
+            initGoogleGIS();
+          }
+        } catch (err) {
+          console.warn('[Auth] Could not load auth config:', err);
+        }
+      }
+
+      function initGoogleGIS() {
+        if (!configuredGoogleClientId || !window.google?.accounts?.id) return;
+        try {
+          google.accounts.id.initialize({
+            client_id: configuredGoogleClientId,
+            callback: handleGoogleCredentialResponse,
+            auto_select: false,
+            cancel_on_tap_outside: true,
+          });
+
+          // Render button into hidden container for programmatic click
+          const hiddenWrap = document.getElementById('gsi-hidden-wrapper');
+          if (hiddenWrap) {
+            google.accounts.id.renderButton(hiddenWrap, {
+              type: 'standard',
+              theme: 'filled_black',
+              size: 'large',
+            });
+          }
+        } catch (err) {
+          console.warn('[Google GIS] Init error:', err);
+        }
+      }
+
+      // Process Google OAuth Response (Credential / Token)
+      async function handleGoogleCredentialResponse(response) {
+        hideAlert();
+        const activeBtn = document.getElementById('btn-google-login');
+        if (activeBtn) setSubmitting(activeBtn, true, 'Verifying Google Account...');
+
+        try {
+          const res = await apiFetch('/api/auth/google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ credential: response.credential }),
+          });
+
+          const data = await readApiJson(res);
+          if (!res.ok) {
+            throw new Error(data.message || data.error || 'Google authentication failed.');
+          }
+
+          handleGoogleAuthResult(data);
+        } catch (err) {
+          showAlert(err.message || 'Google authentication failed.', 'error');
+        } finally {
+          if (activeBtn) setSubmitting(activeBtn, false, 'Sign in with Google');
+        }
+      }
+
+      // Core router for Google Auth Result
+      function handleGoogleAuthResult(data) {
+        if (data.requirePasswordSetup) {
+          // MANDATORY STEP: Prompt user to initialize and save password to database
+          currentSetupToken = data.setupToken;
+          setupGoogleEmailLabel.textContent = data.email;
+          setupGoogleNameLabel.textContent = data.displayName || 'Player';
+
+          if (data.avatarUrl) {
+            setupAvatarImg.src = data.avatarUrl;
+            setupAvatarImg.hidden = false;
+            setupAvatarPlaceholder.hidden = true;
+          } else {
+            setupAvatarImg.hidden = true;
+            setupAvatarPlaceholder.hidden = false;
+            setupAvatarPlaceholder.textContent = (data.displayName || data.email)[0].toUpperCase();
+          }
+
+          setupUsernameInput.value = data.suggestedUsername || data.email.split('@')[0];
+          setupDisplayNameInput.value = data.displayName || setupUsernameInput.value;
+          setupPasswordInput.value = '';
+          setupPasswordConfirmInput.value = '';
+          updateSetupPasswordRules();
+
+          setMode('password-setup');
+          showAlert('Google verified successfully! Please initialize a password to complete saving your account to the database.', 'info');
+        } else if (data.token && data.user) {
+          // Existing user with initialized password already in database
+          saveSession(data);
+        }
+      }
+
+      // Trigger Google Sign-In on button click
+      function showDemoModal() {
+        demoModal.removeAttribute('hidden');
+        demoCustomEmail?.focus();
+      }
+
+      function hideDemoModal() {
+        demoModal.setAttribute('hidden', '');
+      }
+
+      // Trigger Google Sign-In on button click
+      function triggerGoogleSignIn() {
+        if (configuredGoogleClientId && window.google?.accounts?.id) {
+          // Try to prompt GIS or click hidden GIS button
+          const iframeBtn = document.querySelector('#gsi-hidden-wrapper div[role="button"]');
+          if (iframeBtn) {
+            iframeBtn.click();
+          } else {
+            google.accounts.id.prompt();
+          }
+        } else {
+          // Demo / Dev Mode Simulation Modal
+          showDemoModal();
+        }
+      }
+
+      document.querySelectorAll('.btn-trigger-google').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          triggerGoogleSignIn();
+        });
+      });
+
+      // Demo Modal Handlers
+      btnCloseDemoModal?.addEventListener('click', hideDemoModal);
+      demoModal?.addEventListener('click', (e) => {
+        if (e.target === demoModal) hideDemoModal();
+      });
+
+      document.querySelectorAll('.auth-demo-user-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          hideDemoModal();
+          const email = btn.getAttribute('data-demo-email');
+          const name = btn.getAttribute('data-demo-name');
+          await runDemoGoogleAuth(email, name);
+        });
+      });
+
+      btnDemoCustomSubmit?.addEventListener('click', async () => {
+        const email = demoCustomEmail.value.trim();
+        if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+          alert('Please enter a valid email address.');
+          return;
+        }
+        hideDemoModal();
+        const name = email.split('@')[0];
+        await runDemoGoogleAuth(email, name);
+      });
+
+      async function runDemoGoogleAuth(email, name) {
+        hideAlert();
+        try {
+          showAlert(`Authenticating Google account (${email})...`, 'info');
+          const res = await apiFetch('/api/auth/google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              isDemo: true,
+              demoUser: {
+                email,
+                name,
+                sub: `demo_${email.replace(/[^a-zA-Z0-9]/g, '_')}`,
+              },
+            }),
+          });
+          const data = await readApiJson(res);
+          if (!res.ok) throw new Error(data.message || 'Authentication failed');
+          handleGoogleAuthResult(data);
+        } catch (err) {
+          showAlert(err.message || 'Unable to connect to Google authentication service.', 'error');
+        }
+      }
+
+      // Cancel Password Setup
+      btnCancelSetup.addEventListener('click', () => {
+        currentSetupToken = null;
+        setMode('login');
+        showAlert('Password initialization canceled.', 'info');
+      });
+
+      // Submit Password Setup Form
+      formPasswordSetup.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        hideAlert();
+
+        if (!currentSetupToken) {
+          showAlert('Setup session has expired. Please sign in with Google again.', 'error');
+          setMode('login');
+          return;
+        }
+
+        const username = setupUsernameInput.value.trim();
+        const displayName = setupDisplayNameInput.value.trim();
+        const password = setupPasswordInput.value;
+        const confirmPassword = setupPasswordConfirmInput.value;
+
+        if (!/^[a-zA-Z0-9_.-]{3,32}$/.test(username)) {
+          showAlert('Username must be 3 to 32 characters (letters, numbers, hyphens, dots, underscores).', 'error');
+          setupUsernameInput.focus();
+          return;
+        }
+
+        if (!displayName) {
+          showAlert('Please enter your display name.', 'error');
+          setupDisplayNameInput.focus();
+          return;
+        }
+
+        if (password.length < 8) {
+          showAlert('Password must contain at least 8 characters.', 'error');
+          setupPasswordInput.focus();
+          return;
+        }
+
+        if (password !== confirmPassword) {
+          showAlert('Confirmation password does not match.', 'error');
+          setupPasswordConfirmInput.focus();
+          return;
+        }
+
+        setSubmitting(btnSubmitSetup, true, 'Saving password to Database...');
+
+        try {
+          const res = await apiFetch('/api/auth/google/set-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              setupToken: currentSetupToken,
+              password,
+              username,
+              displayName,
+            }),
+          });
+
+          const data = await readApiJson(res);
+          if (!res.ok) {
+            throw new Error(data.message || data.error || 'Unable to set password.');
+          }
+
+          currentSetupToken = null;
+          saveSession(data);
+        } catch (err) {
+          showAlert(err.message || 'Unable to save password to database.', 'error');
+          setSubmitting(btnSubmitSetup, false, 'Save Password & Finish Setup →');
+        }
+      });
+
+      // Handle Standard Login Submit
       formLogin.addEventListener('submit', async (e) => {
         e.preventDefault();
         hideAlert();
@@ -598,7 +1203,7 @@
         }
       });
 
-      // Handle Register Submit (Individual role)
+      // Handle Standard Register Submit (Individual role)
       formRegister.addEventListener('submit', async (e) => {
         e.preventDefault();
         hideAlert();
@@ -660,8 +1265,14 @@
         }
       });
 
-      // Initialize requested view mode
+      // Initialize requested view mode and load configuration
       setMode(initialMode === 'register' ? 'register' : 'login');
+      loadAuthConfig();
+      window.addEventListener('load', () => {
+        if (window.google?.accounts?.id && configuredGoogleClientId) {
+          initGoogleGIS();
+        }
+      });
     </script>
     <script type="module" src="./js/auth.js"></script>
   </body>

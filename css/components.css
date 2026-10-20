@@ -991,6 +991,271 @@
 }
 
 /* ==========================================================================
+   GOOGLE OAUTH & PASSWORD INITIALIZATION STYLES (WCAG 2.2 AA / Token-Driven)
+   ========================================================================== */
+
+/* Google Button */
+.btn-google {
+  background: var(--bg-surface-elevated, #0f172a);
+  border: 1px solid var(--border-strong, #334155);
+  color: var(--text-primary, #f8fafc);
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--radius-md, 8px);
+  cursor: pointer;
+  transition: all var(--duration-fast, 150ms) var(--ease-out);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-google:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--accent-primary, #3b82f6);
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.25);
+  color: #ffffff;
+}
+
+.btn-google:focus-visible {
+  outline: 2px solid var(--accent-primary, #3b82f6);
+  outline-offset: 2px;
+}
+
+.btn-google:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn-google:disabled,
+.btn-google[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-google[aria-busy="true"] {
+  pointer-events: none;
+  opacity: 0.75;
+}
+
+.btn-google .google-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+}
+
+/* OAuth Divider */
+.auth-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: var(--space-4) 0;
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+}
+
+.auth-divider span {
+  padding: 0 var(--space-3, 0.75rem);
+}
+
+/* Password Initialization View */
+.auth-step-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  margin-bottom: var(--space-2);
+}
+
+.auth-google-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg, 10px);
+  padding: 0.875rem 1rem;
+  margin-bottom: var(--space-2);
+}
+
+.auth-google-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--accent-primary, #3b82f6);
+  flex-shrink: 0;
+  background: var(--bg-surface-elevated);
+}
+
+.auth-google-avatar-placeholder {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-primary, #3b82f6), #8b5cf6);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.15rem;
+  flex-shrink: 0;
+}
+
+.auth-google-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.auth-google-name {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.auth-google-verified-tag {
+  color: #10b981;
+  display: inline-flex;
+  align-items: center;
+}
+
+.auth-google-email {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.auth-setup-intro {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin-bottom: var(--space-3);
+}
+
+/* Real-time Password Rules Checklist */
+.auth-rules-checklist {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem 0.75rem;
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.auth-rule-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: color var(--duration-fast) var(--ease-out);
+}
+
+.auth-rule-item.is-met {
+  color: var(--status-valid, #10b981);
+}
+
+.auth-rule-item.is-met .rule-icon {
+  color: var(--status-valid, #10b981);
+}
+
+.auth-match-indicator {
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.auth-match-indicator.is-matched {
+  color: var(--status-valid, #10b981);
+}
+
+.auth-match-indicator.is-mismatched {
+  color: var(--status-invalid, #ef4444);
+}
+
+/* Dev / Demo Google Dialog */
+.auth-demo-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 7, 18, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.auth-demo-modal[hidden] {
+  display: none !important;
+}
+
+.auth-demo-card {
+  background: var(--bg-surface, #0b1329);
+  border: 1px solid var(--border-strong, #334155);
+  border-radius: var(--radius-xl, 14px);
+  max-width: 440px;
+  width: 100%;
+  padding: 1.5rem;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.auth-demo-user-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  text-align: left;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  width: 100%;
+}
+
+.auth-demo-user-btn:hover {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: var(--accent-primary);
+  transform: translateX(2px);
+}
+
+/* ==========================================================================
    RBAC & PERMISSION LOCK STYLES (Accessible, Impressive, Zero-Glitch)
    ========================================================================== */
 
