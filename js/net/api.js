@@ -5,15 +5,46 @@
  * set window.__COUNTDOWN_API_URL__ or pass ?api=https://api.example.com.
  * Full-stack deployments keep the default and use the current origin.
  */
+export function isTrustedApiEndpoint(urlString, pageUrl) {
+  if (!urlString) return false;
+  try {
+    const target = new URL(urlString, pageUrl.href);
+    if (target.origin === pageUrl.origin) return true;
+    const hostname = target.hostname.toLowerCase();
+    if (hostname === 'localhost' || hostname === '127.0.0.1') return true;
+    if (hostname === 'countdown-studio.id.vn' || hostname === 'www.countdown-studio.id.vn') return true;
+    if (hostname === 'countdown-studio-app.onrender.com') return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 export function getApiBaseUrl(pageLocation = window.location) {
   const API_BASE_STORAGE_KEY = 'countdown_studio_api_base_url_v1';
   const pageUrl = new URL(pageLocation.href || pageLocation.toString(), pageLocation.origin);
-  const queryEndpoint = new URLSearchParams(pageUrl.search).get('api');
+  const rawQueryEndpoint = new URLSearchParams(pageUrl.search).get('api');
   const buildEndpoint = typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL;
+  const globalEndpoint = typeof window !== 'undefined' && window.__COUNTDOWN_API_URL__;
+  const storedEndpoint = typeof localStorage !== 'undefined' && localStorage.getItem(API_BASE_STORAGE_KEY);
+
+  // Validate query parameter to prevent phishing credential theft (CWE-20 / open endpoint injection)
+  const queryEndpoint = rawQueryEndpoint && isTrustedApiEndpoint(rawQueryEndpoint, pageUrl) ? rawQueryEndpoint : '';
+
+  // Validate stored endpoint; clear if suspicious
+  let validStoredEndpoint = '';
+  if (storedEndpoint) {
+    if (isTrustedApiEndpoint(storedEndpoint, pageUrl)) {
+      validStoredEndpoint = storedEndpoint;
+    } else if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(API_BASE_STORAGE_KEY);
+    }
+  }
+
   const configuredEndpoint = queryEndpoint
-    || (typeof window !== 'undefined' && window.__COUNTDOWN_API_URL__)
-    || buildEndpoint
-    || (typeof localStorage !== 'undefined' && localStorage.getItem(API_BASE_STORAGE_KEY))
+    || (globalEndpoint && isTrustedApiEndpoint(globalEndpoint, pageUrl) ? globalEndpoint : '')
+    || (buildEndpoint && isTrustedApiEndpoint(buildEndpoint, pageUrl) ? buildEndpoint : '')
+    || validStoredEndpoint
     || '';
 
   if (!String(configuredEndpoint).trim()) return '';

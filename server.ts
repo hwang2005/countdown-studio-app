@@ -73,12 +73,73 @@ function readSessionToken(token: string): { sub: number; exp: number } | null {
     return data.exp > Math.floor(Date.now() / 1000) ? data : null;
   } catch { return null; }
 }
-function hashPassword(password: string, salt = crypto.randomBytes(16).toString('hex')) {
-  return `scrypt$${salt}$${crypto.scryptSync(password, salt, 64).toString('hex')}`;
+function scryptAsync(password: string, salt: string, keylen: number): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    crypto.scrypt(password, salt, keylen, (err, derivedKey) => {
+      if (err) reject(err);
+      else resolve(derivedKey);
+    });
+  });
 }
-function verifyPassword(password: string, stored: string): boolean {
-  try { const [, salt, hash] = stored.split('$'); const actual = crypto.scryptSync(password, salt, 64); return crypto.timingSafeEqual(actual, Buffer.from(hash, 'hex')); } catch { return false; }
+
+const DUMMY_HASH = 'scrypt$00000000000000000000000000000000$00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000';
+
+async function hashPassword(password: string, salt = crypto.randomBytes(16).toString('hex')): Promise<string> {
+  const derivedKey = await scryptAsync(password, salt, 64);
+  return `scrypt$${salt}$${derivedKey.toString('hex')}`;
 }
+
+async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  try {
+    const [, salt, hash] = stored.split('$');
+    if (!salt || !hash) return false;
+    const actual = await scryptAsync(password, salt, 64);
+    const expected = Buffer.from(hash, 'hex');
+    if (actual.length !== expected.length) return false;
+    return crypto.timingSafeEqual(actual, expected);
+  } catch {
+    return false;
+  }
+}
+
+// In-memory IP rate limiter to protect authentication endpoints from brute-force & credential stuffing
+interface RateLimitRecord {
+  count: number;
+  resetAt: number;
+}
+const rateLimitMap = new Map<string, RateLimitRecord>();
+
+function checkRateLimit(ip: string, action: string, maxAttempts: number, windowMs: number): boolean {
+  const key = `${action}:${ip}`;
+  const now = Date.now();
+  const record = rateLimitMap.get(key);
+  if (!record || now > record.resetAt) {
+    rateLimitMap.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  if (record.count >= maxAttempts) {
+    return false;
+  }
+  record.count += 1;
+  return true;
+}
+
+function getClientIp(req: Request): string {
+  const forwarded = req.get('x-forwarded-for');
+  if (forwarded) {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.socket.remoteAddress || '127.0.0.1';
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, record] of rateLimitMap.entries()) {
+    if (now > record.resetAt) {
+      rateLimitMap.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
 function publicUser(user: AuthUser) { return { id: user.publicId, username: user.username, email: user.email, displayName: user.displayName, role: user.role, permissions: user.permissions }; }
 async function loadUser(userId: number): Promise<AuthUser | null> {
   const { rows } = await getDbPool().query<any>(`SELECT u.id, u.public_id, u.username, e.email, p.display_name, r.code role
@@ -178,6 +239,20 @@ setInterval(() => {
 
 async function startServer() {
   const app = express();
+  app.disable('x-powered-by');
+
+  // Security Headers Middleware (DevSecOps baseline)
+  app.use((_req: Request, res: Response, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    res.setHeader('X-XSS-Protection', '0');
+    if (process.env.NODE_ENV === 'production') {
+      res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
+    next();
+  });
 
   // CORS is needed by the GitHub Pages/custom-domain frontend when it calls
   // the hosted backend. The same allowlist is applied to WebSocket upgrades
@@ -202,19 +277,41 @@ async function startServer() {
 
     return next();
   });
-  app.use(express.json());
+  app.use(express.json({ limit: '100kb' }));
 
   // Authentication and RBAC API. Organization accounts are provisioned by an
   // administrator; public registration intentionally exposes only Individual
   // and Admin (the latter requires the private bootstrap code).
   app.post('/api/auth/register', async (req: Request, res: Response) => {
+    const clientIp = getClientIp(req);
+    if (!checkRateLimit(clientIp, 'register', 5, 10 * 60 * 1000)) {
+      return res.status(429).json({ error: 'TOO_MANY_REQUESTS', message: 'Quá nhiều yêu cầu đăng ký từ địa chỉ này. Vui lòng thử lại sau 10 phút.' });
+    }
+
     const { username, email, password, displayName, role = 'individual', adminCode } = req.body || {};
     const normalizedRole = String(role).toLowerCase() as AppRole;
-    if (!/^[a-zA-Z0-9_.-]{3,32}$/.test(String(username || '')) || !/^\S+@\S+\.\S+$/.test(String(email || '')) || String(password || '').length < 8 || !String(displayName || '').trim()) {
-      return res.status(400).json({ error: 'INVALID_INPUT', message: 'Username, email, display name và mật khẩu tối thiểu 8 ký tự là bắt buộc.' });
+    if (
+      !/^[a-zA-Z0-9_.-]{3,32}$/.test(String(username || '')) ||
+      !/^\S+@\S+\.\S+$/.test(String(email || '')) ||
+      String(password || '').length < 8 ||
+      String(password || '').length > 128 ||
+      !String(displayName || '').trim() ||
+      String(displayName || '').length > 64
+    ) {
+      return res.status(400).json({ error: 'INVALID_INPUT', message: 'Username, email, display name và mật khẩu (8-128 ký tự) là bắt buộc.' });
     }
     if (normalizedRole !== 'individual' && normalizedRole !== 'admin') return res.status(403).json({ error: 'ROLE_NOT_REGISTERABLE', message: 'Organization chỉ được cấp bởi quản trị viên.' });
-    if (normalizedRole === 'admin' && (!process.env.ADMIN_REGISTRATION_CODE || adminCode !== process.env.ADMIN_REGISTRATION_CODE)) return res.status(403).json({ error: 'INVALID_ADMIN_CODE' });
+    
+    if (normalizedRole === 'admin') {
+      const serverAdminCode = process.env.ADMIN_REGISTRATION_CODE;
+      if (!serverAdminCode || !adminCode) return res.status(403).json({ error: 'INVALID_ADMIN_CODE' });
+      const clientBuf = Buffer.from(String(adminCode));
+      const serverBuf = Buffer.from(String(serverAdminCode));
+      if (clientBuf.length !== serverBuf.length || !crypto.timingSafeEqual(clientBuf, serverBuf)) {
+        return res.status(403).json({ error: 'INVALID_ADMIN_CODE' });
+      }
+    }
+
     let connection: PoolClient | undefined;
     try {
       connection = await getDbPool().connect(); await connection.query('BEGIN');
@@ -222,7 +319,8 @@ async function startServer() {
       const userResult = await connection.query<{ id: number }>('INSERT INTO users (public_id, username, status_id) SELECT $1::uuid, $2, id FROM user_statuses WHERE code=\'active\' RETURNING id', [publicId, String(username).trim()]);
       const userId = userResult.rows[0]?.id;
       if (!userId) throw new Error('Active user status is missing.');
-      await connection.query('INSERT INTO user_credentials (user_id, password_hash) VALUES ($1, $2)', [userId, hashPassword(String(password))]);
+      const passHash = await hashPassword(String(password));
+      await connection.query('INSERT INTO user_credentials (user_id, password_hash) VALUES ($1, $2)', [userId, passHash]);
       await connection.query('INSERT INTO user_emails (user_id, email, is_primary, verified_at) VALUES ($1, LOWER($2), TRUE, NOW())', [userId, String(email).trim()]);
       await connection.query('INSERT INTO user_profiles (user_id, display_name) VALUES ($1, $2)', [userId, String(displayName).trim()]);
       await connection.query('INSERT INTO user_roles (user_id, role_id) SELECT $1, id FROM roles WHERE code=$2', [userId, normalizedRole]);
@@ -234,15 +332,64 @@ async function startServer() {
   });
 
   app.post('/api/auth/login', async (req: Request, res: Response) => {
-    const identifier = String(req.body?.identifier || '').trim(); const password = String(req.body?.password || '');
-    if (!identifier || !password) return res.status(400).json({ error: 'INVALID_INPUT' });
+    const clientIp = getClientIp(req);
+    if (!checkRateLimit(clientIp, 'login', 10, 60 * 1000)) {
+      return res.status(429).json({ error: 'TOO_MANY_REQUESTS', message: 'Quá nhiều lần thử đăng nhập. Vui lòng thử lại sau 1 phút.' });
+    }
+
+    const identifier = String(req.body?.identifier || '').trim();
+    const password = String(req.body?.password || '');
+    if (!identifier || !password || identifier.length > 100 || password.length > 128) {
+      return res.status(400).json({ error: 'INVALID_INPUT', message: 'Thông tin đăng nhập không hợp lệ.' });
+    }
+
     try {
-      const { rows } = await getDbPool().query<any>(`SELECT u.id, c.password_hash FROM users u JOIN user_credentials c ON c.user_id=u.id
+      const { rows } = await getDbPool().query<any>(`SELECT u.id, c.password_hash, c.failed_attempts, c.locked_until FROM users u JOIN user_credentials c ON c.user_id=u.id
         JOIN user_emails e ON e.user_id=u.id AND e.is_primary=TRUE
         WHERE LOWER(u.username)=LOWER($1) OR LOWER(e.email)=LOWER($2) LIMIT 1`, [identifier, identifier]);
-      if (!rows[0] || !verifyPassword(password, rows[0].password_hash)) return res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Thông tin đăng nhập không đúng.' });
-      const user = await loadUser(rows[0].id); if (!user) return res.status(403).json({ error: 'ACCOUNT_INACTIVE_OR_ROLE_INVALID' });
-      await getDbPool().query('UPDATE user_credentials SET last_login_at=NOW(), failed_attempts=0 WHERE user_id=$1', [user.id]);
+      
+      const record = rows[0];
+      if (record && record.locked_until && new Date(record.locked_until) > new Date()) {
+        const remainingMinutes = Math.ceil((new Date(record.locked_until).getTime() - Date.now()) / (60 * 1000));
+        return res.status(423).json({
+          error: 'ACCOUNT_LOCKED',
+          message: `Tài khoản tạm thời bị khóa do nhập sai nhiều lần. Vui lòng thử lại sau ${remainingMinutes} phút.`,
+        });
+      }
+
+      if (!record) {
+        // Run dummy verification to eliminate username/email enumeration timing attacks
+        await verifyPassword(password, DUMMY_HASH);
+        return res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Thông tin đăng nhập không đúng.' });
+      }
+
+      const isValid = await verifyPassword(password, record.password_hash);
+      if (!isValid) {
+        const nextAttempts = (record.failed_attempts || 0) + 1;
+        if (nextAttempts >= 5) {
+          await getDbPool().query(
+            `UPDATE user_credentials SET failed_attempts=$1, locked_until=NOW() + INTERVAL '15 minutes' WHERE user_id=$2`,
+            [nextAttempts, record.id]
+          );
+          return res.status(423).json({
+            error: 'ACCOUNT_LOCKED',
+            message: 'Tài khoản đã bị tạm khóa 15 phút do nhập sai mật khẩu quá 5 lần.',
+          });
+        } else {
+          await getDbPool().query(
+            `UPDATE user_credentials SET failed_attempts=$1 WHERE user_id=$2`,
+            [nextAttempts, record.id]
+          );
+          return res.status(401).json({
+            error: 'INVALID_CREDENTIALS',
+            message: `Thông tin đăng nhập không đúng. Còn ${5 - nextAttempts} lần thử.`,
+          });
+        }
+      }
+
+      const user = await loadUser(record.id);
+      if (!user) return res.status(403).json({ error: 'ACCOUNT_INACTIVE_OR_ROLE_INVALID' });
+      await getDbPool().query('UPDATE user_credentials SET last_login_at=NOW(), failed_attempts=0, locked_until=NULL WHERE user_id=$1', [user.id]);
       return res.json({ user: publicUser(user), token: signSession(user) });
     } catch (error) {
       console.error('[Auth] Login failed:', error);
@@ -288,6 +435,7 @@ async function startServer() {
     let clientRoomId: string | null = null;
     let clientHostToken: string | null = null;
     let clientUser: AuthUser | null = null;
+    let failedPinAttempts = 0;
 
     ws.on('message', async (raw) => {
       try {
@@ -361,13 +509,20 @@ async function startServer() {
 
             // Verify existing PIN
             if (room.pin && room.pin !== pin) {
+              failedPinAttempts += 1;
+              if (failedPinAttempts >= 5) {
+                sendError(ws, 'TOO_MANY_FAILED_ATTEMPTS', 'Quá số lần thử PIN Host. Kết nối bị ngắt.');
+                ws.close(1008, 'Too many failed PIN attempts');
+                return;
+              }
               ws.send(JSON.stringify({
                 type: 'error',
                 code: 'INVALID_PIN',
-                message: 'Mật khẩu / PIN Host không đúng. Vui lòng kiểm tra lại.',
+                message: `Mật khẩu / PIN Host không đúng. Còn ${5 - failedPinAttempts} lần thử.`,
               }));
               return;
             }
+            failedPinAttempts = 0;
 
             // Authentication successful
             const token = crypto.randomUUID();

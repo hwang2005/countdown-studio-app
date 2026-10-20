@@ -22,13 +22,30 @@ function getBrowserLocation() {
   return typeof window !== 'undefined' ? window.location : null;
 }
 
+function isTrustedWsEndpoint(urlString, pageUrl) {
+  if (!urlString) return false;
+  try {
+    const target = new URL(urlString, pageUrl.href);
+    const hostname = target.hostname.toLowerCase();
+    if (hostname === pageUrl.hostname.toLowerCase()) return true;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') return true;
+    if (hostname === 'countdown-studio.id.vn' || hostname === 'www.countdown-studio.id.vn') return true;
+    if (hostname === 'countdown-studio-app.onrender.com') return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 function getConfiguredWebSocketEndpoint(pageUrl) {
   const queryEndpoint = new URLSearchParams(pageUrl.search).get(STAGE_WS_QUERY_PARAM);
-  if (queryEndpoint) return queryEndpoint.trim();
+  if (queryEndpoint && isTrustedWsEndpoint(queryEndpoint, pageUrl)) {
+    return queryEndpoint.trim();
+  }
 
   if (typeof window !== 'undefined') {
     const globalEndpoint = window[STAGE_WS_GLOBAL_CONFIG];
-    if (typeof globalEndpoint === 'string' && globalEndpoint.trim()) {
+    if (typeof globalEndpoint === 'string' && globalEndpoint.trim() && isTrustedWsEndpoint(globalEndpoint, pageUrl)) {
       return globalEndpoint.trim();
     }
   }

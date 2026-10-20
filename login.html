@@ -390,9 +390,33 @@
       const btnSubmitLogin = document.getElementById('btn-submit-login');
       const btnSubmitRegister = document.getElementById('btn-submit-register');
 
+      function sanitizeRedirect(target) {
+        if (!target || typeof target !== 'string') return './solo.html';
+        const trimmed = target.trim();
+        // Prevent javascript:, data:, vbscript: execution
+        if (/^(?:javascript|data|vbscript):/i.test(trimmed)) return './solo.html';
+        // Prevent protocol-relative URL (//evil.com)
+        if (trimmed.startsWith('//')) return './solo.html';
+        // If absolute URL, ensure it is on the same origin
+        if (/^https?:\/\//i.test(trimmed)) {
+          try {
+            const parsed = new URL(trimmed, window.location.origin);
+            if (parsed.origin === window.location.origin) {
+              return parsed.pathname + parsed.search + parsed.hash;
+            }
+          } catch {}
+          return './solo.html';
+        }
+        // Only allow safe relative paths within the app
+        if (trimmed.startsWith('./') || (trimmed.startsWith('/') && !trimmed.startsWith('//')) || /^[a-zA-Z0-9_\-./]+\.html/i.test(trimmed)) {
+          return trimmed;
+        }
+        return './solo.html';
+      }
+
       // Query param handling
       const urlParams = new URLSearchParams(window.location.search);
-      const redirectTarget = urlParams.get('redirect') || './solo.html';
+      const redirectTarget = sanitizeRedirect(urlParams.get('redirect'));
       const initialMode = urlParams.get('mode') || (window.location.hash === '#register' ? 'register' : 'login');
 
       // Check if user is already logged in
