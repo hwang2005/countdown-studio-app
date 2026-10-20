@@ -150,22 +150,8 @@ function sanitizeGoogleUsername(raw: string): string {
 }
 
 async function verifyGoogleIdToken(token: string): Promise<{ sub: string; email: string; name: string; picture?: string } | null> {
-  // If credential starts with "demo_google_token:", handle dev/demo token
-  if (token.startsWith('demo_google_token:')) {
-    try {
-      const decoded = JSON.parse(Buffer.from(token.replace('demo_google_token:', ''), 'base64url').toString());
-      if (decoded && decoded.email && decoded.sub) {
-        return {
-          sub: String(decoded.sub),
-          email: String(decoded.email),
-          name: String(decoded.name || decoded.email.split('@')[0]),
-          picture: decoded.picture || undefined,
-        };
-      }
-    } catch {}
-  }
-
-  // 1. Query Google tokeninfo endpoint
+  // Only accept a real Google ID token verified by Google's tokeninfo API.
+  // Demo tokens and unsigned JWT payloads must never authenticate a user.
   try {
     const url = `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(token)}`;
     const controller = new AbortController();
@@ -191,22 +177,6 @@ async function verifyGoogleIdToken(token: string): Promise<{ sub: string; email:
   } catch (err) {
     console.warn('[Google Auth] Tokeninfo verification request failed:', err);
   }
-
-  // 2. Fallback: Parse Google JWT safely if network call fails
-  try {
-    const parts = token.split('.');
-    if (parts.length === 3) {
-      const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
-      if (payload && payload.sub && payload.email) {
-        return {
-          sub: String(payload.sub),
-          email: String(payload.email),
-          name: String(payload.name || payload.email.split('@')[0]),
-          picture: payload.picture,
-        };
-      }
-    }
-  } catch {}
 
   return null;
 }
@@ -513,20 +483,11 @@ async function startServer() {
       return res.status(429).json({ error: 'TOO_MANY_REQUESTS', message: 'Too many requests. Please wait a minute.' });
     }
 
-    const { credential, isDemo, demoUser } = req.body || {};
+    const { credential } = req.body || {};
     let googleUser: { sub: string; email: string; name: string; picture?: string } | null = null;
 
     if (credential) {
       googleUser = await verifyGoogleIdToken(String(credential));
-    } else if (isDemo && demoUser && (!process.env.GOOGLE_CLIENT_ID || process.env.NODE_ENV !== 'production')) {
-      if (demoUser.email && demoUser.name) {
-        googleUser = {
-          sub: String(demoUser.sub || `demo_${crypto.createHash('md5').update(demoUser.email).digest('hex').slice(0, 16)}`),
-          email: String(demoUser.email),
-          name: String(demoUser.name),
-          picture: demoUser.picture || undefined,
-        };
-      }
     }
 
     if (!googleUser || !googleUser.email || !googleUser.sub) {
@@ -564,7 +525,16 @@ async function startServer() {
         record = emailQuery.rows[0];
       }
 
-      // If user exists and ALREADY has a password set, authenticate session directly
+      // Google authentication is login-only. The account must already exist
+      // from the web registration flow and have a password credential.
+      if (!record || !record.password_hash) {
+        return res.status(403).json({
+          error: 'ACCOUNT_NOT_REGISTERED',
+          message: 'This account is not registered on the website. Please register first.',
+        });
+      }
+
+      // Existing registered user: authenticate session directly.
       if (record && record.password_hash) {
         const user = await loadUser(record.id);
         if (!user) {

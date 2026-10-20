@@ -389,6 +389,7 @@
                 Already registered?
                 <a href="#login" id="link-switch-to-login">Sign into your account</a>.
               </p>
+            </form>
                        <!-- ============================================== -->
             <!-- 3. GOOGLE PASSWORD INITIALIZATION STEP         -->
             <!-- ============================================== -->
@@ -1055,8 +1056,7 @@
             google.accounts.id.prompt();
           }
         } else {
-          // Demo / Dev Mode Simulation Modal
-          showDemoModal();
+          showAlert('Google sign-in is available only for accounts already registered on this website. Please use Create Account first.', 'info');
         }
       }
 
