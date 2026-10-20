@@ -17,3 +17,9 @@ services:
         value: "true"
       - key: AUTH_TOKEN_SECRET
         sync: false
+      # Google Identity Services configuration. Set these in the Render
+      # dashboard (do not commit the actual values to this file).
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false

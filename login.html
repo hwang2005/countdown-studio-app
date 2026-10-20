@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="./css/base.css" />
     <link rel="stylesheet" href="./css/components.css" />
     <link rel="stylesheet" href="./css/animations.css" />
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://accounts.google.com/gsi/client" async defer onload="window.onGoogleLibraryLoad?.()"></script>
   </head>
   <body class="auth-page">
     <a href="#auth-card-section" class="skip-link">Skip to authentication form</a>
@@ -664,6 +664,19 @@
       // State
       let currentSetupToken = null;
       let configuredGoogleClientId = '';
+      let googleGisReady = Boolean(window.google?.accounts?.id);
+      let googleGisReadyPromiseResolve;
+      const googleGisReadyPromise = new Promise((resolve) => {
+        googleGisReadyPromiseResolve = resolve;
+      });
+
+      // GIS loads asynchronously. A slow script load must not make a valid
+      // OAuth configuration look like an unconfigured deployment.
+      window.onGoogleLibraryLoad = () => {
+        googleGisReady = Boolean(window.google?.accounts?.id);
+        if (googleGisReady) googleGisReadyPromiseResolve();
+        if (configuredGoogleClientId && googleGisReady) initGoogleGIS();
+      };
 
       function sanitizeRedirect(target) {
         if (!target || typeof target !== 'string') return './solo.html';
@@ -922,8 +935,17 @@
           const res = await apiFetch('/api/auth/config');
           const cfg = await readApiJson(res);
           configuredGoogleClientId = cfg.googleClientId || '';
-          if (configuredGoogleClientId && window.google?.accounts?.id) {
-            initGoogleGIS();
+          if (configuredGoogleClientId) {
+            if (window.google?.accounts?.id) {
+              googleGisReady = true;
+              initGoogleGIS();
+            } else {
+              await Promise.race([
+                googleGisReadyPromise,
+                new Promise((resolve) => setTimeout(resolve, 5000)),
+              ]);
+              if (googleGisReady) initGoogleGIS();
+            }
           }
         } catch (err) {
           console.warn('[Auth] Could not load auth config:', err);
@@ -1024,7 +1046,7 @@
 
       // Trigger Google Sign-In on button click
       function triggerGoogleSignIn() {
-        if (configuredGoogleClientId && window.google?.accounts?.id) {
+        if (configuredGoogleClientId && googleGisReady && window.google?.accounts?.id) {
           // Try to prompt GIS or click hidden GIS button
           const iframeBtn = document.querySelector('#gsi-hidden-wrapper div[role="button"]');
           if (iframeBtn) {

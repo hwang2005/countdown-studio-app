@@ -61,6 +61,12 @@ and a long random `AUTH_TOKEN_SECRET` before starting
 the server. The frontend stores the signed session token locally and sends it
 to the REST and WebSocket APIs.
 
+For Google Sign-In, also set `GOOGLE_CLIENT_ID` in the backend environment. On
+Render, add `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in the service's
+Environment settings; `render.yaml` declares both as secret values. Add the
+production frontend origin (for example `https://countdown-studio.id.vn`) to
+the OAuth client's Authorized JavaScript origins in Google Cloud Console.
+
 ---
 
 ## 2. Modes & Feature Highlights
