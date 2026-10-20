@@ -131,9 +131,6 @@
               <a href="./solo.html" class="btn btn--primary btn--lg" data-auth-permission="solo:practice">Play Solo Practice</a>
               <a href="./solo.html?drill=daily" class="btn btn--royal btn--lg" data-auth-permission="solo:practice">Daily Challenge</a>
               <a href="./versus-host.html" class="btn btn--secondary btn--lg" data-auth-permission="host:operations">Launch Versus Stage Host</a>
-              <button type="button" id="pwa-install-btn" class="btn btn--secondary btn--lg">
-                Install Offline App
-              </button>
             </div>
           </div>
 
@@ -243,6 +240,7 @@
         >
           <div>
             <h2 style="font-size: 1.45rem;">Your Studio Career &amp; Progression</h2>
+            <div id="career-role-banner" style="margin-top: var(--space-2);"></div>
             <p style="color: var(--text-muted); font-size: 0.875rem;">
               Stored locally on your device. Export or import your career JSON anytime.
             </p>
@@ -466,24 +464,6 @@
           <div><strong>F</strong> — Toggle Fullscreen on Stage Display</div>
           <div><strong>A–Z / Backspace / Enter</strong> — Build &amp; Submit Word in Solo Mode</div>
         </div>
-      </div>
-    </div>
-
-    <!-- MODAL: PWA INSTALL GUIDE -->
-    <div id="modal-pwa-guide" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="pwa-guide-title" hidden>
-      <div class="modal-card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
-          <h2 id="pwa-guide-title" style="font-size: 1.35rem;">Install Countdown Studio Offline</h2>
-          <button type="button" class="btn btn--sm btn--secondary" data-modal-close="modal-pwa-guide">Close</button>
-        </div>
-        <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: var(--space-4);">
-          Countdown Studio caches the complete 106,800-word dictionary and solver locally via its Service Worker so it works 100% offline.
-          To install as a standalone app:
-        </p>
-        <ul style="padding-left: 1.25rem; color: var(--text-secondary); display: grid; gap: 0.5rem; font-size: 0.9rem;">
-          <li><strong>Chrome / Edge (Desktop &amp; Android):</strong> Click the install icon in the browser address bar or menu → <em>Install Countdown Studio</em>.</li>
-          <li><strong>Safari (iPhone / iPad):</strong> Tap the <strong>Share</strong> button and select <strong>Add to Home Screen</strong>.</li>
-        </ul>
       </div>
     </div>
 

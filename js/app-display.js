@@ -155,6 +155,7 @@ function getStageQuestionState(state) {
       target: state.target,
       conundrumScrambled: state.conundrumScrambled,
       conundrumAnswer: state.conundrumAnswer,
+      conundrumSourceWords: state.conundrumSourceWords,
       conundrumRevealed: state.conundrumRevealed
     };
     return state;
@@ -171,6 +172,7 @@ function getStageQuestionState(state) {
       target: state.target,
       conundrumScrambled: state.conundrumScrambled,
       conundrumAnswer: state.conundrumAnswer,
+      conundrumSourceWords: state.conundrumSourceWords,
       conundrumRevealed: state.conundrumRevealed
     };
     return state;
@@ -192,6 +194,7 @@ function getStageQuestionState(state) {
       target: stageQuestionSnapshot.target,
       conundrumScrambled: stageQuestionSnapshot.conundrumScrambled,
       conundrumAnswer: stageQuestionSnapshot.conundrumAnswer,
+      conundrumSourceWords: stageQuestionSnapshot.conundrumSourceWords,
       conundrumRevealed: stageQuestionSnapshot.conundrumRevealed
     };
   }
@@ -365,12 +368,14 @@ function renderStage(state) {
   const numSolBox = document.getElementById('stage-numbers-solution');
   const endPodium = document.getElementById('stage-match-end-podium');
   const boardZone = document.getElementById('stage-board-zone');
+  const conundrumPrompt = document.getElementById('stage-conundrum-prompt');
 
   if (state.phase === 'MATCH_END') {
     lastRenderedBoardKey = null;
     if (boardZone) boardZone.style.display = 'none';
     if (lettersBoard) lettersBoard.hidden = true;
     if (numbersZone) numbersZone.hidden = true;
+    if (conundrumPrompt) conundrumPrompt.hidden = true;
     if (endPodium) {
       endPodium.hidden = false;
       const p1 = state.players[0];
@@ -399,6 +404,7 @@ function renderStage(state) {
     }
     if (endPodium) endPodium.hidden = true;
     if (questionState.roundType === 'L') {
+      if (conundrumPrompt) conundrumPrompt.hidden = true;
       if (numbersZone) numbersZone.hidden = true;
       if (lettersBoard) {
         lettersBoard.hidden = false;
@@ -409,6 +415,7 @@ function renderStage(state) {
         }
       }
     } else if (questionState.roundType === 'N') {
+      if (conundrumPrompt) conundrumPrompt.hidden = true;
       if (lettersBoard) lettersBoard.hidden = true;
       if (numbersZone) {
         numbersZone.hidden = false;
@@ -431,6 +438,8 @@ function renderStage(state) {
       if (lettersBoard) {
         lettersBoard.hidden = false;
         const word = questionState.conundrumRevealed ? questionState.conundrumAnswer : questionState.conundrumScrambled;
+        const prompt = document.getElementById('stage-conundrum-prompt');
+        if (prompt) prompt.hidden = true;
         const boardKey = `C:${word || ''}:${Boolean(questionState.conundrumRevealed)}`;
         if (boardKey !== lastRenderedBoardKey) {
           renderLetterTiles(lettersBoard, word ? word.split('') : [], { isConundrum: true, noAnim: Boolean(state.clockRunning) });

@@ -173,9 +173,14 @@ export function pickRandomRemainingLetters(stacks, existingBoard = [], rng = Mat
   let vCount = board.filter((c) => vowelsSet.has(c)).length;
   let cCount = board.length - vCount;
 
-  // Target 3, 4, or 5 vowels total
+  // Randomise the final vowel count for every Random Mix. The range is the
+  // complete set allowed by the original format: 3, 4, or 5 vowels (and
+  // therefore 6, 5, or 4 consonants).
   const minTargetV = Math.max(MIN_VOWELS, vCount);
   const maxTargetV = BOARD_SIZE - Math.max(MIN_CONSONANTS, cCount);
+  if (minTargetV > maxTargetV) {
+    throw new Error('Existing board cannot be completed with 3–5 vowels and 4–6 consonants.');
+  }
   const targetVowels = randomInt(minTargetV, maxTargetV, rng);
 
   const remainingChoices = [];

@@ -131,12 +131,19 @@ export function showAccessDeniedToast(meta) {
   toast.setAttribute('role', 'alert');
   toast.innerHTML = `
     <span class="auth-toast-alert__icon" aria-hidden="true">🔒</span>
-    <div>
-      <div style="font-weight:700; color:#fecaca; margin-bottom:2px;">Access Denied</div>
-      <div style="font-size:0.8125rem; color:#cbd5e1;">
+    <div style="flex:1">
+      <div style="font-weight:700; color:#fecaca; margin-bottom:2px;">Access Restricted</div>
+      <div style="font-size:0.8125rem; color:#cbd5e1; line-height:1.45;">
         The feature <strong>${meta.featureName}</strong> is restricted to <strong>${meta.roleName}</strong>.
         Your current account (${currentRoleName}) does not have permission.
       </div>
+      ${!user ? `
+        <div style="margin-top:0.5rem">
+          <a href="./login.html?redirect=${encodeURIComponent(location.pathname + location.search)}" class="btn btn--primary btn--sm" style="min-height:30px; font-size:0.75rem; padding:0.25rem 0.65rem;">
+            Sign In / Register Free
+          </a>
+        </div>
+      ` : ''}
     </div>
     <button type="button" class="auth-toast-alert__close" aria-label="Close notification">✕</button>
   `;
@@ -151,7 +158,7 @@ export function showAccessDeniedToast(meta) {
   };
 
   toast.querySelector('.auth-toast-alert__close')?.addEventListener('click', closeToast);
-  setTimeout(closeToast, 4500);
+  setTimeout(closeToast, 5000);
 }
 
 /**
@@ -189,7 +196,48 @@ function decorateVersusCard(userPermissions) {
 }
 
 /**
- * Strictly guards all UI elements against unauthorized cursor pointing or interaction.
+ * Decorate the Solo Practice Mode Card on index.html based on auth state.
+ */
+function decorateSoloCard(user) {
+  const soloCard = document.querySelector('article:has(a[href*="solo.html"], a[data-restricted-href*="solo.html"])');
+  if (!soloCard) return;
+
+  let banner = soloCard.querySelector('#solo-card-guest-notice');
+  const enterBtn = soloCard.querySelector('div:last-child a.btn--primary');
+
+  if (!user) {
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'solo-card-guest-notice';
+      banner.className = 'mode-card-info-banner';
+      banner.innerHTML = `
+        <span class="mode-card-info-banner__icon" aria-hidden="true">👤</span>
+        <div>
+          <strong style="display:block; margin-bottom:2px;">Individual Player Mode</strong>
+          <span>Self-registered account includes full access to Solo Drills, 30s clock, and Dictionary Corner.</span>
+        </div>
+      `;
+      const cardTitleContainer = soloCard.querySelector('div:first-child');
+      if (cardTitleContainer) {
+        cardTitleContainer.insertBefore(banner, cardTitleContainer.querySelector('h2'));
+      }
+    }
+    if (enterBtn) {
+      enterBtn.textContent = 'Sign In to Play Solo →';
+      enterBtn.href = './login.html?redirect=./solo.html';
+    }
+  } else {
+    if (banner) banner.remove();
+    if (enterBtn) {
+      enterBtn.textContent = 'Enter Solo Studio →';
+      enterBtn.href = './solo.html';
+    }
+  }
+}
+
+/**
+ * Strictly guards all UI elements against unauthorized cursor pointing or interaction,
+ * while welcoming unauthenticated guests toward smooth sign-in for Individual features.
  */
 export function applyPermissionGuards() {
   const user = currentUser();
@@ -221,6 +269,30 @@ export function applyPermissionGuards() {
     const meta = getPermissionMetadata(required);
 
     if (!allowed) {
+      // Friendly onboarding for unauthenticated guests accessing Solo Practice
+      if (!user && required === 'solo:practice') {
+        const rawTarget = el.getAttribute('data-restricted-href') || el.getAttribute('href') || './solo.html';
+        const cleanTarget = rawTarget.startsWith('./login.html') ? rawTarget : `./login.html?redirect=${encodeURIComponent(rawTarget)}`;
+
+        el.classList.remove('is-permission-locked');
+        el.removeAttribute('aria-disabled');
+        if (el.getAttribute('tabindex') === '-1') {
+          el.removeAttribute('tabindex');
+        }
+        el.setAttribute('href', cleanTarget);
+        el.removeAttribute('data-restricted-href');
+        el.setAttribute('title', 'Sign in or register a free Individual account to play Solo Practice');
+
+        // Un-wrap if previously wrapped
+        const wrap = el.closest('.auth-restricted-wrap');
+        if (wrap && wrap.parentElement) {
+          wrap.parentElement.insertBefore(el, wrap);
+          wrap.remove();
+        }
+        el.querySelector('.auth-lock-badge')?.remove();
+        return;
+      }
+
       // 1. Remove active href so browser cursor cannot "point" into it as a link
       if (el.tagName.toLowerCase() === 'a') {
         if (el.hasAttribute('href')) {
@@ -236,7 +308,7 @@ export function applyPermissionGuards() {
       el.setAttribute('tabindex', '-1');
 
       const tooltipMsg = user
-        ? `🔒 Restricted to ${meta.roleName}. Your account (${user.role || 'Individual'}) does not have access.`
+        ? `🔒 Restricted to ${meta.roleName}. Your account (${user.role === 'individual' ? 'Individual Player' : user.role}) does not have access.`
         : `🔒 Restricted to ${meta.roleName}. Please sign in with an authorized account.`;
 
       el.setAttribute('title', tooltipMsg);
@@ -304,41 +376,47 @@ export function applyPermissionGuards() {
   });
 
   decorateVersusCard(userPermissions);
+  decorateSoloCard(user);
 }
 
 function addAuthUi() {
   const action = document.querySelector('.top-bar__action');
   if (!action) return;
 
-  action.querySelector('.auth-status-btn')?.remove();
+  action.querySelectorAll('.auth-status-btn, .auth-user-container').forEach((el) => el.remove());
 
   const user = currentUser();
-  const button = document.createElement('a');
-  button.className = 'btn btn--primary btn--sm auth-status-btn';
+  const isLoginPage = location.pathname.toLowerCase().endsWith('login.html');
+
+  if (isLoginPage && !user) {
+    // Don't add redundant "Sign In / Register" on login page
+    return;
+  }
 
   if (user) {
-    button.href = '#';
     const roleBadge = user.role === 'admin' ? 'Admin' : user.role === 'organization' ? 'Host' : 'Player';
-    button.textContent = `${user.displayName || user.username} (${roleBadge}) · Sign Out`;
-    button.setAttribute('title', `Account: ${user.username} [${roleBadge}]. Click to sign out.`);
-    button.addEventListener('click', (e) => {
+    const container = document.createElement('div');
+    container.className = 'auth-user-container';
+    container.innerHTML = `
+      <div class="auth-user-chip" title="Account: ${user.username} [${roleBadge}]">
+        <span class="auth-user-chip__role">${roleBadge}</span>
+        <span class="auth-user-chip__name">${user.displayName || user.username}</span>
+      </div>
+      <button type="button" class="btn btn--secondary btn--sm auth-signout-btn" title="Sign out of Countdown Studio">
+        Sign Out
+      </button>
+    `;
+    container.querySelector('.auth-signout-btn')?.addEventListener('click', (e) => {
       e.preventDefault();
       logout();
     });
+    action.prepend(container);
   } else {
+    const button = document.createElement('a');
+    button.className = 'btn btn--primary btn--sm auth-status-btn';
     button.href = `./login.html?redirect=${encodeURIComponent(location.pathname + location.search)}`;
     button.textContent = 'Sign In / Register';
-  }
-  action.prepend(button);
-
-  // If user is not logged in, prompt sign in when attempting to access Solo Practice
-  if (!user) {
-    document.querySelectorAll('a[href="./solo.html"], a[href="./solo.html?drill=daily"]').forEach((link) => {
-      link.addEventListener('click', (event) => {
-        event.preventDefault();
-        location.href = `./login.html?redirect=${encodeURIComponent(link.getAttribute('href') || './solo.html')}`;
-      });
-    });
+    action.prepend(button);
   }
 }
 

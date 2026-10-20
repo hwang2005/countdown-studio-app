@@ -18,8 +18,7 @@ import { showToast } from './ui/toast.js';
 import { renderStatsChartSVG } from './ui/scoreboard.js';
 import { audio } from './core/audio.js';
 import { getTodaySeed } from './core/rng.js';
-
-let deferredInstallPrompt = null;
+import { currentUser } from './auth.js';
 
 function initPWA() {
   if ('serviceWorker' in navigator) {
@@ -31,39 +30,6 @@ function initPWA() {
       .catch(() => {
         // Service worker optional in restricted preview environments
       });
-  }
-
-  const installBtn = document.getElementById('pwa-install-btn');
-  const isStandalone =
-    window.matchMedia('(display-mode: standalone)').matches ||
-    window.navigator.standalone === true;
-
-  if (isStandalone && installBtn) {
-    installBtn.hidden = true;
-  }
-
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredInstallPrompt = e;
-    if (installBtn) {
-      installBtn.hidden = false;
-    }
-  });
-
-  if (installBtn) {
-    installBtn.addEventListener('click', async () => {
-      if (deferredInstallPrompt) {
-        deferredInstallPrompt.prompt();
-        const choice = await deferredInstallPrompt.userChoice;
-        if (choice.outcome === 'accepted') {
-          installBtn.hidden = true;
-          showToast('Countdown Studio installed!', 'success');
-        }
-        deferredInstallPrompt = null;
-      } else {
-        openModal('modal-pwa-guide');
-      }
-    });
   }
 }
 
@@ -90,6 +56,24 @@ function renderHomeStats() {
       ? `${Math.round((stats.numbersExactHits / stats.numbersRoundsPlayed) * 100)}%`
       : '0%';
   setTxt('stat-num-rate', numHitRate);
+
+  const roleBannerEl = document.getElementById('career-role-banner');
+  if (roleBannerEl) {
+    const user = currentUser();
+    if (user) {
+      roleBannerEl.innerHTML = `
+        <div class="career-user-banner">
+          <span>👤 Career synced to <strong>${user.displayName || user.username}</strong> (${user.role === 'individual' ? 'Individual Player' : user.role})</span>
+        </div>
+      `;
+    } else {
+      roleBannerEl.innerHTML = `
+        <div class="career-guest-banner">
+          <span>💡 Playing as <strong>Guest</strong>. <a href="./login.html" style="color:var(--accent-primary);text-decoration:underline">Sign In or Register Free</a> to persist your career stats &amp; daily streaks across devices.</span>
+        </div>
+      `;
+    }
+  }
 
   const chartBox = document.getElementById('home-stats-chart');
   if (chartBox) {

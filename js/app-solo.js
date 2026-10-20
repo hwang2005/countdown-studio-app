@@ -60,6 +60,7 @@ import { animateScoreTo, launchConfetti } from './ui/scoreboard.js';
 import { initModalHandlers } from './ui/modal.js';
 import { showToast } from './ui/toast.js';
 import { announce, haptic, requestWakeLock } from './ui/a11y.js';
+import { currentUser } from './auth.js';
 
 let settings = loadSettings();
 let dictData = null;
@@ -127,6 +128,14 @@ function updateHUD() {
   const scoreEl = document.getElementById('solo-total-score');
   if (scoreEl) {
     animateScoreTo(scoreEl, session.totalScore);
+  }
+
+  const user = currentUser();
+  const playerInd = document.getElementById('solo-player-indicator');
+  const playerName = document.getElementById('solo-player-name');
+  if (playerInd && playerName) {
+    playerInd.hidden = false;
+    playerName.textContent = user ? (user.displayName || user.username) : 'Guest Player';
   }
 }
 
@@ -640,7 +649,9 @@ async function submitNumbersRound() {
  * CONUNDRUM ROUND LOGIC
  * ========================================================================== */
 function initConundrumRound() {
-  const { answer, scrambled } = pickConundrum(dictData ? dictData.conundrums : [], rng);
+  const { answer, scrambled } = pickConundrum(
+    dictData ? dictData.conundrums : [], rng, dictData?.wordSet
+  );
   session.conundrumAnswer = answer;
   session.conundrumTiles = scrambled.split('');
   session.revealedHintIndices = new Set();
@@ -657,6 +668,8 @@ function initConundrumRound() {
   if (hintRow) {
     hintRow.textContent = 'Answer pattern: _ _ _ _ _ _ _ _ _';
   }
+  const prompt = document.getElementById('solo-conundrum-prompt');
+  if (prompt) prompt.hidden = true;
 
   renderConundrumBoard();
   announce(`Countdown Conundrum: ${scrambled.split('').join(' ')}`);

@@ -139,6 +139,9 @@
           <!-- Right Column: Interactive Login / Register Form -->
           <section class="auth-card" aria-label="Account Authentication">
             
+            <!-- Current Session Banner if logged in -->
+            <div id="auth-current-session" hidden></div>
+
             <!-- Tab Controls -->
             <div class="auth-tabs" role="tablist" aria-label="Sign In or Register options">
               <button
@@ -423,11 +426,33 @@
       try {
         const existingToken = localStorage.getItem(TOKEN_KEY);
         const existingUser = JSON.parse(localStorage.getItem(USER_KEY) || 'null');
-        if (existingToken && existingUser) {
-          showAlert(`Signed in as ${existingUser.displayName || existingUser.username}. Redirecting to Solo Practice...`, 'success');
-          setTimeout(() => {
-            window.location.href = redirectTarget;
-          }, 800);
+        const sessionCard = document.getElementById('auth-current-session');
+        if (existingToken && existingUser && sessionCard) {
+          sessionCard.hidden = false;
+          sessionCard.innerHTML = `
+            <div class="auth-current-session-card">
+              <div class="auth-current-session-info">
+                <span class="auth-role-tag">Active Account</span>
+                <span style="font-size:0.9rem">Signed in as <strong>${existingUser.displayName || existingUser.username}</strong> (${existingUser.role === 'individual' ? 'Individual Player' : existingUser.role})</span>
+              </div>
+              <div class="auth-current-session-actions">
+                <a href="${redirectTarget}" class="btn btn--primary btn--sm">
+                  Continue to Studio →
+                </a>
+                <button type="button" id="btn-session-switch" class="btn btn--secondary btn--sm">
+                  Sign Out / Switch Account
+                </button>
+              </div>
+            </div>
+          `;
+          document.getElementById('btn-session-switch')?.addEventListener('click', () => {
+            localStorage.removeItem(TOKEN_KEY);
+            localStorage.removeItem(USER_KEY);
+            sessionCard.hidden = true;
+            showAlert('Signed out. You can now log into another account or create a new one.', 'info');
+          });
+        } else if (redirectTarget.toLowerCase().includes('solo')) {
+          showAlert('Please sign in or register a free Individual account to access Solo Practice and save career stats.', 'info');
         }
       } catch (err) {}
 

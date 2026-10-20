@@ -4,9 +4,9 @@
  * Zero DOM access. Fully unit-testable.
  *
  * Rules:
- * - Selects a 9-letter word from the curated conundrum list.
- * - Scrambles the letters such that the scramble is NEVER equal to the original word
- *   and avoids trivial prefix/suffix preservation where possible.
+ * - Selects a 9-letter answer from the curated conundrum list.
+ * - Builds the question from two or three dictionary words whose combined letters
+ *   are exactly the answer's nine letters.
  * - Handles dual-contestant buzzer lockouts and high-resolution timestamp adjudication.
  */
 
@@ -14,6 +14,83 @@ import { shuffle, randomInt } from '../core/rng.js';
 
 export const CONUNDRUM_POINTS = 10;
 export const HINT_PENALTY_POINTS = 3;
+
+function letterSignature(value) {
+  return String(value).toUpperCase().split('').sort().join('');
+}
+
+function subtractSignature(total, part) {
+  const counts = new Map();
+  for (const ch of total) counts.set(ch, (counts.get(ch) || 0) + 1);
+  for (const ch of part) {
+    const left = (counts.get(ch) || 0) - 1;
+    if (left < 0) return null;
+    counts.set(ch, left);
+  }
+  return [...counts.entries()].flatMap(([ch, count]) => Array(count).fill(ch)).join('');
+}
+
+const sourceWordIndexCache = new WeakMap();
+
+function getSourceWordIndex(words) {
+  if (words && (typeof words === 'object' || typeof words === 'function')) {
+    const cached = sourceWordIndexCache.get(words);
+    if (cached) return cached;
+  }
+  const candidates = [...new Set([...words]
+    .map((word) => String(word).trim().toUpperCase())
+    .filter((word) => /^[A-Z]{2,7}$/.test(word) && word.length < 9))];
+  const bySignature = new Map();
+  for (const word of candidates) {
+    const sig = letterSignature(word);
+    if (!bySignature.has(sig)) bySignature.set(sig, word);
+  }
+  const index = { candidates, bySignature };
+  if (words && (typeof words === 'object' || typeof words === 'function')) {
+    sourceWordIndexCache.set(words, index);
+  }
+  return index;
+}
+
+/**
+ * Finds a valid Countdown-style source phrase: two or three words totalling
+ * nine letters and anagramming exactly to the answer.
+ * @param {string} answer
+ * @param {Iterable<string>|null} words
+ * @param {() => number} rng
+ * @returns {string[]|null}
+ */
+export function findConundrumSourceWords(answer, words, rng = Math.random) {
+  if (!words) return null;
+  const target = letterSignature(answer);
+  const index = getSourceWordIndex(words);
+  const candidates = index.candidates
+    // Only words that can actually be made from the answer can participate;
+    // this also keeps the three-word search bounded for a large dictionary.
+    .filter((word) => subtractSignature(target, letterSignature(word)) !== null);
+  const bySignature = index.bySignature;
+  const shuffled = shuffle(candidates, rng);
+
+  for (const first of shuffled) {
+    const remainder = subtractSignature(target, letterSignature(first));
+    if (!remainder) continue;
+    const second = bySignature.get(remainder);
+    if (second) return [first, second];
+  }
+
+  for (const first of shuffled) {
+    const afterFirst = subtractSignature(target, letterSignature(first));
+    if (!afterFirst) continue;
+    for (const second of shuffled) {
+      if (second === first) continue;
+      const remainder = subtractSignature(afterFirst, letterSignature(second));
+      if (!remainder || remainder.length < 2) continue;
+      const third = bySignature.get(letterSignature(remainder));
+      if (third && third !== first && third !== second) return [first, second, third];
+    }
+  }
+  return null;
+}
 
 /**
  * Scrambles a 9-letter word so the scrambled string is guaranteed not to equal
@@ -50,9 +127,10 @@ export function scrambleConundrum(word, rng = Math.random) {
  * Picks a random conundrum from the curated array and returns the answer + scramble.
  * @param {string[]} conundrumList
  * @param {() => number} [rng=Math.random]
- * @returns {{ answer: string, scrambled: string }}
+ * @param {Iterable<string>|null} [wordList=null] Dictionary used to build the source phrase
+ * @returns {{ answer: string, scrambled: string, sourceWords: string[]|null }}
  */
-export function pickConundrum(conundrumList, rng = Math.random) {
+export function pickConundrum(conundrumList, rng = Math.random, wordList = null) {
   const pool =
     Array.isArray(conundrumList) && conundrumList.length > 0
       ? conundrumList
@@ -60,7 +138,8 @@ export function pickConundrum(conundrumList, rng = Math.random) {
   const idx = randomInt(0, pool.length - 1, rng);
   const answer = pool[idx].trim().toUpperCase();
   const scrambled = scrambleConundrum(answer, rng);
-  return { answer, scrambled };
+  const sourceWords = findConundrumSourceWords(answer, wordList, rng);
+  return { answer, scrambled, sourceWords };
 }
 
 /**

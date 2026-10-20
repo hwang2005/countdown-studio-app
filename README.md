@@ -68,7 +68,7 @@ to the REST and WebSocket APIs.
 ### 🎮 Game Rounds
 - **Letters Round:** Contestants pick 9 tiles from separate Vowel (67 tiles) and Consonant (74 tiles) stacks following official TV frequency distributions and constraints (minimum 3 vowels, minimum 4 consonants). Players form the longest valid word within 30 seconds.
 - **Numbers Round:** Contestants choose a combination of Large numbers (`25, 50, 75, 100`) and Small numbers (`1–10` twice). A 3-digit target between `101` and `999` is randomly generated. Players use basic arithmetic operations (`+`, `−`, `×`, `÷`) where intermediate results must be positive integers.
-- **Countdown Conundrum:** A 9-letter anagram scramble. Contestants buzz in to guess the solution within the remaining clock time.
+- **Countdown Conundrum:** Contestants are shown two or three source words totalling nine letters and buzz in to form the single nine-letter answer using every letter.
 
 ### 🧑‍💻 Solo Practice Mode (`solo.html`)
 - Interactive word-building tray supporting keyboard typing (`A–Z`), Backspace, and tile clicks.
@@ -200,7 +200,7 @@ Countdown Studio features a 100% synthesized audio engine built on the browser *
 
 - **Letters Word Solver (`js/solver/wordSolver.js`):** High-performance Trie implementation loaded with the bundled 106,899-word lexicon (`data/words.txt`). Finds all possible anagram words of lengths 2 through 9 in under 15ms.
 - **Numbers Solver (`js/solver/numbersSolver.js`):** Exhaustive recursive arithmetic solver that finds exact solutions or the closest reachable approximations using standard arithmetic rules (no negative numbers, no fractions).
-- **Conundrum Engine (`js/game/conundrum.js`):** Anagram generator using curated 9-letter words (`data/conundrums.json`) ensuring single-solution fairness.
+- **Conundrum Engine (`js/game/conundrum.js`):** Builds a two/three-word nine-letter source phrase from the dictionary and pairs it with a curated single-answer conundrum (`data/conundrums.json`).
 - **Dictionary Corner (`js/net/dictionaryApi.js`):** Queries definitions, parts of speech, and etymology from the public Free Dictionary API with a 10-second timeout, falling back gracefully to offline word validity checks when disconnected.
 
 ---

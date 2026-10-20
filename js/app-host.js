@@ -303,9 +303,10 @@ function startNewMatchFromSetup() {
   });
 
   if (firstType === 'C') {
-    const con = pickConundrum(dictData ? dictData.conundrums : [], rng);
+    const con = pickConundrum(dictData ? dictData.conundrums : [], rng, dictData?.wordSet);
     fresh.conundrumAnswer = con.answer;
     fresh.conundrumScrambled = con.scrambled;
+    fresh.conundrumSourceWords = con.sourceWords;
   }
 
   store.replaceState(fresh);
@@ -360,14 +361,16 @@ function configureRoundAtIndex(roundIdx, logText) {
     showNumbersSolutionOnDisplay: false,
     conundrumScrambled: '',
     conundrumAnswer: '',
+    conundrumSourceWords: null,
     conundrumRevealed: false,
     activeBuzzerPlayer: null
   };
 
   if (rType === 'C') {
-    const con = pickConundrum(dictData ? dictData.conundrums : [], rng);
+    const con = pickConundrum(dictData ? dictData.conundrums : [], rng, dictData?.wordSet);
     patch.conundrumAnswer = con.answer;
     patch.conundrumScrambled = con.scrambled;
+    patch.conundrumSourceWords = con.sourceWords;
   }
 
   // clear host input fields
