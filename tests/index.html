@@ -168,6 +168,120 @@
         assert('Rejects reusing a letter more times than drawn on board', validateWordSubmission('CCC', board, wordSet).reason === 'missing_letters');
         assert('Accepts valid 9-letter word COUNTDOWN using exact multiset', validateWordSubmission('countdown', board, wordSet).valid === true);
 
+        const inflectionDictionary = buildCustomDictionary([
+          'walk', 'stop', 'make', 'run', 'study', 'panic', 'city', 'box', 'knife',
+          'hero', 'quiz', 'eat', 'swim', 'buy', 'write', 'lie', 'child', 'tooth',
+          'foot', 'mouse', 'cactus', 'crisis'
+        ]).wordSet;
+
+        // Past tense verbs (regular and irregular)
+        assert(
+          'Accepts regular past-tense verb WALKED from WALK',
+          validateWordSubmission('walked', ['W', 'A', 'L', 'K', 'E', 'D'], inflectionDictionary).valid === true
+        );
+        assert(
+          'Accepts doubled-consonant past-tense STOPPED from STOP',
+          validateWordSubmission('stopped', ['S', 'T', 'O', 'P', 'P', 'E', 'D'], inflectionDictionary).valid === true
+        );
+        assert(
+          'Accepts -cked past-tense PANICKED from PANIC',
+          validateWordSubmission('panicked', ['P', 'A', 'N', 'I', 'C', 'K', 'E', 'D'], inflectionDictionary).valid === true
+        );
+        assert(
+          'Accepts irregular past-tense ATE from EAT',
+          validateWordSubmission('ate', ['A', 'T', 'E', 'X', 'Y', 'Z'], inflectionDictionary).valid === true
+        );
+        assert(
+          'Accepts irregular past-tense RAN from RUN',
+          validateWordSubmission('ran', ['R', 'A', 'N', 'X', 'Y', 'Z'], inflectionDictionary).valid === true
+        );
+        assert(
+          'Accepts irregular past-tense SWAM from SWIM',
+          validateWordSubmission('swam', ['S', 'W', 'A', 'M', 'X', 'Y'], inflectionDictionary).valid === true
+        );
+        assert(
+          'Accepts irregular past-tense BOUGHT from BUY',
+          validateWordSubmission('bought', ['B', 'O', 'U', 'G', 'H', 'T'], inflectionDictionary).valid === true
+        );
+        assert(
+          'Accepts irregular past-tense WROTE from WRITE',
+          validateWordSubmission('wrote', ['W', 'R', 'O', 'T', 'E', 'X'], inflectionDictionary).valid === true
+        );
+
+        // Present continuous (-ing / present participle)
+        assert(
+          'Accepts dropped-e present participle MAKING from MAKE',
+          validateWordSubmission('making', ['M', 'A', 'K', 'I', 'N', 'G'], inflectionDictionary).valid === true
+        );
+        assert(
+          'Accepts doubled-consonant present participle RUNNING from RUN',
+          validateWordSubmission('running', ['R', 'U', 'N', 'N', 'I', 'N', 'G'], inflectionDictionary).valid === true
+        );
+        assert(
+          'Accepts -ying present participle LYING from LIE',
+          validateWordSubmission('lying', ['L', 'Y', 'I', 'N', 'G', 'X'], inflectionDictionary).valid === true
+        );
+        assert(
+          'Accepts -cking present participle PANICKING from PANIC',
+          validateWordSubmission('panicking', ['P', 'A', 'N', 'I', 'C', 'K', 'I', 'N', 'G'], inflectionDictionary).valid === true
+        );
+
+        // Plural nouns (regular, f/fe, -es, irregular, Latin/Greek)
+        assert(
+          'Accepts regular plural noun CITIES from CITY',
+          validateWordSubmission('cities', ['C', 'I', 'T', 'I', 'E', 'S'], inflectionDictionary).valid === true
+        );
+        assert(
+          'Accepts regular plural noun KNIVES from KNIFE',
+          validateWordSubmission('knives', ['K', 'N', 'I', 'V', 'E', 'S'], inflectionDictionary).valid === true
+        );
+        assert(
+          'Accepts -es plural noun BOXES from BOX',
+          validateWordSubmission('boxes', ['B', 'O', 'X', 'E', 'S', 'X'], inflectionDictionary).valid === true
+        );
+        assert(
+          'Accepts -oes plural noun HEROES from HERO',
+          validateWordSubmission('heroes', ['H', 'E', 'R', 'O', 'E', 'S'], inflectionDictionary).valid === true
+        );
+        assert(
+          'Accepts doubled-consonant plural QUIZZES from QUIZ',
+          validateWordSubmission('quizzes', ['Q', 'U', 'I', 'Z', 'Z', 'E', 'S'], inflectionDictionary).valid === true
+        );
+        assert(
+          'Accepts irregular plural noun CHILDREN from CHILD',
+          validateWordSubmission('children', ['C', 'H', 'I', 'L', 'D', 'R', 'E', 'N'], inflectionDictionary).valid === true
+        );
+        assert(
+          'Accepts irregular plural noun TEETH from TOOTH',
+          validateWordSubmission('teeth', ['T', 'E', 'E', 'T', 'H', 'X'], inflectionDictionary).valid === true
+        );
+        assert(
+          'Accepts irregular plural noun FEET from FOOT',
+          validateWordSubmission('feet', ['F', 'E', 'E', 'T', 'X', 'Y'], inflectionDictionary).valid === true
+        );
+        assert(
+          'Accepts irregular plural noun MICE from MOUSE',
+          validateWordSubmission('mice', ['M', 'I', 'C', 'E', 'X', 'Y'], inflectionDictionary).valid === true
+        );
+        assert(
+          'Accepts Latin plural noun CACTI from CACTUS',
+          validateWordSubmission('cacti', ['C', 'A', 'C', 'T', 'I', 'X'], inflectionDictionary).valid === true
+        );
+        assert(
+          'Accepts Greek plural noun CRISES from CRISIS',
+          validateWordSubmission('crises', ['C', 'R', 'I', 'S', 'E', 'S'], inflectionDictionary).valid === true
+        );
+
+        // Rejections of invalid/uninflected non-words
+        assert(
+          'Still rejects an unknown double-inflection walkings',
+          validateWordSubmission('walkings', ['W', 'A', 'L', 'K', 'I', 'N', 'G', 'S'], inflectionDictionary).valid === false
+        );
+        assert(
+          'Rejects invalid plural foots when irregular is feet',
+          validateWordSubmission('foots', ['F', 'O', 'O', 'T', 'S', 'X'], inflectionDictionary).valid === false
+        );
+
         const solved = solveLettersRound(board, trie, 10);
         assert('WordTrie solver finds 9-letter word COUNTDOWN first', solved.topWords[0] === 'COUNTDOWN' && solved.maxLength === 9);
         assert('Dictionary Corner only returns words at the maximum length', solved.topWords.every((word) => word.length === solved.maxLength));

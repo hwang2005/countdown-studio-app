@@ -6,6 +6,7 @@
  */
 
 import { cacheWordDefinition, getCachedWordDefinition } from '../core/storage.js';
+import { getInflectionCandidates } from '../game/letters.js';
 
 const TIMEOUT_MS = 3500;
 
@@ -14,9 +15,10 @@ const TIMEOUT_MS = 3500;
  * Returns cached entry if available, or null if offline/not found.
  *
  * @param {string} word
+ * @param {number} [depth=0]
  * @returns {Promise<{ word: string, partOfSpeech: string, definition: string, phonetic?: string } | null>}
  */
-export async function fetchWordDefinition(word) {
+export async function fetchWordDefinition(word, depth = 0) {
   const clean = String(word || '').trim().toLowerCase();
   if (!clean) return null;
 
@@ -93,8 +95,31 @@ export async function fetchWordDefinition(word) {
     return entry;
   } catch {
     clearTimeout(timer);
-    return null;
   }
+
+  // 3. Fallback to candidate base forms if word is an inflected form
+  if (depth === 0) {
+    const candidates = getInflectionCandidates(clean);
+    for (const candidate of candidates) {
+      try {
+        const baseEntry = await fetchWordDefinition(candidate, depth + 1);
+        if (baseEntry) {
+          const derivedEntry = {
+            word: clean.toUpperCase(),
+            partOfSpeech: baseEntry.partOfSpeech,
+            definition: `(Form of ${candidate.toUpperCase()}) ${baseEntry.definition}`,
+            phonetic: baseEntry.phonetic || ''
+          };
+          cacheWordDefinition(clean, derivedEntry);
+          return derivedEntry;
+        }
+      } catch {
+        // Continue to next candidate
+      }
+    }
+  }
+
+  return null;
 }
 
 /**

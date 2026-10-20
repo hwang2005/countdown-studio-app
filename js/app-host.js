@@ -45,7 +45,8 @@ import {
   getPickConstraints,
   pickLetterTile,
   pickRandomRemainingLetters,
-  validateWordSubmission
+  validateWordSubmission,
+  isDictionaryWordOrInflection
 } from './game/letters.js';
 import {
   drawNumbersTiles,
@@ -1460,7 +1461,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const raw = input ? input.value.trim().toUpperCase() : '';
     if (!raw) return;
 
-    const inDict = dictData && dictData.wordSet.has(raw.toLowerCase());
+    const inDict = dictData ? isDictionaryWordOrInflection(raw.toLowerCase(), dictData.wordSet) : false;
     let defText = '';
     if (inDict) {
       audio.playValidChime();

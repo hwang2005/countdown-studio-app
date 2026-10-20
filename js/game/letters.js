@@ -201,6 +201,382 @@ export function pickRandomRemainingLetters(stacks, existingBoard = [], rng = Mat
 }
 
 /**
+ * Irregular past tense and past participle verb mappings (inflected form -> base verb).
+ * Supports standard English irregular verbs up to 9 letters.
+ */
+const IRREGULAR_VERBS = new Map([
+  ['arose', 'arise'], ['arisen', 'arise'],
+  ['ate', 'eat'], ['eaten', 'eat'],
+  ['awoke', 'awake'], ['awoken', 'awake'],
+  ['bore', 'bear'], ['born', 'bear'], ['borne', 'bear'],
+  ['beat', 'beat'], ['beaten', 'beat'],
+  ['became', 'become'],
+  ['began', 'begin'], ['begun', 'begin'],
+  ['bent', 'bend'], ['unbent', 'unbend'],
+  ['bet', 'bet'],
+  ['bit', 'bite'], ['bitten', 'bite'],
+  ['bled', 'bleed'],
+  ['blew', 'blow'], ['blown', 'blow'],
+  ['broke', 'break'], ['broken', 'break'],
+  ['bred', 'breed'],
+  ['brought', 'bring'],
+  ['broadcast', 'broadcast'],
+  ['built', 'build'], ['rebuilt', 'rebuild'],
+  ['burnt', 'burn'],
+  ['burst', 'burst'],
+  ['bought', 'buy'],
+  ['cast', 'cast'], ['recast', 'recast'],
+  ['caught', 'catch'],
+  ['chose', 'choose'], ['chosen', 'choose'],
+  ['clung', 'cling'],
+  ['came', 'come'], ['overcame', 'overcome'],
+  ['cost', 'cost'],
+  ['crept', 'creep'],
+  ['cut', 'cut'],
+  ['dealt', 'deal'],
+  ['dug', 'dig'],
+  ['did', 'do'], ['done', 'do'], ['undid', 'undo'], ['undone', 'undo'],
+  ['outdid', 'outdo'], ['outdone', 'outdo'], ['overdid', 'overdo'], ['overdone', 'overdo'],
+  ['drew', 'draw'], ['drawn', 'draw'], ['withdrew', 'withdraw'], ['withdrawn', 'withdraw'],
+  ['dreamt', 'dream'],
+  ['drank', 'drink'], ['drunk', 'drink'], ['drunken', 'drink'],
+  ['drove', 'drive'], ['driven', 'drive'],
+  ['dwelt', 'dwell'],
+  ['fell', 'fall'], ['fallen', 'fall'],
+  ['fed', 'feed'], ['overfed', 'overfeed'], ['underfed', 'underfeed'],
+  ['felt', 'feel'],
+  ['fought', 'fight'],
+  ['found', 'find'],
+  ['fled', 'flee'],
+  ['flung', 'fling'],
+  ['flew', 'fly'], ['flown', 'fly'], ['overflew', 'overfly'], ['overflown', 'overfly'],
+  ['forbade', 'forbid'], ['forbidden', 'forbid'],
+  ['forecast', 'forecast'],
+  ['foresaw', 'foresee'], ['foreseen', 'foresee'],
+  ['foretold', 'foretell'],
+  ['forgot', 'forget'], ['forgotten', 'forget'],
+  ['forgave', 'forgive'], ['forgiven', 'forgive'],
+  ['forsook', 'forsake'], ['forsaken', 'forsake'],
+  ['froze', 'freeze'], ['frozen', 'freeze'],
+  ['got', 'get'], ['gotten', 'get'],
+  ['gave', 'give'], ['given', 'give'],
+  ['went', 'go'], ['gone', 'go'],
+  ['ground', 'grind'],
+  ['grew', 'grow'], ['grown', 'grow'], ['outgrew', 'outgrow'], ['overgrew', 'overgrow'],
+  ['hung', 'hang'],
+  ['had', 'have'],
+  ['heard', 'hear'],
+  ['hid', 'hide'], ['hidden', 'hide'],
+  ['hit', 'hit'],
+  ['held', 'hold'], ['upheld', 'uphold'], ['withheld', 'withhold'], ['beheld', 'behold'],
+  ['hurt', 'hurt'],
+  ['kept', 'keep'],
+  ['knelt', 'kneel'],
+  ['knit', 'knit'],
+  ['knew', 'know'], ['known', 'know'],
+  ['laid', 'lay'], ['mislaid', 'mislay'],
+  ['led', 'lead'], ['misled', 'mislead'],
+  ['leapt', 'leap'],
+  ['learnt', 'learn'],
+  ['left', 'leave'],
+  ['lent', 'lend'],
+  ['let', 'let'],
+  ['lay', 'lie'], ['lain', 'lie'],
+  ['lit', 'light'],
+  ['lost', 'lose'],
+  ['made', 'make'], ['remade', 'remake'],
+  ['meant', 'mean'],
+  ['met', 'meet'],
+  ['mistook', 'mistake'], ['mistaken', 'mistake'],
+  ['mowed', 'mow'], ['mown', 'mow'],
+  ['outran', 'outrun'], ['overran', 'overrun'],
+  ['oversaw', 'oversee'], ['overseen', 'oversee'],
+  ['overslept', 'oversleep'],
+  ['overtook', 'overtake'], ['overtaken', 'overtake'],
+  ['paid', 'pay'], ['repaid', 'repay'], ['overpaid', 'overpay'], ['underpaid', 'underpay'],
+  ['put', 'put'],
+  ['quit', 'quit'],
+  ['read', 'read'],
+  ['reset', 'reset'],
+  ['retold', 'retell'],
+  ['rid', 'rid'],
+  ['rode', 'ride'], ['ridden', 'ride'],
+  ['rang', 'ring'], ['rung', 'ring'],
+  ['rose', 'rise'], ['risen', 'rise'],
+  ['ran', 'run'],
+  ['saw', 'see'], ['seen', 'see'],
+  ['sought', 'seek'],
+  ['sold', 'sell'],
+  ['sent', 'send'],
+  ['set', 'set'],
+  ['sewed', 'sew'], ['sewn', 'sew'],
+  ['shook', 'shake'], ['shaken', 'shake'],
+  ['shaved', 'shave'], ['shaven', 'shave'],
+  ['shed', 'shed'],
+  ['shone', 'shine'],
+  ['shot', 'shoot'],
+  ['showed', 'show'], ['shown', 'show'],
+  ['shrank', 'shrink'], ['shrunk', 'shrink'],
+  ['shut', 'shut'],
+  ['sang', 'sing'], ['sung', 'sing'],
+  ['sank', 'sink'], ['sunk', 'sink'], ['sunken', 'sink'],
+  ['sat', 'sit'],
+  ['slept', 'sleep'],
+  ['slid', 'slide'],
+  ['slung', 'sling'],
+  ['slunk', 'slink'],
+  ['slit', 'slit'],
+  ['smelt', 'smell'],
+  ['smote', 'smite'], ['smitten', 'smite'],
+  ['sowed', 'sow'], ['sown', 'sow'],
+  ['spoke', 'speak'], ['spoken', 'speak'],
+  ['sped', 'speed'],
+  ['spelt', 'spell'], ['misspelt', 'misspell'],
+  ['spent', 'spend'], ['misspent', 'misspend'],
+  ['spilt', 'spill'],
+  ['spun', 'spin'],
+  ['spat', 'spit'],
+  ['split', 'split'],
+  ['spoilt', 'spoil'],
+  ['spread', 'spread'],
+  ['sprang', 'spring'], ['sprung', 'spring'],
+  ['stood', 'stand'], ['understood', 'understand'], ['withstood', 'withstand'],
+  ['stole', 'steal'], ['stolen', 'steal'],
+  ['stuck', 'stick'],
+  ['stung', 'sting'],
+  ['stank', 'stink'], ['stunk', 'stink'],
+  ['struck', 'strike'], ['stricken', 'strike'],
+  ['strung', 'string'],
+  ['strove', 'strive'], ['striven', 'strive'],
+  ['swore', 'swear'], ['sworn', 'swear'],
+  ['swept', 'sweep'],
+  ['swelled', 'swell'], ['swollen', 'swell'],
+  ['swam', 'swim'], ['swum', 'swim'],
+  ['swung', 'swing'],
+  ['took', 'take'], ['taken', 'take'],
+  ['taught', 'teach'],
+  ['tore', 'tear'], ['torn', 'tear'],
+  ['told', 'tell'],
+  ['thought', 'think'],
+  ['threw', 'throw'], ['thrown', 'throw'],
+  ['thrust', 'thrust'],
+  ['trod', 'tread'], ['trodden', 'tread'],
+  ['underwent', 'undergo'], ['undergone', 'undergo'],
+  ['undertook', 'undertake'], ['undertaken', 'undertake'],
+  ['upset', 'upset'],
+  ['woke', 'wake'], ['woken', 'wake'],
+  ['wore', 'wear'], ['worn', 'wear'], ['outworn', 'outwear'],
+  ['wove', 'weave'], ['woven', 'weave'],
+  ['wept', 'weep'],
+  ['wet', 'wet'],
+  ['won', 'win'],
+  ['wound', 'wind'], ['unwound', 'unwind'], ['rewound', 'rewind'],
+  ['withstood', 'withstand'],
+  ['wrung', 'wring'],
+  ['wrote', 'write'], ['written', 'write']
+]);
+
+/**
+ * Irregular plural noun mappings (plural form -> singular base noun).
+ * Supports standard English irregular and Latin/Greek plurals up to 9 letters.
+ */
+const IRREGULAR_PLURALS = new Map([
+  ['men', 'man'],
+  ['women', 'woman'],
+  ['children', 'child'],
+  ['teeth', 'tooth'],
+  ['feet', 'foot'],
+  ['geese', 'goose'],
+  ['mice', 'mouse'],
+  ['dormice', 'dormouse'],
+  ['titmice', 'titmouse'],
+  ['lice', 'louse'],
+  ['oxen', 'ox'],
+  ['people', 'person'],
+  ['dice', 'die'],
+  ['pence', 'penny'],
+  ['cacti', 'cactus'],
+  ['fungi', 'fungus'],
+  ['foci', 'focus'],
+  ['nuclei', 'nucleus'],
+  ['radii', 'radius'],
+  ['syllabi', 'syllabus'],
+  ['alumni', 'alumnus'],
+  ['stimuli', 'stimulus'],
+  ['crises', 'crisis'],
+  ['bases', 'basis'],
+  ['theses', 'thesis'],
+  ['axes', 'axis'],
+  ['oases', 'oasis'],
+  ['analyses', 'analysis'],
+  ['hypotheses', 'hypothesis'],
+  ['diagnoses', 'diagnosis'],
+  ['synopses', 'synopsis'],
+  ['criteria', 'criterion'],
+  ['phenomena', 'phenomenon'],
+  ['media', 'medium'],
+  ['bacteria', 'bacterium'],
+  ['strata', 'stratum'],
+  ['curricula', 'curriculum'],
+  ['memoranda', 'memorandum'],
+  ['antennae', 'antenna'],
+  ['formulae', 'formula'],
+  ['larvae', 'larva'],
+  ['nebulae', 'nebula'],
+  ['vertebrae', 'vertebra'],
+  ['alumnae', 'alumna'],
+  ['indices', 'index'],
+  ['matrices', 'matrix'],
+  ['appendices', 'appendix'],
+  ['vertices', 'vertex'],
+  ['vortices', 'vortex']
+]);
+
+/**
+ * Nouns with strictly irregular plurals that must not be formed with a naive trailing -s/-es.
+ */
+const STRICT_IRREGULAR_PLURAL_BASES = new Set([
+  'foot', 'tooth', 'child', 'mouse', 'dormouse', 'titmouse', 'louse', 'goose', 'ox', 'man', 'woman'
+]);
+
+/**
+ * Returns candidate base forms for English inflections:
+ * - Past tense and past participle verb forms (-ed, -d, -ied, -cked, doubled consonants, irregulars)
+ * - Present continuous / participle verb forms (-ing, -ying, -cking, dropped -e, doubled consonants)
+ * - Plural noun forms (-s, -es, -ies, -ves, -oes, irregulars, compound *men, Latin/Greek forms)
+ *
+ * This allows the Letters round to accept inflections even when the lexicon contains
+ * only base forms.
+ *
+ * @param {string} word Lower-case alphabetic word
+ * @returns {string[]}
+ */
+export function getInflectionCandidates(word) {
+  const candidates = new Set();
+  const add = (candidate) => {
+    if (typeof candidate === 'string' && candidate.length >= 2 && candidate !== word) {
+      candidates.add(candidate);
+    }
+  };
+
+  // 1. Direct irregular verb lookup (past tense & participle -> base)
+  const irregularVerb = IRREGULAR_VERBS.get(word);
+  if (irregularVerb) add(irregularVerb);
+
+  // 2. Direct irregular plural lookup (plural -> singular)
+  const irregularPlural = IRREGULAR_PLURALS.get(word);
+  if (irregularPlural) add(irregularPlural);
+
+  // 3. Compound nouns ending in "men" -> "man" (gentlemen -> gentleman, etc.)
+  if (word.endsWith('men') && word.length > 3) {
+    add(`${word.slice(0, -3)}man`);
+  }
+
+  // 4. Past tense verb candidates:
+  // -ied: try -> tried, study -> studied, cry -> cried
+  if (word.endsWith('ied')) {
+    add(`${word.slice(0, -3)}y`);
+  }
+  // -cked: panic -> panicked, picnic -> picnicked, mimic -> mimicked, traffic -> trafficked
+  if (word.endsWith('cked') && word.length > 4) {
+    add(`${word.slice(0, -4)}c`);
+  }
+  // Regular -ed: walk -> walked, love -> loved, stop -> stopped, travel -> travelled
+  if (word.endsWith('ed')) {
+    const stem = word.slice(0, -2);
+    add(stem);                     // walked -> walk, melted -> melt
+    add(`${stem}e`);               // loved -> love, moved -> move, danced -> dance
+    if (stem.length > 2 && stem.at(-1) === stem.at(-2)) {
+      add(stem.slice(0, -1));      // stopped -> stop, planned -> plan, grabbed -> grab
+    }
+  }
+
+  // 5. Present participle / continuous (-ing) candidates:
+  // -cking: panicking -> panic, picnicking -> picnic, mimicking -> mimic
+  if (word.endsWith('cking') && word.length > 5) {
+    add(`${word.slice(0, -5)}c`);
+  }
+  // Regular -ing:
+  if (word.endsWith('ing')) {
+    const stem = word.slice(0, -3);
+    add(stem);                     // walking -> walk, playing -> play, trying -> try
+    add(`${stem}e`);               // making -> make, dancing -> dance, writing -> write
+    if (stem.length > 2 && stem.at(-1) === stem.at(-2)) {
+      add(stem.slice(0, -1));      // running -> run, swimming -> swim, sitting -> sit
+    }
+    if (stem.endsWith('y')) {
+      add(`${stem.slice(0, -1)}ie`); // lying -> lie, dying -> die, tying -> tie
+    }
+  }
+
+  // 6. Plural noun candidates:
+  // -ies: cities -> city, babies -> baby, stories -> story, flies -> fly
+  if (word.endsWith('ies')) {
+    add(`${word.slice(0, -3)}y`);
+  }
+  // -ves: knives -> knife, leaves -> leaf, lives -> life, wolves -> wolf
+  if (word.endsWith('ves')) {
+    add(`${word.slice(0, -3)}f`);
+    add(`${word.slice(0, -3)}fe`);
+  }
+  // -es: boxes -> box, buses -> bus, watches -> watch, dishes -> dish, heroes -> hero
+  if (word.endsWith('es')) {
+    const stem = word.slice(0, -2);
+    if (!STRICT_IRREGULAR_PLURAL_BASES.has(stem)) {
+      add(stem);                     // box -> boxes, hero -> heroes
+      if (stem.length > 2 && stem.at(-1) === stem.at(-2)) {
+        add(stem.slice(0, -1));      // quizzes -> quiz, busses -> bus
+      }
+    }
+    // Greek -ses/-xes: crises -> crisis, axes -> axis, bases -> basis
+    if (word.endsWith('ses') || word.endsWith('xes')) {
+      add(`${word.slice(0, -2)}is`);
+    }
+  }
+  // -ices: indices -> index, matrices -> matrix, vertices -> vertex
+  if (word.endsWith('ices') && word.length > 4) {
+    add(`${word.slice(0, -4)}ex`);
+    add(`${word.slice(0, -4)}ix`);
+  }
+  // Latin -i -> -us: cacti -> cactus, fungi -> fungus, nuclei -> nucleus
+  if (word.endsWith('i') && word.length >= 4) {
+    add(`${word.slice(0, -1)}us`);
+  }
+  // Latin/Greek -a -> -on/-um: criteria -> criterion, bacteria -> bacterium, media -> medium
+  if (word.endsWith('a') && word.length >= 4) {
+    add(`${word.slice(0, -1)}on`);
+    add(`${word.slice(0, -1)}um`);
+  }
+  // Latin -ae -> -a: formulae -> formula, antennae -> antenna, larvae -> larva
+  if (word.endsWith('ae') && word.length >= 4) {
+    add(word.slice(0, -1));
+  }
+  // Regular -s: cats -> cat, dogs -> dog, houses -> house
+  if (word.endsWith('s')) {
+    const stem = word.slice(0, -1);
+    if (!STRICT_IRREGULAR_PLURAL_BASES.has(stem)) {
+      add(stem);
+    }
+  }
+
+  return [...candidates];
+}
+
+/**
+ * Checks exact lexicon membership plus regular & irregular past tense verbs,
+ * present continuous (-ing) verbs, and plural nouns.
+ *
+ * @param {string} word Lower-case word
+ * @param {Set<string>} dictionarySet
+ * @returns {boolean}
+ */
+export function isDictionaryWordOrInflection(word, dictionarySet) {
+  if (!dictionarySet) return true;
+  if (dictionarySet.has(word)) return true;
+  return getInflectionCandidates(word).some((candidate) => dictionarySet.has(candidate));
+}
+
+/**
  * Validates whether `word` can be constructed from the 9-letter `board`
  * (using each tile at most once) and optionally checks membership in `dictionarySet`.
  *
@@ -258,7 +634,7 @@ export function validateWordSubmission(word, board, dictionarySet = null) {
     counts.set(ch, avail - 1);
   }
 
-  if (dictionarySet && !dictionarySet.has(clean.toLowerCase())) {
+  if (dictionarySet && !isDictionaryWordOrInflection(clean.toLowerCase(), dictionarySet)) {
     return { valid: false, reason: 'not_in_dictionary', normalizedWord: clean };
   }
 
