@@ -72,9 +72,9 @@
       <nav class="top-bar__nav" aria-label="Primary navigation">
         <a href="./solo.html" class="top-bar__link" data-auth-permission="solo:practice">Solo Practice</a>
         <a href="./versus-host.html" class="top-bar__link" aria-current="page" data-auth-permission="host:operations">Versus Host</a>
-        <button type="button" id="host-btn-remote-room" class="btn btn--secondary btn--sm" title="Phát sóng trận đấu đến máy khác qua mã phòng và QR code">
+        <button type="button" id="host-btn-remote-room" class="btn btn--secondary btn--sm" title="Broadcast match to other devices via room code and QR code">
           <span class="status-dot status-dot--offline" id="host-remote-dot"></span>
-          🌐 <span id="host-remote-btn-text">Phòng Trực Tuyến</span>
+          🌐 <span id="host-remote-btn-text">Online Room</span>
         </button>
         <button type="button" id="host-btn-embedded-display" class="btn btn--royal btn--sm" title="View the live 16:9 Stage Display in a full-screen window/modal" data-auth-permission="stage:display">
           📺 Open Stage Display
@@ -333,7 +333,7 @@
               <button type="button" id="host-btn-modal-stage" class="btn btn--primary btn--sm" title="View Full 16:9 Stage Display in full-screen modal">
                 📺 Stage Modal
               </button>
-              <button type="button" id="host-btn-toggle-display-controls" class="btn btn--secondary btn--sm" title="Ẩn hoặc hiện các nút điều khiển trên màn hình Stage Display (Phím C trên Display)">
+              <button type="button" id="host-btn-toggle-display-controls" class="btn btn--secondary btn--sm" title="Toggle control buttons on the Stage Display screen (Key C on Display)">
                 👁 Display Controls
               </button>
               <a href="./versus-display.html" target="_blank" rel="noopener" class="btn btn--royal btn--sm" title="Open Stage Display in a separate browser window/tab" data-auth-permission="stage:display">
@@ -552,15 +552,15 @@
       class="modal-backdrop"
       role="dialog"
       aria-modal="true"
-      aria-label="Phòng Đấu Trực Tuyến (Remote Stage)"
+      aria-label="Online Match Room (Remote Stage)"
       hidden
     >
       <div class="modal-card" style="max-width: 540px;">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--space-4);">
           <div>
-            <h2 style="font-size: 1.25rem;">🌐 Phòng Đấu Trực Tuyến</h2>
+            <h2 style="font-size: 1.25rem;">🌐 Online Match Room</h2>
             <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem;">
-              Kết nối máy Host với màn hình sân khấu (Projector/Smart TV) ở thiết bị khác qua internet
+              Connect Host console with stage screen (Projector/Smart TV) on another device over the internet
             </p>
           </div>
           <button type="button" id="host-btn-close-remote-modal" class="btn btn--sm btn--secondary">✕</button>
@@ -569,7 +569,7 @@
         <div style="display: grid; gap: var(--space-4);">
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: var(--space-3);">
             <div>
-              <label for="host-input-room-code" style="font-size: 0.82rem; font-weight: 600; display: block; margin-bottom: 0.25rem;">Mã Phòng (Room Code)</label>
+              <label for="host-input-room-code" style="font-size: 0.82rem; font-weight: 600; display: block; margin-bottom: 0.25rem;">Room Code</label>
               <div style="display: flex; gap: 0.35rem;">
                 <input
                   type="text"
@@ -579,12 +579,12 @@
                   maxlength="10"
                   placeholder="CD-8842"
                 />
-                <button type="button" id="host-btn-gen-room" class="btn btn--secondary btn--sm" title="Tạo mã ngẫu nhiên">🎲</button>
+                <button type="button" id="host-btn-gen-room" class="btn btn--secondary btn--sm" title="Generate random code">🎲</button>
               </div>
             </div>
 
             <div>
-              <label for="host-input-pin" style="font-size: 0.82rem; font-weight: 600; display: block; margin-bottom: 0.25rem;">Mật khẩu Host (PIN)</label>
+              <label for="host-input-pin" style="font-size: 0.82rem; font-weight: 600; display: block; margin-bottom: 0.25rem;">Host Password (PIN)</label>
               <input
                 type="text"
                 id="host-input-pin"
@@ -602,16 +602,16 @@
             <canvas id="host-qr-canvas" width="200" height="200"></canvas>
             <div id="host-qr-room-text" class="remote-code-display">CD-8842</div>
             <div style="font-size: 0.78rem; color: #475569; text-align: center;">
-              Quét mã bằng điện thoại / máy chiếu để mở màn hình sân khấu
+              Scan code with mobile device or projector to open the stage display
             </div>
           </div>
 
           <!-- Display Direct URL Link -->
           <div style="background: var(--bg-surface-elevated); padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
-              <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary);">Đường dẫn màn hình Display:</span>
+              <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary);">Display screen URL:</span>
               <button type="button" id="host-btn-copy-room-link" class="btn btn--sm btn--secondary" style="padding: 0.25rem 0.5rem; font-size: 0.78rem;">
-                📋 Sao chép link
+                📋 Copy link
               </button>
             </div>
             <div id="host-display-url-preview" class="font-mono text-xs" style="word-break: break-all; color: var(--accent-primary);">
@@ -623,29 +623,29 @@
           <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.65rem 0.85rem; background: rgba(5, 11, 28, 0.4); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
             <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem;">
               <span class="status-dot status-dot--offline" id="host-modal-dot"></span>
-              <span id="host-modal-status-text">Chưa phát sóng</span>
+              <span id="host-modal-status-text">Not broadcasting</span>
             </div>
             <div id="host-display-count-badge" class="meta-inline font-mono" style="font-size: 0.8rem;">
-              0 Màn hình xem
+              0 Connected Displays
             </div>
           </div>
 
           <div class="remote-room-actions">
             <button type="button" id="host-btn-disconnect-remote" class="btn btn--secondary btn--sm" hidden>
-              Ngắt phát sóng
+              Disconnect broadcast
             </button>
             <button type="button" id="host-btn-start-broadcast" class="btn btn--primary btn--sm">
-              🚀 Bắt Đầu Phát Sóng
+              🚀 Start Broadcast
             </button>
           </div>
 
           <div id="host-close-room-panel" class="remote-room-close-panel" hidden>
             <div class="remote-room-close-panel__copy">
-              <strong>⚠️ Kết thúc phòng</strong>
-              <span>Ngắt toàn bộ màn hình Display và làm mã phòng này không thể truy cập lại.</span>
+              <strong>⚠️ Close Room</strong>
+              <span>Disconnect all connected display screens and permanently revoke this room code.</span>
             </div>
-            <button type="button" id="host-btn-close-remote-room" class="btn btn--danger remote-room-close-button" aria-label="Đóng và xóa phòng trực tuyến">
-              🔒 ĐÓNG PHÒNG
+            <button type="button" id="host-btn-close-remote-room" class="btn btn--danger remote-room-close-button" aria-label="Close and terminate online room">
+              🔒 CLOSE ROOM
             </button>
           </div>
         </div>

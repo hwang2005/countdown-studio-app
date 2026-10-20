@@ -269,7 +269,7 @@ export class StageSyncChannel {
       // A WebSocket can remain in CONNECTING forever behind a proxy or on a
       // static host. Always fail that attempt so the UI can offer a recovery.
       this.remoteConnectTimeoutTimer = setTimeout(() => {
-        failConnection('Không thể xác thực phòng với máy chủ sau 5 giây. Kiểm tra máy chủ và đường dẫn /ws.');
+        failConnection('Unable to authenticate room with the server after 5 seconds. Please check the server and /ws endpoint.');
       }, REMOTE_CONNECT_TIMEOUT_MS);
 
       socket.onopen = () => {
@@ -339,7 +339,7 @@ export class StageSyncChannel {
             const closedRoomId = this.roomId;
             this.roomClosed = true;
             this.isRemoteConnected = false;
-            this.lastRemoteError = msg.message || 'Phòng đã được Host đóng.';
+            this.lastRemoteError = msg.message || 'Room was closed by the Host.';
             clearTimeout(this.remoteConnectTimeoutTimer);
             this.remoteConnectTimeoutTimer = null;
             clearInterval(this.heartbeatTimer);
@@ -365,7 +365,7 @@ export class StageSyncChannel {
             if (msg.code === 'ROOM_NOT_FOUND') {
               this.roomClosed = true;
               this.isRemoteConnected = false;
-              this.lastRemoteError = msg.message || 'Phòng không tồn tại hoặc chưa được mở bởi Host.';
+              this.lastRemoteError = msg.message || 'Room does not exist or has not been opened by the Host.';
               clearTimeout(this.remoteConnectTimeoutTimer);
               this.remoteConnectTimeoutTimer = null;
               this.notifyStatus({ roomClosed: true, error: this.lastRemoteError });
@@ -375,7 +375,7 @@ export class StageSyncChannel {
               }
               return;
             }
-            this.lastRemoteError = msg.message || 'Máy chủ từ chối kết nối phòng.';
+            this.lastRemoteError = msg.message || 'Server rejected room connection.';
             if (['INVALID_PIN', 'INVALID_ROOM', 'ROOM_OCCUPIED', 'ROOM_FULL', 'UNAUTHORIZED', 'SESSION_EXPIRED'].includes(msg.code)) {
               this.remoteConnectionFailed = true;
               clearTimeout(this.remoteConnectTimeoutTimer);
@@ -400,7 +400,7 @@ export class StageSyncChannel {
         this.remoteConnectTimeoutTimer = null;
         clearInterval(this.heartbeatTimer);
         if (!this.roomClosed && !this.remoteConnectionFailed && !this.lastRemoteError) {
-          this.lastRemoteError = 'Kết nối tới máy chủ WebSocket đã bị đóng.';
+          this.lastRemoteError = 'Connection to the WebSocket server was closed.';
         }
 
         // Auto-reconnect if roomId is still configured
@@ -423,14 +423,14 @@ export class StageSyncChannel {
       socket.onerror = () => {
         if (!isCurrentSocket()) return;
         this.isRemoteConnected = false;
-        this.lastRemoteError = 'Không thể kết nối đến máy chủ WebSocket.';
+        this.lastRemoteError = 'Unable to connect to the WebSocket server.';
         this.notifyStatus({ error: this.lastRemoteError });
       };
     } catch (e) {
       console.error('Failed to instantiate WebSocket:', e);
       this.isRemoteConnected = false;
       this.remoteConnectionFailed = true;
-      this.lastRemoteError = `Không thể khởi tạo kết nối WebSocket: ${String(e)}`;
+      this.lastRemoteError = `Failed to initialize WebSocket connection: ${String(e)}`;
       this.notifyStatus({ connectionFailed: true, error: this.lastRemoteError });
     }
   }

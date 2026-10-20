@@ -72,12 +72,12 @@ export async function readApiJson(response) {
   const body = await response.text();
   if (!contentType.toLowerCase().includes('application/json')) {
     throw new Error(
-      'API không trả về JSON. Hãy kiểm tra URL backend (tham số ?api= hoặc __COUNTDOWN_API_URL__).',
+      'API did not return JSON. Please check the backend URL (?api= parameter or __COUNTDOWN_API_URL__).',
     );
   }
   try {
     return body ? JSON.parse(body) : {};
   } catch {
-    throw new Error('Phản hồi từ API không hợp lệ. Vui lòng kiểm tra máy chủ backend.');
+    throw new Error('Invalid response from API. Please check the backend server.');
   }
 }

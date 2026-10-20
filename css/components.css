@@ -1010,7 +1010,7 @@
   width: 100%;
 }
 
-/* Ensure the disabled link itself rejects pointer events ("không thể trỏ vào") */
+/* Ensure the disabled link itself rejects pointer events ("cannot be pointed to") */
 .auth-restricted-wrap > a,
 .auth-restricted-wrap > button,
 a.is-permission-locked,

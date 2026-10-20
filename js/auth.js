@@ -90,27 +90,27 @@ export function getPermissionMetadata(permission) {
   switch (permission) {
     case 'solo:practice':
       return {
-        roleName: 'Người chơi cá nhân (Individual) hoặc Admin',
+        roleName: 'Individual Player or Admin',
         featureName: 'Solo Practice',
-        badgeText: 'Cá nhân',
+        badgeText: 'Individual',
       };
     case 'host:operations':
       return {
-        roleName: 'Ban tổ chức (Organization) hoặc Admin',
+        roleName: 'Tournament Organiser (Organization) or Admin',
         featureName: 'Live Versus Host Console',
-        badgeText: 'Tổ chức',
+        badgeText: 'Organization',
       };
     case 'stage:display':
       return {
-        roleName: 'Ban tổ chức (Organization) hoặc Admin',
+        roleName: 'Tournament Organiser (Organization) or Admin',
         featureName: '16:9 Stage Display',
-        badgeText: 'Tổ chức',
+        badgeText: 'Organization',
       };
     default:
       return {
-        roleName: 'Quyền quản trị',
-        featureName: 'Tính năng giới hạn',
-        badgeText: 'Khóa',
+        roleName: 'Administrator',
+        featureName: 'Restricted Feature',
+        badgeText: 'Locked',
       };
   }
 }
@@ -124,7 +124,7 @@ export function showAccessDeniedToast(meta) {
   if (existingToast) existingToast.remove();
 
   const user = currentUser();
-  const currentRoleName = user?.role === 'individual' ? 'Người chơi (Individual)' : user?.role || 'Khách chưa đăng nhập';
+  const currentRoleName = user?.role === 'individual' ? 'Player (Individual)' : user?.role || 'Guest (not signed in)';
 
   const toast = document.createElement('div');
   toast.className = 'auth-toast-alert';
@@ -132,13 +132,13 @@ export function showAccessDeniedToast(meta) {
   toast.innerHTML = `
     <span class="auth-toast-alert__icon" aria-hidden="true">🔒</span>
     <div>
-      <div style="font-weight:700; color:#fecaca; margin-bottom:2px;">Không có quyền truy cập</div>
+      <div style="font-weight:700; color:#fecaca; margin-bottom:2px;">Access Denied</div>
       <div style="font-size:0.8125rem; color:#cbd5e1;">
-        Tính năng <strong>${meta.featureName}</strong> chỉ dành cho <strong>${meta.roleName}</strong>.
-        Tài khoản hiện tại (${currentRoleName}) không có quyền thao tác.
+        The feature <strong>${meta.featureName}</strong> is restricted to <strong>${meta.roleName}</strong>.
+        Your current account (${currentRoleName}) does not have permission.
       </div>
     </div>
-    <button type="button" class="auth-toast-alert__close" aria-label="Đóng thông báo">✕</button>
+    <button type="button" class="auth-toast-alert__close" aria-label="Close notification">✕</button>
   `;
 
   document.body.appendChild(toast);
@@ -174,8 +174,8 @@ function decorateVersusCard(userPermissions) {
       banner.innerHTML = `
         <span class="mode-card-restricted-banner__icon" aria-hidden="true">🔒</span>
         <div>
-          <strong style="display:block; margin-bottom:2px;">Chỉ dành cho Ban tổ chức giải đấu</strong>
-          <span>Chế độ Live Versus và Stage Display yêu cầu tài khoản Organization hoặc Admin. Người chơi cá nhân không có quyền truy cập.</span>
+          <strong style="display:block; margin-bottom:2px;">Tournament Organisers Only</strong>
+          <span>Live Versus and Stage Display modes require an Organization or Admin account. Individual players do not have access.</span>
         </div>
       `;
       const cardTitleContainer = versusCard.querySelector('div:first-child');
@@ -236,8 +236,8 @@ export function applyPermissionGuards() {
       el.setAttribute('tabindex', '-1');
 
       const tooltipMsg = user
-        ? `🔒 Chỉ dành cho ${meta.roleName}. Tài khoản của bạn (${user.role || 'Cá nhân'}) không có quyền truy cập.`
-        : `🔒 Chỉ dành cho ${meta.roleName}. Yêu cầu đăng nhập tài khoản có quyền.`;
+        ? `🔒 Restricted to ${meta.roleName}. Your account (${user.role || 'Individual'}) does not have access.`
+        : `🔒 Restricted to ${meta.roleName}. Please sign in with an authorized account.`;
 
       el.setAttribute('title', tooltipMsg);
 
@@ -320,7 +320,7 @@ function addAuthUi() {
     button.href = '#';
     const roleBadge = user.role === 'admin' ? 'Admin' : user.role === 'organization' ? 'Host' : 'Player';
     button.textContent = `${user.displayName || user.username} (${roleBadge}) · Sign Out`;
-    button.setAttribute('title', `Tài khoản: ${user.username} [${roleBadge}]. Nhấn để Đăng xuất.`);
+    button.setAttribute('title', `Account: ${user.username} [${roleBadge}]. Click to sign out.`);
     button.addEventListener('click', (e) => {
       e.preventDefault();
       logout();

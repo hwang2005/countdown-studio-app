@@ -1194,8 +1194,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (hostRemoteBtnText) {
       hostRemoteBtnText.textContent = isOnline
-        ? `Phát: ${status.roomId} (${count} xem)`
-        : 'Phòng Trực Tuyến';
+        ? `Broadcasting: ${status.roomId} (${count} views)`
+        : 'Online Room';
     }
 
     // Modal updates
@@ -1204,21 +1204,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (hostModalStatusText) {
       if (status.error) {
-        hostModalStatusText.textContent = `Lỗi: ${status.error}`;
+        hostModalStatusText.textContent = `Error: ${status.error}`;
         hostModalStatusText.style.color = 'var(--status-invalid)';
       } else if (isOnline) {
-        hostModalStatusText.textContent = `Đang phát sóng trực tiếp (Phòng ${status.roomId})`;
+        hostModalStatusText.textContent = `Broadcasting live (Room ${status.roomId})`;
         hostModalStatusText.style.color = '#10B981';
       } else {
-        hostModalStatusText.textContent = 'Chưa phát sóng';
+        hostModalStatusText.textContent = 'Not broadcasting';
         hostModalStatusText.style.color = 'var(--text-secondary)';
       }
     }
     if (hostDisplayCountBadge) {
-      hostDisplayCountBadge.textContent = `${count} Màn hình xem`;
+      hostDisplayCountBadge.textContent = `${count} Connected Display(s)`;
     }
     if (btnStartBroadcast) {
-      btnStartBroadcast.textContent = isOnline ? '🔄 Cập Nhật Phòng' : '🚀 Bắt Đầu Phát Sóng';
+      btnStartBroadcast.textContent = isOnline ? '🔄 Update Room' : '🚀 Start Broadcast';
     }
     if (btnDisconnectRemote) {
       btnDisconnectRemote.hidden = !isOnline;
@@ -1264,7 +1264,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const url = renderRemoteQR(inputRoomCode?.value || currentRoomId);
     if (navigator.clipboard && navigator.clipboard.writeText) {
       await navigator.clipboard.writeText(url);
-      showToast('Đã sao chép đường link Display vào clipboard!', 'success');
+      showToast('Display link copied to clipboard!', 'success');
     }
   });
 
@@ -1272,7 +1272,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const room = (inputRoomCode?.value || '').toUpperCase().trim();
     const pin = (inputPin?.value || '').trim();
     if (!room) {
-      showToast('Vui lòng nhập Mã Phòng.', 'error');
+      showToast('Please enter a Room Code.', 'error');
       return;
     }
     currentRoomId = room;
@@ -1282,22 +1282,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     syncChannel.connectRemote(room, 'host', pin);
     broadcastState(store.getState());
-    showToast(`Đã kết nối máy chủ phát sóng phòng ${room}!`, 'success');
+    showToast(`Connected to broadcast server for room ${room}!`, 'success');
   });
 
   btnDisconnectRemote?.addEventListener('click', () => {
     syncChannel.disconnectRemote();
-    showToast('Đã ngắt phát sóng trực tuyến.', 'info');
+    showToast('Disconnected from online broadcast.', 'info');
   });
 
   btnCloseRemote?.addEventListener('click', () => {
     if (!syncChannel?.isRemoteConnected || !syncChannel.ws || syncChannel.ws.readyState !== WebSocket.OPEN) {
-      showToast('Phòng chưa được mở.', 'info');
+      showToast('Room is not currently open.', 'info');
       return;
     }
-    if (!window.confirm('Đóng phòng này? Mọi màn hình đang xem sẽ bị ngắt và mã phòng không còn truy cập được.')) return;
+    if (!window.confirm('Close this room? All connected displays will be disconnected and this room code will no longer be accessible.')) return;
     if (syncChannel.closeRemoteRoom()) {
-      showToast('Đang đóng phòng và ngắt các màn hình đang xem...', 'info');
+      showToast('Closing room and disconnecting all connected displays...', 'info');
     }
   });
 

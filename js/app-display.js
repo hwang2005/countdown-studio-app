@@ -45,7 +45,7 @@ let stageQuestionSnapshot = null;
 let lastStageBuzzerPlayer = null;
 let lastRenderedBoardKey = null;
 
-function setRemoteDisplayGate(blocked, message = 'Đang xác thực phòng hiển thị...') {
+function setRemoteDisplayGate(blocked, message = 'Authenticating display room...') {
   const canvas = document.getElementById('stage-canvas');
   if (!canvas) return;
 
@@ -63,7 +63,7 @@ function setRemoteDisplayGate(blocked, message = 'Đang xác thực phòng hiể
       <div style="max-width:34rem;display:grid;gap:0.85rem;justify-items:center">
         <strong id="stage-remote-gate-title" style="font-size:clamp(1.3rem,3vw,2rem)"></strong>
         <span id="stage-remote-gate-message" style="color:#CBD5E1"></span>
-        <button type="button" id="stage-remote-gate-join" class="btn btn--primary btn--sm">Nhập mã phòng khác</button>
+        <button type="button" id="stage-remote-gate-join" class="btn btn--primary btn--sm">Enter another room code</button>
       </div>`;
     document.body.appendChild(gate);
     gate.querySelector('#stage-remote-gate-join')?.addEventListener('click', () => {
@@ -73,7 +73,7 @@ function setRemoteDisplayGate(blocked, message = 'Đang xác thực phòng hiể
 
   const title = gate.querySelector('#stage-remote-gate-title');
   const detail = gate.querySelector('#stage-remote-gate-message');
-  if (title) title.textContent = blocked ? 'Stage Display chưa được kết nối' : '';
+  if (title) title.textContent = blocked ? 'Stage Display Not Connected' : '';
   if (detail) detail.textContent = message;
   gate.hidden = !blocked;
   gate.style.display = blocked ? 'flex' : 'none';
@@ -219,18 +219,18 @@ function setStageControlsHidden(hidden, notify = true) {
   }
   const hideBtn = document.getElementById('btn-hide-stage-controls');
   if (hideBtn) {
-    hideBtn.textContent = stageControlsHidden ? '👁 Hiện điều khiển (C)' : '👁 Ẩn điều khiển (C)';
+    hideBtn.textContent = stageControlsHidden ? '👁 Show Controls (C)' : '👁 Hide Controls (C)';
   }
   const calibHideBtn = document.getElementById('btn-calib-hide-controls');
   if (calibHideBtn) {
-    calibHideBtn.textContent = stageControlsHidden ? '👁 Hiện điều khiển (C)' : '👁 Ẩn điều khiển (C)';
+    calibHideBtn.textContent = stageControlsHidden ? '👁 Show Controls (C)' : '👁 Hide Controls (C)';
   }
 
   if (notify) {
     if (stageControlsHidden) {
-      showToast('Đã ẩn các nút điều khiển. Nhấn phím "C" hoặc rê chuột xuống đáy màn hình để hiện lại.', 'info');
+      showToast('Controls hidden. Press "C" or hover near bottom of screen to restore.', 'info');
     } else {
-      showToast('Đã hiện lại các nút điều khiển trên màn hình.', 'info');
+      showToast('Controls restored on screen.', 'info');
     }
   }
 }
@@ -812,32 +812,32 @@ document.addEventListener('DOMContentLoaded', () => {
   // Listen to remote connection status changes
   syncChannel.onStatusChange((status) => {
     if (status.roomClosed) {
-      setRemoteDisplayGate(true, status.error || 'Phòng không tồn tại hoặc đã được Host đóng.');
+      setRemoteDisplayGate(true, status.error || 'Room does not exist or was closed by Host.');
       localStorage.removeItem('countdown_studio_last_room');
       if (roomDot) roomDot.className = 'status-dot status-dot--offline';
-      if (roomText) roomText.textContent = 'Phòng đã đóng / không tồn tại';
+      if (roomText) roomText.textContent = 'Room closed / not found';
       if (btnDisconnectRoom) btnDisconnectRoom.hidden = true;
-      if (btnJoinRemote) btnJoinRemote.textContent = '🌐 Mã Phòng (Online)';
-      showToast(status.error || 'Phòng đã đóng hoặc không tồn tại.', 'error');
+      if (btnJoinRemote) btnJoinRemote.textContent = '🌐 Room Code (Online)';
+      showToast(status.error || 'Room closed or does not exist.', 'error');
     } else if (status.roomId && status.connected) {
       setRemoteDisplayGate(false);
       if (roomDot) roomDot.className = 'status-dot status-dot--online';
-      if (roomText) roomText.textContent = `Phòng: ${status.roomId}`;
+      if (roomText) roomText.textContent = `Room: ${status.roomId}`;
       if (btnDisconnectRoom) btnDisconnectRoom.hidden = false;
       if (btnJoinRemote) btnJoinRemote.textContent = `🌐 ${status.roomId}`;
     } else if (status.roomId && status.connectionFailed) {
       setRemoteDisplayGate(
         true,
-        status.error || 'Không thể kết nối đến máy chủ. Kiểm tra máy chủ rồi thử lại.'
+        status.error || 'Unable to connect to server. Please check the server and try again.'
       );
       if (roomDot) roomDot.className = 'status-dot status-dot--offline';
-      if (roomText) roomText.textContent = `Không kết nối: ${status.roomId}`;
+      if (roomText) roomText.textContent = `Not connected: ${status.roomId}`;
       if (btnDisconnectRoom) btnDisconnectRoom.hidden = false;
-      if (btnJoinRemote) btnJoinRemote.textContent = '🌐 Thử lại kết nối';
+      if (btnJoinRemote) btnJoinRemote.textContent = '🌐 Retry Connection';
     } else if (status.roomId && !status.connected) {
-      setRemoteDisplayGate(true, status.error || 'Đang kiểm tra phòng với máy chủ...');
+      setRemoteDisplayGate(true, status.error || 'Verifying room with server...');
       if (roomDot) roomDot.className = 'status-dot status-dot--connecting';
-      if (roomText) roomText.textContent = `Kết nối: ${status.roomId}...`;
+      if (roomText) roomText.textContent = `Connecting: ${status.roomId}...`;
       if (btnDisconnectRoom) btnDisconnectRoom.hidden = false;
       if (btnJoinRemote) btnJoinRemote.textContent = `🌐 ${status.roomId}...`;
     } else {
@@ -848,7 +848,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (roomDot) roomDot.className = 'status-dot status-dot--offline';
       if (roomText) roomText.textContent = 'Local Sync';
       if (btnDisconnectRoom) btnDisconnectRoom.hidden = true;
-      if (btnJoinRemote) btnJoinRemote.textContent = '🌐 Mã Phòng (Online)';
+      if (btnJoinRemote) btnJoinRemote.textContent = '🌐 Room Code (Online)';
     }
   });
 
@@ -879,13 +879,13 @@ document.addEventListener('DOMContentLoaded', () => {
   btnSubmitJoin?.addEventListener('click', () => {
     const raw = (inputRoomCode?.value || '').toUpperCase().trim();
     if (!raw) {
-      showToast('Vui lòng nhập Mã Phòng.', 'error');
+      showToast('Please enter a Room Code.', 'error');
       return;
     }
     localStorage.setItem('countdown_studio_last_room', raw);
     syncChannel.connectRemote(raw, 'display');
     closeJoinModal();
-    showToast(`Đang kết nối màn hình tới phòng ${raw}...`, 'info');
+    showToast(`Connecting display to room ${raw}...`, 'info');
   });
 
   btnDisconnectRoom?.addEventListener('click', () => {
@@ -893,7 +893,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setRemoteDisplayGate(false);
     localStorage.removeItem('countdown_studio_last_room');
     closeJoinModal();
-    showToast('Đã rời phòng trực tuyến. Chuyển về chế độ đồng bộ cục bộ (Local).', 'info');
+    showToast('Left online room. Switched to Local Sync mode.', 'info');
   });
 
   // Check URL param ?room=CODE (e.g. from QR code or shared link). A saved
@@ -905,7 +905,7 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem('countdown_studio_last_room', cleanRoom);
     if (inputRoomCode) inputRoomCode.value = cleanRoom;
     syncChannel.connectRemote(cleanRoom, 'display');
-    showToast(`Tự động kết nối tới phòng thi đấu: ${cleanRoom}`, 'success');
+    showToast(`Auto-connecting to match room: ${cleanRoom}`, 'success');
   } else if (inputRoomCode) {
     inputRoomCode.value = localStorage.getItem('countdown_studio_last_room') || '';
   }

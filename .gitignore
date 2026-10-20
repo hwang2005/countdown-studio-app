@@ -10,3 +10,4 @@ coverage/
 .aistudio/
 *.cjs
 chat/
+database/update-to-english.sql

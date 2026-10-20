@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS user_credentials (
 );
 CREATE TABLE IF NOT EXISTS user_profiles (
   user_id BIGINT PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE, display_name VARCHAR(64) NOT NULL,
-  avatar_url VARCHAR(512), locale VARCHAR(10) NOT NULL DEFAULT 'vi', timezone VARCHAR(64) NOT NULL DEFAULT 'Asia/Ho_Chi_Minh',
+  avatar_url VARCHAR(512), locale VARCHAR(10) NOT NULL DEFAULT 'en', timezone VARCHAR(64) NOT NULL DEFAULT 'UTC',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE TABLE IF NOT EXISTS user_identities (
@@ -85,17 +85,17 @@ JOIN role_permissions rp ON rp.role_id = ur.role_id JOIN permissions p ON p.id =
 WHERE ur.expires_at IS NULL OR ur.expires_at > NOW();
 
 INSERT INTO user_statuses (id, code, description) VALUES
-  (1, 'pending', 'Đã đăng ký, chưa xác thực email'), (2, 'active', 'Hoạt động bình thường'),
-  (3, 'suspended', 'Tạm khóa'), (4, 'banned', 'Bị cấm'), (5, 'deleted', 'Đã xóa / ẩn danh hóa')
+  (1, 'pending', 'Registered, pending email verification'), (2, 'active', 'Active'),
+  (3, 'suspended', 'Suspended'), (4, 'banned', 'Banned'), (5, 'deleted', 'Deleted / Anonymized')
 ON CONFLICT (id) DO UPDATE SET code = EXCLUDED.code, description = EXCLUDED.description;
 INSERT INTO auth_providers (code) VALUES ('google'), ('github'), ('facebook') ON CONFLICT (code) DO NOTHING;
 INSERT INTO one_time_token_types (code) VALUES ('email_verification'), ('password_reset'), ('email_change') ON CONFLICT (code) DO NOTHING;
 INSERT INTO auth_event_types (code) VALUES ('register'), ('login_success'), ('login_failed'), ('logout'), ('password_changed'), ('password_reset_requested'), ('email_verified'), ('account_locked'), ('role_granted'), ('role_revoked'), ('token_reuse_detected') ON CONFLICT (code) DO NOTHING;
 INSERT INTO roles (code, name, description, is_system) VALUES
-  ('individual', 'Người dùng cá nhân', 'Chơi chế độ Solo', TRUE), ('organization', 'Tổ chức', 'Điều khiển trận Versus và màn hình', TRUE), ('admin', 'Quản trị viên', 'Toàn quyền hệ thống', TRUE)
+  ('individual', 'Individual User', 'Solo practice mode', TRUE), ('organization', 'Organization', 'Versus match and stage display operations', TRUE), ('admin', 'Administrator', 'Full system access', TRUE)
 ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description;
 INSERT INTO permissions (code, description) VALUES
-  ('solo:practice', 'Luyện tập chế độ Solo'), ('stage:display', 'Hiển thị sân khấu'), ('host:operations', 'Điều khiển trận đấu'), ('user:manage', 'Quản lý người dùng'), ('role:manage', 'Quản lý vai trò')
+  ('solo:practice', 'Solo practice mode'), ('stage:display', 'Stage display'), ('host:operations', 'Host match operations'), ('user:manage', 'User management'), ('role:manage', 'Role management')
 ON CONFLICT (code) DO NOTHING;
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r CROSS JOIN permissions p

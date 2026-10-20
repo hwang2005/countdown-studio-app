@@ -231,7 +231,7 @@ setInterval(() => {
     const idleTooLong = now - room.lastActive > ROOM_IDLE_TIMEOUT_MS;
 
     if (orphanedTooLong || (idleTooLong && !room.hostSocket)) {
-      closeRoomForDisplays(room, 'Host đã rời phòng hoặc phòng đã hết hạn.');
+      closeRoomForDisplays(room, 'Host has left the room or the room has expired.');
       rooms.delete(id);
     }
   }
@@ -285,7 +285,7 @@ async function startServer() {
   app.post('/api/auth/register', async (req: Request, res: Response) => {
     const clientIp = getClientIp(req);
     if (!checkRateLimit(clientIp, 'register', 5, 10 * 60 * 1000)) {
-      return res.status(429).json({ error: 'TOO_MANY_REQUESTS', message: 'Quá nhiều yêu cầu đăng ký từ địa chỉ này. Vui lòng thử lại sau 10 phút.' });
+      return res.status(429).json({ error: 'TOO_MANY_REQUESTS', message: 'Too many registration requests from this address. Please try again after 10 minutes.' });
     }
 
     const { username, email, password, displayName, role = 'individual', adminCode } = req.body || {};
@@ -298,9 +298,9 @@ async function startServer() {
       !String(displayName || '').trim() ||
       String(displayName || '').length > 64
     ) {
-      return res.status(400).json({ error: 'INVALID_INPUT', message: 'Username, email, display name và mật khẩu (8-128 ký tự) là bắt buộc.' });
+      return res.status(400).json({ error: 'INVALID_INPUT', message: 'Username, email, display name, and password (8-128 characters) are required.' });
     }
-    if (normalizedRole !== 'individual' && normalizedRole !== 'admin') return res.status(403).json({ error: 'ROLE_NOT_REGISTERABLE', message: 'Organization chỉ được cấp bởi quản trị viên.' });
+    if (normalizedRole !== 'individual' && normalizedRole !== 'admin') return res.status(403).json({ error: 'ROLE_NOT_REGISTERABLE', message: 'Organization accounts can only be provisioned by an administrator.' });
     
     if (normalizedRole === 'admin') {
       const serverAdminCode = process.env.ADMIN_REGISTRATION_CODE;
@@ -327,20 +327,20 @@ async function startServer() {
       await connection.query('COMMIT');
       const user = await loadUser(userId); if (!user) throw new Error('Created user could not be loaded.');
       return res.status(201).json({ user: publicUser(user), token: signSession(user) });
-    } catch (error: any) { if (connection) await connection.query('ROLLBACK'); const duplicate = error?.code === '23505'; return res.status(duplicate ? 409 : 503).json({ error: duplicate ? 'ACCOUNT_EXISTS' : 'AUTH_DATABASE_UNAVAILABLE', message: duplicate ? 'Username hoặc email đã tồn tại.' : 'Không thể kết nối cơ sở dữ liệu.' }); }
+    } catch (error: any) { if (connection) await connection.query('ROLLBACK'); const duplicate = error?.code === '23505'; return res.status(duplicate ? 409 : 503).json({ error: duplicate ? 'ACCOUNT_EXISTS' : 'AUTH_DATABASE_UNAVAILABLE', message: duplicate ? 'Username or email already exists.' : 'Cannot connect to authentication database.' }); }
     finally { connection?.release(); }
   });
 
   app.post('/api/auth/login', async (req: Request, res: Response) => {
     const clientIp = getClientIp(req);
     if (!checkRateLimit(clientIp, 'login', 10, 60 * 1000)) {
-      return res.status(429).json({ error: 'TOO_MANY_REQUESTS', message: 'Quá nhiều lần thử đăng nhập. Vui lòng thử lại sau 1 phút.' });
+      return res.status(429).json({ error: 'TOO_MANY_REQUESTS', message: 'Too many login attempts. Please try again after 1 minute.' });
     }
 
     const identifier = String(req.body?.identifier || '').trim();
     const password = String(req.body?.password || '');
     if (!identifier || !password || identifier.length > 100 || password.length > 128) {
-      return res.status(400).json({ error: 'INVALID_INPUT', message: 'Thông tin đăng nhập không hợp lệ.' });
+      return res.status(400).json({ error: 'INVALID_INPUT', message: 'Invalid login input.' });
     }
 
     try {
@@ -353,14 +353,14 @@ async function startServer() {
         const remainingMinutes = Math.ceil((new Date(record.locked_until).getTime() - Date.now()) / (60 * 1000));
         return res.status(423).json({
           error: 'ACCOUNT_LOCKED',
-          message: `Tài khoản tạm thời bị khóa do nhập sai nhiều lần. Vui lòng thử lại sau ${remainingMinutes} phút.`,
+          message: `Account is temporarily locked due to multiple failed attempts. Please try again after ${remainingMinutes} minute(s).`,
         });
       }
 
       if (!record) {
         // Run dummy verification to eliminate username/email enumeration timing attacks
         await verifyPassword(password, DUMMY_HASH);
-        return res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Thông tin đăng nhập không đúng.' });
+        return res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Invalid credentials.' });
       }
 
       const isValid = await verifyPassword(password, record.password_hash);
@@ -373,7 +373,7 @@ async function startServer() {
           );
           return res.status(423).json({
             error: 'ACCOUNT_LOCKED',
-            message: 'Tài khoản đã bị tạm khóa 15 phút do nhập sai mật khẩu quá 5 lần.',
+            message: 'Account has been temporarily locked for 15 minutes due to 5 consecutive failed login attempts.',
           });
         } else {
           await getDbPool().query(
@@ -382,7 +382,7 @@ async function startServer() {
           );
           return res.status(401).json({
             error: 'INVALID_CREDENTIALS',
-            message: `Thông tin đăng nhập không đúng. Còn ${5 - nextAttempts} lần thử.`,
+            message: `Invalid credentials. ${5 - nextAttempts} attempt(s) remaining.`,
           });
         }
       }
@@ -393,7 +393,7 @@ async function startServer() {
       return res.json({ user: publicUser(user), token: signSession(user) });
     } catch (error) {
       console.error('[Auth] Login failed:', error);
-      return res.status(503).json({ error: 'AUTH_DATABASE_UNAVAILABLE', message: 'Không thể kết nối cơ sở dữ liệu.' });
+      return res.status(503).json({ error: 'AUTH_DATABASE_UNAVAILABLE', message: 'Cannot connect to authentication database.' });
     }
   });
   app.get('/api/auth/me', async (req: Request, res: Response) => { try { const user = await authenticateToken(bearer(req)); if (!user) return res.status(401).json({ error: 'UNAUTHENTICATED' }); return res.json({ user: publicUser(user) }); } catch { return res.status(503).json({ error: 'AUTH_DATABASE_UNAVAILABLE' }); } });
@@ -410,7 +410,7 @@ async function startServer() {
     const roomId = String(req.params.roomId).toUpperCase().trim();
     const room = rooms.get(roomId);
     if (!room) {
-      return res.status(404).json({ exists: false, message: 'Phòng không tồn tại' });
+      return res.status(404).json({ exists: false, message: 'Room does not exist' });
     }
     return res.json({
       exists: true,
@@ -457,19 +457,19 @@ async function startServer() {
         if (type === 'host:auth') {
           clientUser = await authenticateToken(String(msg.authToken || ''));
           if (!clientUser || !clientUser.permissions.includes('host:operations')) {
-            sendError(ws, 'FORBIDDEN', 'Tài khoản cần quyền Organization hoặc Admin để vận hành Host.');
+            sendError(ws, 'FORBIDDEN', 'Account requires Organization or Admin permission to operate Host.');
             return;
           }
           const rawRoomId = String(msg.roomId || '').toUpperCase().trim();
           const pin = String(msg.pin || '').trim();
 
           if (!ROOM_ID_PATTERN.test(rawRoomId)) {
-            sendError(ws, 'INVALID_ROOM', 'Mã phòng không hợp lệ.');
+            sendError(ws, 'INVALID_ROOM', 'Invalid room code.');
             return;
           }
 
           if (!rawRoomId) {
-            ws.send(JSON.stringify({ type: 'error', code: 'INVALID_ROOM', message: 'Mã phòng không hợp lệ' }));
+            ws.send(JSON.stringify({ type: 'error', code: 'INVALID_ROOM', message: 'Invalid room code' }));
             return;
           }
 
@@ -503,7 +503,7 @@ async function startServer() {
             // Never let a second active Host silently take over a live room.
             // A reconnect is allowed after the old socket has closed.
             if (room.hostSocket && room.hostSocket !== ws && room.hostSocket.readyState === WebSocket.OPEN) {
-              sendError(ws, 'ROOM_OCCUPIED', 'Phòng đang được điều khiển bởi một Host khác.');
+              sendError(ws, 'ROOM_OCCUPIED', 'Room is currently controlled by another Host.');
               return;
             }
 
@@ -511,14 +511,14 @@ async function startServer() {
             if (room.pin && room.pin !== pin) {
               failedPinAttempts += 1;
               if (failedPinAttempts >= 5) {
-                sendError(ws, 'TOO_MANY_FAILED_ATTEMPTS', 'Quá số lần thử PIN Host. Kết nối bị ngắt.');
+                sendError(ws, 'TOO_MANY_FAILED_ATTEMPTS', 'Too many failed Host PIN attempts. Connection closed.');
                 ws.close(1008, 'Too many failed PIN attempts');
                 return;
               }
               ws.send(JSON.stringify({
                 type: 'error',
                 code: 'INVALID_PIN',
-                message: `Mật khẩu / PIN Host không đúng. Còn ${5 - failedPinAttempts} lần thử.`,
+                message: `Incorrect Host password / PIN. ${5 - failedPinAttempts} attempt(s) remaining.`,
               }));
               return;
             }
@@ -549,13 +549,13 @@ async function startServer() {
         if (type === 'display:join') {
           clientUser = await authenticateToken(String(msg.authToken || ''));
           if (!clientUser || !clientUser.permissions.includes('stage:display')) {
-            sendError(ws, 'FORBIDDEN', 'Tài khoản cần quyền Organization hoặc Admin để dùng Stage Display.');
+            sendError(ws, 'FORBIDDEN', 'Account requires Organization or Admin permission to use Stage Display.');
             return;
           }
           const rawRoomId = String(msg.roomId || '').toUpperCase().trim();
 
           if (!ROOM_ID_PATTERN.test(rawRoomId)) {
-            sendError(ws, 'INVALID_ROOM', 'Mã phòng không hợp lệ.');
+            sendError(ws, 'INVALID_ROOM', 'Invalid room code.');
             return;
           }
 
@@ -567,13 +567,13 @@ async function startServer() {
             ws.send(JSON.stringify({
               type: 'error',
               code: 'ROOM_NOT_FOUND',
-              message: 'Phòng không tồn tại hoặc chưa được mở bởi Host.',
+              message: 'Room does not exist or has not been opened by Host.',
             }));
             return;
           }
 
           if (room.displays.size >= MAX_DISPLAYS_PER_ROOM) {
-            sendError(ws, 'ROOM_FULL', 'Phòng đã đạt giới hạn số màn hình trình chiếu.');
+            sendError(ws, 'ROOM_FULL', 'Room has reached the maximum display screen limit.');
             return;
           }
 
@@ -613,19 +613,19 @@ async function startServer() {
         // so an old QR/link cannot keep accessing the room afterwards.
         if (type === 'host:close_room') {
           if (clientRole !== 'host' || !clientRoomId || !clientHostToken) {
-            ws.send(JSON.stringify({ type: 'error', code: 'UNAUTHORIZED', message: 'Bạn không có quyền Host' }));
+            ws.send(JSON.stringify({ type: 'error', code: 'UNAUTHORIZED', message: 'You do not have Host permissions' }));
             return;
           }
           const room = rooms.get(clientRoomId);
           if (!room || room.hostToken !== clientHostToken || room.hostSocket !== ws) {
-            ws.send(JSON.stringify({ type: 'error', code: 'SESSION_EXPIRED', message: 'Phiên Host đã hết hạn' }));
+            ws.send(JSON.stringify({ type: 'error', code: 'SESSION_EXPIRED', message: 'Host session has expired' }));
             return;
           }
-          closeRoomForDisplays(room, 'Host đã đóng phòng này.');
+          closeRoomForDisplays(room, 'Host has closed this room.');
           room.hostSocket = null;
           room.hostDisconnectedAt = null;
           rooms.delete(room.id);
-          ws.send(JSON.stringify({ type: 'room:closed', roomId: room.id, message: 'Đã đóng phòng.' }));
+          ws.send(JSON.stringify({ type: 'room:closed', roomId: room.id, message: 'Room closed.' }));
           clientRole = null;
           clientRoomId = null;
           clientHostToken = null;
@@ -635,13 +635,13 @@ async function startServer() {
         // Host broadcasts state to displays (One-way sync)
         if (type === 'host:broadcast') {
           if (clientRole !== 'host' || !clientRoomId || !clientHostToken) {
-            ws.send(JSON.stringify({ type: 'error', code: 'UNAUTHORIZED', message: 'Bạn không có quyền Host' }));
+            ws.send(JSON.stringify({ type: 'error', code: 'UNAUTHORIZED', message: 'You do not have Host permissions' }));
             return;
           }
 
           const room = rooms.get(clientRoomId);
           if (!room || room.hostToken !== clientHostToken) {
-            ws.send(JSON.stringify({ type: 'error', code: 'SESSION_EXPIRED', message: 'Phiên Host đã hết hạn' }));
+            ws.send(JSON.stringify({ type: 'error', code: 'SESSION_EXPIRED', message: 'Host session has expired' }));
             return;
           }
 

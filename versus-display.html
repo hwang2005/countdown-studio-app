@@ -92,7 +92,7 @@
         </header>
 
         <!-- Remote Room Connection Indicator Badge -->
-        <div id="stage-room-badge" class="stage-room-badge" title="Trạng thái kết nối trực tuyến với máy Host">
+        <div id="stage-room-badge" class="stage-room-badge" title="Online connection status with Host">
           <span class="status-dot status-dot--offline" id="stage-room-dot"></span>
           <span id="stage-room-text">Local Sync</span>
         </div>
@@ -222,8 +222,8 @@
           <button type="button" id="btn-calib-upload-bg" class="btn btn--sm btn--royal" title="Select custom background image (countdown-clock-placeholder.jpg)">
             📷 Change Background Image
           </button>
-          <button type="button" id="btn-calib-hide-controls" class="btn btn--sm btn--secondary" title="Ẩn/Hiện các nút điều khiển (Phím C) / Toggle Control Buttons">
-            👁 Ẩn điều khiển (C)
+          <button type="button" id="btn-calib-hide-controls" class="btn btn--sm btn--secondary" title="Toggle Control Buttons (Key C)">
+            👁 Hide Controls (C)
           </button>
           <button type="button" id="btn-calib-reset" class="btn btn--sm btn--secondary">
             Reset Default Studio
@@ -264,17 +264,17 @@
             type="button"
             id="btn-join-remote-stage"
             class="btn btn--sm btn--royal"
-            title="Kết nối màn hình với máy Host qua Mã Phòng (Online Multi-Device)"
+            title="Connect display to Host via Room Code (Online Multi-Device)"
           >
-            🌐 Mã Phòng (Online)
+            🌐 Room Code (Online)
           </button>
           <button
             type="button"
             id="btn-hide-stage-controls"
             class="btn btn--sm btn--secondary"
-            title="Ẩn các nút điều khiển khỏi màn hình display (Phím C) / Hide Control Buttons"
+            title="Hide control buttons from display (Key C)"
           >
-            👁 Ẩn điều khiển (C)
+            👁 Hide Controls (C)
           </button>
         </footer>
 
@@ -283,10 +283,10 @@
           type="button"
           id="btn-show-stage-controls"
           class="stage-show-controls-trigger"
-          title="Hiện lại các nút điều khiển (Phím tắt C) / Show Control Buttons"
+          title="Show control buttons (Key C)"
           hidden
         >
-          👁 Hiện điều khiển (C)
+          👁 Show Controls (C)
         </button>
       </main>
     </div>
@@ -315,20 +315,20 @@
       class="modal-backdrop"
       role="dialog"
       aria-modal="true"
-      aria-label="Tham gia phòng trực tuyến"
+      aria-label="Join online room"
       hidden
     >
       <div class="modal-card" style="max-width: 440px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-          <h2 style="font-size: 1.25rem;">🌐 Tham Gia Phòng Sân Khấu</h2>
+          <h2 style="font-size: 1.25rem;">🌐 Join Stage Room</h2>
           <button type="button" id="btn-close-display-join-modal" class="btn btn--sm btn--secondary">✕</button>
         </div>
         <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
-          Nhập Mã Phòng (Room Code) hiển thị trên máy Host để kết nối màn hình hiển thị trực tiếp.
+          Enter the Room Code shown on the Host console to connect the live stage display.
         </p>
         <div style="margin-bottom: 1.25rem;">
           <label for="display-input-room-code" style="font-size: 0.82rem; font-weight: 600; display: block; margin-bottom: 0.35rem;">
-            Mã Phòng (ví dụ: CD-8842)
+            Room Code (e.g. CD-8842)
           </label>
           <input
             type="text"
@@ -341,11 +341,11 @@
         </div>
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <button type="button" id="btn-display-disconnect-room" class="btn btn--secondary btn--sm" hidden>
-            Rời phòng (Về Local)
+            Leave Room (Switch to Local)
           </button>
           <div style="margin-left: auto; display: flex; gap: 0.5rem;">
-            <button type="button" id="btn-cancel-display-join" class="btn btn--secondary btn--sm">Đóng</button>
-            <button type="button" id="btn-submit-display-join" class="btn btn--primary btn--sm">Kết Nối</button>
+            <button type="button" id="btn-cancel-display-join" class="btn btn--secondary btn--sm">Close</button>
+            <button type="button" id="btn-submit-display-join" class="btn btn--primary btn--sm">Connect</button>
           </div>
         </div>
       </div>
