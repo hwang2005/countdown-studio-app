@@ -848,7 +848,7 @@ function advanceToNextRound() {
   }
 }
 
-function finishSession() {
+async function finishSession() {
   session.phase = 'SUMMARY';
   if (clock) clock.pause();
 
@@ -859,7 +859,7 @@ function finishSession() {
   if (revealSec) revealSec.hidden = true;
   if (summarySec) summarySec.hidden = false;
 
-  recordSoloSession({
+  await recordSoloSession({
     mode: session.drillMode.toUpperCase(),
     score: session.totalScore,
     maxPossible: session.maxPossibleScore,

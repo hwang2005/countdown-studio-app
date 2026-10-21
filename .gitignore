@@ -10,4 +10,5 @@ coverage/
 .aistudio/
 *.cjs
 chat/
-database/update-to-english.sql
+database/
+database/auth-rbac.sql

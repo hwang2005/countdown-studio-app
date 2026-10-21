@@ -33,8 +33,8 @@ function initPWA() {
   }
 }
 
-function renderHomeStats() {
-  const stats = loadStats();
+async function renderHomeStats() {
+  const stats = await loadStats();
   const setTxt = (id, val) => {
     const el = document.getElementById(id);
     if (el) el.textContent = String(val);
@@ -235,8 +235,8 @@ function initSettingsModal() {
   // Export & Import Stats JSON
   const exportBtn = document.getElementById('export-stats-btn');
   if (exportBtn) {
-    exportBtn.addEventListener('click', () => {
-      const blob = new Blob([exportStatsJSON()], { type: 'application/json' });
+    exportBtn.addEventListener('click', async () => {
+      const blob = new Blob([await exportStatsJSON()], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -253,8 +253,8 @@ function initSettingsModal() {
       const file = e.target.files && e.target.files[0];
       if (!file) return;
       const text = await file.text();
-      if (importStatsJSON(text)) {
-        renderHomeStats();
+      if (await importStatsJSON(text)) {
+        await renderHomeStats();
         showToast('Stats & settings imported successfully!', 'success');
       } else {
         showToast('Invalid stats JSON file.', 'error');

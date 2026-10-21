@@ -13,6 +13,9 @@ const KEYS = {
   STAGE_BG: 'countdown_studio_stage_bg_v1'
 };
 
+import { authHeaders, currentUser } from '../auth.js';
+import { apiFetch, readApiJson } from '../net/api.js';
+
 /**
  * Default percentage coordinates (0-100) for the 16:9 Stage Display elements,
  * calibrated to match the Countdown TV Studio Set background (/assets/stage-bg.svg):
@@ -236,19 +239,52 @@ export function applySettingsToDOM(settings = loadSettings()) {
  * Loads persistent Solo statistics and match history.
  * @returns {typeof DEFAULT_STATS}
  */
-export function loadStats() {
+function normalizeStats(parsed) {
+  if (!parsed || typeof parsed !== 'object') return structuredClone(DEFAULT_STATS);
+  return {
+    ...structuredClone(DEFAULT_STATS),
+    ...parsed,
+    achievements: Array.isArray(parsed.achievements) ? parsed.achievements : [],
+    history: Array.isArray(parsed.history) ? parsed.history.slice(0, 50) : []
+  };
+}
+
+function isIndividualAccount() {
+  return currentUser()?.role === 'individual';
+}
+
+function removeLegacyLocalStats() {
+  try { localStorage.removeItem(KEYS.STATS); } catch { /* ignore */ }
+}
+
+/** Loads career stats from the authenticated Individual account only. */
+export async function loadStats() {
+  removeLegacyLocalStats();
+  if (!isIndividualAccount()) return structuredClone(DEFAULT_STATS);
   try {
-    const raw = localStorage.getItem(KEYS.STATS);
-    if (!raw) return structuredClone(DEFAULT_STATS);
-    const parsed = JSON.parse(raw);
-    return {
-      ...structuredClone(DEFAULT_STATS),
-      ...parsed,
-      achievements: Array.isArray(parsed.achievements) ? parsed.achievements : [],
-      history: Array.isArray(parsed.history) ? parsed.history.slice(0, 50) : []
-    };
-  } catch {
+    const response = await apiFetch('/api/career/stats', { headers: authHeaders() });
+    if (!response.ok) throw new Error(`Career stats request failed (${response.status})`);
+    const data = await readApiJson(response);
+    return normalizeStats(data.stats);
+  } catch (err) {
+    console.warn('[Storage] Failed to load account career stats:', err);
     return structuredClone(DEFAULT_STATS);
+  }
+}
+
+async function saveAccountStats(stats) {
+  if (!isIndividualAccount()) return false;
+  try {
+    const response = await apiFetch('/api/career/stats', {
+      method: 'PUT',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stats: normalizeStats(stats) })
+    });
+    if (!response.ok) throw new Error(`Career stats request failed (${response.status})`);
+    return true;
+  } catch (err) {
+    console.warn('[Storage] Failed to save account career stats:', err);
+    return false;
   }
 }
 
@@ -257,8 +293,8 @@ export function loadStats() {
  * @param {object} sessionResult
  * @returns {typeof DEFAULT_STATS}
  */
-export function recordSoloSession(sessionResult) {
-  const stats = loadStats();
+export async function recordSoloSession(sessionResult) {
+  const stats = await loadStats();
   const today = new Date().toISOString().slice(0, 10);
 
   stats.gamesPlayed += 1;
@@ -322,11 +358,7 @@ export function recordSoloSession(sessionResult) {
   });
   stats.history = stats.history.slice(0, 50);
 
-  try {
-    localStorage.setItem(KEYS.STATS, JSON.stringify(stats));
-  } catch (err) {
-    console.warn('[Storage] Failed to save stats:', err);
-  }
+  await saveAccountStats(stats);
   return stats;
 }
 
@@ -334,12 +366,12 @@ export function recordSoloSession(sessionResult) {
  * Exports all stats and settings as a JSON string.
  * @returns {string}
  */
-export function exportStatsJSON() {
+export async function exportStatsJSON() {
   return JSON.stringify(
     {
       exportedAt: new Date().toISOString(),
       settings: loadSettings(),
-      stats: loadStats()
+      stats: await loadStats()
     },
     null,
     2
@@ -351,14 +383,15 @@ export function exportStatsJSON() {
  * @param {string} jsonStr
  * @returns {boolean}
  */
-export function importStatsJSON(jsonStr) {
+export async function importStatsJSON(jsonStr) {
   try {
+    if (!isIndividualAccount()) return false;
     const data = JSON.parse(jsonStr);
     if (data.settings) saveSettings(data.settings);
     if (data.stats && typeof data.stats.gamesPlayed === 'number') {
-      localStorage.setItem(KEYS.STATS, JSON.stringify(data.stats));
+      return await saveAccountStats(data.stats);
     }
-    return true;
+    return false;
   } catch {
     return false;
   }

@@ -1,5 +1,11 @@
 -- Run after countdown_auth_schema.sql. Existing legacy roles are preserved;
 -- these application roles are the only roles accepted by the auth API.
+CREATE TABLE IF NOT EXISTS user_career_stats (
+  user_id BIGINT PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+  stats JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 INSERT INTO roles (code, name, description, is_system) VALUES
   ('individual', 'Individual', 'Solo Practice', TRUE),
   ('organization', 'Organization', 'Stage Display and Host Operations', TRUE),

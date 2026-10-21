@@ -80,7 +80,7 @@ the OAuth client's Authorized JavaScript origins in Google Cloud Console.
 - Interactive word-building tray supporting keyboard typing (`A–Z`), Backspace, and tile clicks.
 - Built-in scratchpad and interactive arithmetic expression validator for the Numbers round.
 - Post-round breakdown featuring Trie-based word solver hints and closest numbers calculations.
-- Comprehensive session statistics: win rates, average word lengths, target accuracy, and streak tracking saved in `localStorage`.
+- Comprehensive Individual-account session statistics: win rates, average word lengths, target accuracy, and streak tracking saved in PostgreSQL.
 - Dictionary definition lookups powered by the Free Dictionary API with local caching.
 
 ### 🎙️ Live Versus Host Console (`versus-host.html`)
