@@ -100,6 +100,7 @@
       } from '../js/game/numbers.js';
       import {
         scrambleConundrum,
+        pickConundrum,
         checkConundrumGuess,
         adjudicateBuzz
       } from '../js/game/conundrum.js';
@@ -350,6 +351,20 @@
         const sameMultiset = scrambled.split('').sort().join('') === 'ASTRONOMY'.split('').sort().join('');
         assert('Conundrum scramble preserves exact letters and is never identical to original word', scrambled !== 'ASTRONOMY' && sameMultiset);
         assert('Conundrum guess check is case-insensitive', checkConundrumGuess('astronomy', 'ASTRONOMY') === true);
+
+        const multiAnswer = pickConundrum([
+          { source: 'MISSATTEE', answers: ['ESTIMATES', 'STEAMIEST'] }
+        ], () => 0.1);
+        assert(
+          'Conundrum supports explicit source letters and multiple accepted answers',
+          multiAnswer.scrambled === 'MISSATTEE' &&
+          checkConundrumGuess('estimates', multiAnswer.answers) &&
+          checkConundrumGuess('STEAMIEST', multiAnswer.answers)
+        );
+        assert(
+          'Conundrum rejects unlisted anagrams',
+          checkConundrumGuess('SMARTENED', ['TRADESMEN']) === false
+        );
 
         const buzzRes = adjudicateBuzz(
           { player: 1, timestamp: 105.2 },

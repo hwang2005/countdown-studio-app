@@ -129,6 +129,7 @@ export function createInitialMatchState(overrides = {}) {
     // Conundrum Round State
     conundrumScrambled: '',
     conundrumAnswer: '',
+    conundrumAnswers: [],
     conundrumSourceWords: null,
     conundrumRevealed: false,
     activeBuzzerPlayer: null, // 1 | 2 | null

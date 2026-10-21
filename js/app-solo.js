@@ -93,6 +93,7 @@ let session = {
 
   // Current Conundrum Round
   conundrumAnswer: '',
+  conundrumAnswers: [],
   conundrumTiles: [],
   revealedHintIndices: new Set(),
   hintsUsed: 0,
@@ -649,10 +650,11 @@ async function submitNumbersRound() {
  * CONUNDRUM ROUND LOGIC
  * ========================================================================== */
 function initConundrumRound() {
-  const { answer, scrambled } = pickConundrum(
+  const { answer, answers, scrambled } = pickConundrum(
     dictData ? dictData.conundrums : [], rng, dictData?.wordSet
   );
   session.conundrumAnswer = answer;
+  session.conundrumAnswers = answers;
   session.conundrumTiles = scrambled.split('');
   session.revealedHintIndices = new Set();
   session.hintsUsed = 0;
@@ -724,7 +726,7 @@ function submitConundrumRound() {
 
   const input = document.getElementById('conundrum-guess-input');
   const guess = input ? input.value.trim().toUpperCase() : '';
-  const solved = checkConundrumGuess(guess, session.conundrumAnswer);
+  const solved = checkConundrumGuess(guess, session.conundrumAnswers);
   const points = scoreSoloConundrum(solved, session.hintsUsed);
 
   // Flip tiles to reveal the real 9-letter solution

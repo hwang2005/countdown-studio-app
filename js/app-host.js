@@ -306,6 +306,7 @@ function startNewMatchFromSetup() {
   if (firstType === 'C') {
     const con = pickConundrum(dictData ? dictData.conundrums : [], rng, dictData?.wordSet);
     fresh.conundrumAnswer = con.answer;
+    fresh.conundrumAnswers = con.answers;
     fresh.conundrumScrambled = con.scrambled;
     fresh.conundrumSourceWords = con.sourceWords;
   }
@@ -362,6 +363,7 @@ function configureRoundAtIndex(roundIdx, logText) {
     showNumbersSolutionOnDisplay: false,
     conundrumScrambled: '',
     conundrumAnswer: '',
+    conundrumAnswers: [],
     conundrumSourceWords: null,
     conundrumRevealed: false,
     activeBuzzerPlayer: null
@@ -370,6 +372,7 @@ function configureRoundAtIndex(roundIdx, logText) {
   if (rType === 'C') {
     const con = pickConundrum(dictData ? dictData.conundrums : [], rng, dictData?.wordSet);
     patch.conundrumAnswer = con.answer;
+    patch.conundrumAnswers = con.answers;
     patch.conundrumScrambled = con.scrambled;
     patch.conundrumSourceWords = con.sourceWords;
   }
@@ -904,7 +907,8 @@ function renderHostConsole(state) {
   } else if (state.roundType === 'C') {
     const ansLabel = document.getElementById('host-conundrum-secret');
     if (ansLabel) {
-      ansLabel.textContent = `Host Secret Answer: ${state.conundrumAnswer || '—'} (Scramble: ${
+      const accepted = state.conundrumAnswers?.length ? state.conundrumAnswers.join(' / ') : state.conundrumAnswer;
+      ansLabel.textContent = `Host Accepted Answer(s): ${accepted || '—'} (Question: ${
         state.conundrumScrambled || '—'
       })`;
     }

@@ -540,10 +540,13 @@ export async function loadDictionary(mode = 'standard') {
   }
 
   for (const c of conundrumsList) {
-    const low = c.trim().toLowerCase();
-    if (/^[a-z]{9}$/.test(low)) {
-      wordSet.add(low);
-      trie.insert(low);
+    const answers = typeof c === 'string' ? [c] : (Array.isArray(c?.answers) ? c.answers : [c?.answer]);
+    for (const answer of answers) {
+      const low = String(answer || '').trim().toLowerCase();
+      if (/^[a-z]{9}$/.test(low)) {
+        wordSet.add(low);
+        trie.insert(low);
+      }
     }
   }
 

@@ -19,6 +19,43 @@ function letterSignature(value) {
   return String(value).toUpperCase().split('').sort().join('');
 }
 
+/**
+ * Supports both the legacy string format ("LAUNCHING") and the explicit
+ * question format used by Countdown: { source: "CHINALUNG", answers: [...] }.
+ */
+function normalizeConundrumEntry(entry) {
+  if (typeof entry === 'string') {
+    const answer = entry.trim().toUpperCase();
+    return { answer, answers: [answer], sourceWords: null };
+  }
+  if (!entry || typeof entry !== 'object') return null;
+
+  const answers = Array.isArray(entry.answers)
+    ? entry.answers
+    : entry.answer
+      ? [entry.answer]
+      : [];
+  const cleanAnswers = [...new Set(answers
+    .map((value) => String(value).trim().toUpperCase())
+    .filter((value) => /^[A-Z]{9}$/.test(value)))];
+  if (!cleanAnswers.length) return null;
+
+  const rawSource = entry.sourceWords || entry.source || entry.scrambled;
+  const sourceWords = Array.isArray(rawSource)
+    ? rawSource.map((value) => String(value).trim().toUpperCase()).filter(Boolean)
+    : rawSource
+      ? [String(rawSource).replace(/[^a-z]/gi, '').toUpperCase()]
+      : null;
+  const source = sourceWords?.join('');
+  return {
+    answer: cleanAnswers[0],
+    answers: cleanAnswers,
+    sourceWords: source && source.length === 9 && letterSignature(source) === letterSignature(cleanAnswers[0])
+      ? sourceWords
+      : null
+  };
+}
+
 function subtractSignature(total, part) {
   const counts = new Map();
   for (const ch of total) counts.set(ch, (counts.get(ch) || 0) + 1);
@@ -125,10 +162,10 @@ export function scrambleConundrum(word, rng = Math.random) {
 
 /**
  * Picks a random conundrum from the curated array and returns the answer + scramble.
- * @param {string[]} conundrumList
+ * @param {(string|object)[]} conundrumList
  * @param {() => number} [rng=Math.random]
  * @param {Iterable<string>|null} [wordList=null] Dictionary used to build the source phrase
- * @returns {{ answer: string, scrambled: string, sourceWords: string[]|null }}
+ * @returns {{ answer: string, answers: string[], scrambled: string, sourceWords: string[]|null }}
  */
 export function pickConundrum(conundrumList, rng = Math.random, wordList = null) {
   const pool =
@@ -136,21 +173,24 @@ export function pickConundrum(conundrumList, rng = Math.random, wordList = null)
       ? conundrumList
       : ['COUNTDOWN', 'BROADCAST', 'CHALLENGE', 'ARCHITECT', 'EDUCATION'];
   const idx = randomInt(0, pool.length - 1, rng);
-  const answer = pool[idx].trim().toUpperCase();
-  const scrambled = scrambleConundrum(answer, rng);
-  const sourceWords = findConundrumSourceWords(answer, wordList, rng);
-  return { answer, scrambled, sourceWords };
+  const entry = normalizeConundrumEntry(pool[idx]) || normalizeConundrumEntry('COUNTDOWN');
+  const answer = entry.answer;
+  const sourceWords = entry.sourceWords || findConundrumSourceWords(answer, wordList, rng);
+  const scrambled = sourceWords ? sourceWords.join('') : scrambleConundrum(answer, rng);
+  return { answer, answers: entry.answers, scrambled, sourceWords };
 }
 
 /**
  * Validates a player's conundrum guess against the target answer.
  * @param {string} guess
- * @param {string} targetAnswer
+ * @param {string|string[]} targetAnswer
  * @returns {boolean}
  */
 export function checkConundrumGuess(guess, targetAnswer) {
-  if (typeof guess !== 'string' || typeof targetAnswer !== 'string') return false;
-  return guess.trim().toUpperCase() === targetAnswer.trim().toUpperCase();
+  if (typeof guess !== 'string') return false;
+  const accepted = Array.isArray(targetAnswer) ? targetAnswer : [targetAnswer];
+  const normalizedGuess = guess.trim().toUpperCase();
+  return accepted.some((answer) => typeof answer === 'string' && normalizedGuess === answer.trim().toUpperCase());
 }
 
 /**

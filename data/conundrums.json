@@ -1,4 +1,16 @@
-[
+[{
+  "source": "CHINALUNG",
+  "answers": ["LAUNCHING"]
+}, {
+  "source": "MISSATTEE",
+  "answers": ["ESTIMATES", "STEAMIEST"]
+}, {
+  "source": "SMARTENED",
+  "answers": ["TRADESMEN"]
+}, {
+  "source": "RILEYSHAT",
+  "answers": ["HAIRSTYLE"]
+},
   "ABANDONED",
   "ABILITIES",
   "ABOLISHED",
