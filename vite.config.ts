@@ -22,6 +22,7 @@ export default defineConfig(() => {
           about: path.resolve(__dirname, 'about.html'),
           contact: path.resolve(__dirname, 'contact.html'),
           privacy: path.resolve(__dirname, 'privacy.html'),
+          notFound: path.resolve(__dirname, '404.html'),
           tests: path.resolve(__dirname, 'tests/index.html'),
         },
       },

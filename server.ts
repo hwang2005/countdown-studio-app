@@ -8,11 +8,16 @@ import crypto from 'crypto';
 import pg, { Pool, PoolClient } from 'pg';
 const { types } = pg;
 
+import fs from 'fs';
+
 // Keep BIGINT values as numbers because the application uses numeric user IDs.
 types.setTypeParser(20, (value) => Number(value));
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const projectRoot = fs.existsSync(path.join(__dirname, 'package.json'))
+  ? __dirname
+  : path.resolve(__dirname, '..');
 
 interface GameRoom {
   id: string;
@@ -361,24 +366,57 @@ async function startServer() {
   // ── Agent-readiness endpoints ────────────────────────────────────────────────
   // These routes run before auth so they never touch the database.
 
+  function resolveAssetPath(...candidates: string[]): string | null {
+    for (const c of candidates) {
+      if (fs.existsSync(c)) return c;
+    }
+    return null;
+  }
+
   // Serve llms.txt (agent instructions)
-  app.get('/llms.txt', (_req, res) => {
+  const sendLlmsTxt = (_req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=3600');
-    res.sendFile(path.resolve(__dirname, '..', 'llms.txt'));
-  });
+    const target = resolveAssetPath(
+      path.join(projectRoot, 'llms.txt'),
+      path.join(projectRoot, 'public', 'llms.txt')
+    );
+    if (target) return res.sendFile(target);
+    return res.status(404).send('# llms.txt not found');
+  };
+  app.get('/llms.txt', sendLlmsTxt);
+  app.get('/.well-known/llms.txt', sendLlmsTxt);
 
   // Serve sitemap.xml
-  app.get('/sitemap.xml', (_req, res) => {
+  app.get('/sitemap.xml', (_req: Request, res: Response) => {
     res.setHeader('Content-Type', 'application/xml; charset=utf-8');
     res.setHeader('Cache-Control', 'public, max-age=3600');
-    res.sendFile(path.resolve(__dirname, '..', 'sitemap.xml'));
+    const target = resolveAssetPath(
+      path.join(projectRoot, 'sitemap.xml'),
+      path.join(projectRoot, 'public', 'sitemap.xml')
+    );
+    if (target) return res.sendFile(target);
+    return res.status(404).send('<!-- sitemap.xml not found -->');
+  });
+
+  // Serve robots.txt
+  app.get('/robots.txt', (_req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    const target = resolveAssetPath(
+      path.join(projectRoot, 'robots.txt'),
+      path.join(projectRoot, 'public', 'robots.txt')
+    );
+    if (target) return res.sendFile(target);
+    return res.status(404).send('User-agent: *\nAllow: /\n');
   });
 
   // Homepage Markdown negotiation (acceptmarkdown.com check).
   // When an agent sends Accept: text/markdown we return a Markdown summary of
   // the site instead of the HTML page. HTML clients are unaffected.
   app.get('/', (req: Request, res: Response, next) => {
+    // Both Markdown and HTML responses negotiate on Accept
+    res.setHeader('Vary', 'Accept, Origin');
     const accept = req.get('Accept') || '';
     const wantsMarkdown = accept.includes('text/markdown');
     if (!wantsMarkdown) return next();
@@ -388,6 +426,13 @@ async function startServer() {
       '',
       '> A faithful, offline-capable recreation of the British TV game show Countdown.',
       '> Supports Letters, Numbers & Conundrum rounds with solo practice and live dual-screen Versus mode.',
+      '',
+      '## When to use this',
+      '',
+      'Use Countdown Studio when you need to:',
+      '- Run a live Countdown game show session with dedicated host controls and display screen.',
+      '- Practice Countdown Letters, Numbers, and Conundrum rounds solo with dictionary corner solver.',
+      '- Solve or verify 9-letter anagrams and 3-digit arithmetic targets.',
       '',
       '## Quick links',
       '',
@@ -410,9 +455,6 @@ async function startServer() {
     ].join('\n');
 
     res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
-    // Vary must list ALL dimensions we content-negotiate on.
-    // The CORS middleware already set Vary: Origin; we append Accept here.
-    res.setHeader('Vary', 'Accept, Origin');
     res.setHeader('Cache-Control', 'public, max-age=300');
     return res.status(200).send(body);
   });
@@ -421,14 +463,19 @@ async function startServer() {
   // These routes serve real content pages that AI agents check to verify
   // business legitimacy. They also support Markdown negotiation.
 
-  function trustPageMarkdown(title: string, url: string, filePath: string) {
+  function trustPageMarkdown(title: string, url: string, _filePath: string) {
     return (req: Request, res: Response, next: () => void) => {
+      res.setHeader('Vary', 'Accept, Origin');
       const accept = req.get('Accept') || '';
       if (!accept.includes('text/markdown')) return next();
       const body = [
         `# ${title} — Countdown Studio`,
         '',
         `> See the full page at ${url}`,
+        '',
+        '## When to use this',
+        '',
+        'Use Countdown Studio for British TV Countdown game practice, anagram solving, and dual-screen live stage hosting.',
         '',
         '## Quick links',
         '',
@@ -440,7 +487,6 @@ async function startServer() {
         '- [Privacy](https://www.countdown-studio.id.vn/privacy) — Privacy policy',
       ].join('\n');
       res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
-      res.setHeader('Vary', 'Accept, Origin');
       res.setHeader('Cache-Control', 'public, max-age=3600');
       return res.status(200).send(body);
     };
@@ -448,17 +494,32 @@ async function startServer() {
 
   app.get('/about', trustPageMarkdown('About', 'https://www.countdown-studio.id.vn/about', 'about.html'), (_req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=3600');
-    res.sendFile(path.resolve(__dirname, '..', 'about.html'));
+    const target = resolveAssetPath(
+      path.join(projectRoot, 'about.html'),
+      path.join(projectRoot, 'dist', 'about.html')
+    );
+    if (target) return res.sendFile(target);
+    return res.status(404).send('About page not found');
   });
 
   app.get('/contact', trustPageMarkdown('Contact', 'https://www.countdown-studio.id.vn/contact', 'contact.html'), (_req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=3600');
-    res.sendFile(path.resolve(__dirname, '..', 'contact.html'));
+    const target = resolveAssetPath(
+      path.join(projectRoot, 'contact.html'),
+      path.join(projectRoot, 'dist', 'contact.html')
+    );
+    if (target) return res.sendFile(target);
+    return res.status(404).send('Contact page not found');
   });
 
   app.get('/privacy', trustPageMarkdown('Privacy Policy', 'https://www.countdown-studio.id.vn/privacy', 'privacy.html'), (_req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=3600');
-    res.sendFile(path.resolve(__dirname, '..', 'privacy.html'));
+    const target = resolveAssetPath(
+      path.join(projectRoot, 'privacy.html'),
+      path.join(projectRoot, 'dist', 'privacy.html')
+    );
+    if (target) return res.sendFile(target);
+    return res.status(404).send('Privacy page not found');
   });
   // ── End trust anchor pages ────────────────────────────────────────────────
 
@@ -1205,7 +1266,7 @@ async function startServer() {
   });
 
   // Vite middleware in dev or static files in prod
-  const isProd = process.env.NODE_ENV === 'production';
+  const isProd = process.env.NODE_ENV === 'production' || __dirname.includes('dist-server');
   if (!isProd) {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
@@ -1216,32 +1277,50 @@ async function startServer() {
   } else {
     // The compiled server runs from dist-server, while Vite outputs the
     // frontend one directory above it in dist.
-    const frontendDistPath = path.resolve(__dirname, '..', 'dist');
+    const frontendDistPath = path.resolve(projectRoot, 'dist');
     app.use(express.static(frontendDistPath));
-    app.get('*', (req: Request, res: Response) => {
-      // Agent-friendly 404: when an agent requests Markdown, return a
-      // structured Markdown error body with Content-Type: text/markdown and
-      // Vary: Accept instead of silently serving index.html.
-      const accept = req.get('Accept') || '';
-      if (accept.includes('text/markdown')) {
-        const body = [
-          '# 404 — Page Not Found',
-          '',
-          `The path \`${req.path}\` does not exist on Countdown Studio.`,
-          '',
-          '## Where to go instead',
-          '',
-          '- [Homepage](https://www.countdown-studio.id.vn/) — Start here',
-          '- [Agent instructions](https://www.countdown-studio.id.vn/llms.txt) — llms.txt with full API guidance',
-          '- [Sitemap](https://www.countdown-studio.id.vn/sitemap.xml) — All available pages',
-        ].join('\n');
-        res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
-        res.setHeader('Vary', 'Accept');
-        return res.status(404).send(body);
-      }
-      res.sendFile(path.join(frontendDistPath, 'index.html'));
-    });
   }
+
+  // Universal 404 handler for nonexistent paths (runs in both dev and prod)
+  app.use((req: Request, res: Response) => {
+    res.setHeader('Vary', 'Accept');
+    const accept = req.get('Accept') || '';
+
+    // Agent-friendly Markdown 404
+    if (accept.includes('text/markdown')) {
+      const body = [
+        '# 404 — Page Not Found',
+        '',
+        `The path \`${req.path}\` does not exist on Countdown Studio.`,
+        '',
+        '## Where to go instead',
+        '',
+        '- [Homepage](https://www.countdown-studio.id.vn/) — Start here',
+        '- [Agent instructions](https://www.countdown-studio.id.vn/llms.txt) — llms.txt with full API guidance',
+        '- [Sitemap](https://www.countdown-studio.id.vn/sitemap.xml) — All available pages',
+        '- [Solo Practice](https://www.countdown-studio.id.vn/solo.html) — Practice letters, numbers, and conundrums',
+        '- [About](https://www.countdown-studio.id.vn/about) — About the game show app',
+      ].join('\n');
+      res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+      return res.status(404).send(body);
+    }
+
+    // HTML 404
+    const static404Candidates = [
+      path.join(projectRoot, 'dist', '404.html'),
+      path.join(projectRoot, '404.html'),
+      path.join(projectRoot, 'public', '404.html'),
+    ];
+    for (const c of static404Candidates) {
+      if (fs.existsSync(c)) {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.status(404).sendFile(c);
+      }
+    }
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.status(404).send('<!doctype html><html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The page you requested does not exist on Countdown Studio.</p><p><a href="/">Back to Homepage</a> | <a href="/llms.txt">llms.txt</a></p></body></html>');
+  });
 
   const port = Number(process.env.PORT) || 3000;
   server.listen(port, '0.0.0.0', () => {

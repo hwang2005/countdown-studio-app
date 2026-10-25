@@ -191,6 +191,45 @@ async function testAboutMarkdownNegotiation() {
   assert(vary.toLowerCase().includes('accept'), `Expected Vary: Accept on /about, got "${vary}"`);
 }
 
+async function testHtml404() {
+  const res = await fetch(`${BASE}/__agent-html-404-probe-test`, {
+    headers: { Accept: 'text/html' },
+    redirect: 'follow',
+  });
+  assert(res.status === 404, `Expected HTTP 404 for nonexistent path with Accept: text/html, got ${res.status}`);
+  const ct = res.headers.get('content-type') || '';
+  assert(ct.includes('text/html'), `Expected Content-Type text/html on 404, got "${ct}"`);
+  const body = await res.text();
+  assert(body.includes('404') || body.toLowerCase().includes('not found'), 'Body should indicate 404 or Page Not Found');
+}
+
+async function testRobotsTxt() {
+  const res = await fetch(`${BASE}/robots.txt`, { redirect: 'follow' });
+  assert(res.status === 200, `Expected 200 for /robots.txt, got ${res.status}`);
+  const ct = res.headers.get('content-type') || '';
+  assert(ct.includes('text/plain'), `Expected text/plain for /robots.txt, got "${ct}"`);
+  const body = await res.text();
+  assert(body.includes('sitemap.xml'), 'robots.txt should declare Sitemap location');
+}
+
+async function testWellKnownLlmsTxt() {
+  const res = await fetch(`${BASE}/.well-known/llms.txt`, { redirect: 'follow' });
+  assert(res.status === 200, `Expected 200 for /.well-known/llms.txt, got ${res.status}`);
+  const body = await res.text();
+  assert(body.includes('When to use'), '/.well-known/llms.txt should include "When to use" section');
+}
+
+async function testBrandDiscoverability() {
+  const res = await fetch(`${BASE}/`, {
+    headers: { Accept: 'text/html' },
+    redirect: 'follow',
+  });
+  const body = await res.text();
+  assert(body.includes('<title>Countdown Studio'), 'Document title should start with Countdown Studio');
+  assert(body.includes('Countdown Studio</span>'), 'Main h1 heading should clearly include Countdown Studio brand');
+  assert(body.toLowerCase().includes('application-name" content="countdown studio'), 'Application-name meta tag should declare Countdown Studio');
+}
+
 // ---------------------------------------------------------------------------
 
 (async () => {
@@ -199,8 +238,12 @@ async function testAboutMarkdownNegotiation() {
   await check('Markdown homepage: returns 200 + Content-Type: text/markdown + Vary: Accept', testMarkdownHomepage);
   await check('HTML homepage: returns 200 + Content-Type: text/html (unchanged for browser clients)', testHtmlHomepage);
   await check('404 with Accept: text/markdown → HTTP 404 + text/markdown body (≥20 chars) + Vary: Accept', testMarkdown404);
+  await check('404 with Accept: text/html → HTTP 404 + HTML 404 error page', testHtml404);
   await check('GET /llms.txt → 200 + text/plain + "When to use" section', testLlmsTxt);
+  await check('GET /.well-known/llms.txt → 200 + text/plain + "When to use" section', testWellKnownLlmsTxt);
+  await check('GET /robots.txt → 200 + text/plain + Sitemap reference', testRobotsTxt);
   await check('GET /sitemap.xml → 200 + <urlset> XML + lastmod + /about /contact /privacy', testSitemapXml);
+  await check('Brand name discoverability: title, h1, metadata', testBrandDiscoverability);
   await check('Homepage HTML contains JSON-LD structured data', testJsonLd);
   await check('Homepage metadata completeness: canonical, og:image, og:type, lang', testMetadataCompleteness);
   await check('GET /about → 200 + HTML + ≥500 chars', testTrustAnchorAbout);
@@ -209,5 +252,5 @@ async function testAboutMarkdownNegotiation() {
   await check('GET /about with Accept: text/markdown → 200 + text/markdown + Vary: Accept', testAboutMarkdownNegotiation);
 
   console.log(`\n${passed} passed, ${failed} failed\n`);
-  process.exit(failed > 0 ? 1 : 0);
+  process.exitCode = failed > 0 ? 1 : 0;
 })();
