@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>About — Countdown Studio</title>
+    <meta name="description" content="Learn about Countdown Studio, a faithful offline-capable recreation of the British TV game show Countdown featuring Letters, Numbers, and Conundrum rounds." />
+    <link rel="canonical" href="https://www.countdown-studio.id.vn/about" />
+    <meta property="og:title" content="About — Countdown Studio" />
+    <meta property="og:description" content="Countdown Studio is a faithful recreation of the British TV game show Countdown. Learn about our solo practice, dictionary corner solver, and live dual-screen versus mode." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://www.countdown-studio.id.vn/about" />
+    <meta property="og:image" content="https://www.countdown-studio.id.vn/assets/apple-touch-icon.png" />
+    <link rel="sitemap" type="application/xml" href="/sitemap.xml" />
+    <link rel="stylesheet" href="./css/theme.css" />
+    <link rel="stylesheet" href="./css/base.css" />
+    <link rel="stylesheet" href="./css/components.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      body { font-family: 'Plus Jakarta Sans', sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; padding: 0; }
+      .page-container { max-width: 800px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+      h1 { font-family: 'Barlow Condensed', sans-serif; font-size: 2.5rem; color: #60a5fa; margin-bottom: 0.5rem; }
+      h2 { font-size: 1.4rem; color: #93c5fd; margin-top: 2rem; }
+      p, li { line-height: 1.75; color: #cbd5e1; }
+      a { color: #60a5fa; }
+      nav { padding: 1rem 1.5rem; background: #1e293b; display: flex; align-items: center; gap: 1.5rem; }
+      nav a { color: #60a5fa; text-decoration: none; font-weight: 600; }
+      nav .brand { font-family: 'Barlow Condensed', sans-serif; font-size: 1.4rem; color: #f8fafc; }
+      ul { padding-left: 1.5rem; }
+    </style>
+  </head>
+  <body>
+    <nav>
+      <a href="/" class="brand">Countdown Studio</a>
+      <a href="/about">About</a>
+      <a href="/contact">Contact</a>
+      <a href="/privacy">Privacy</a>
+    </nav>
+
+    <main class="page-container" id="main-content">
+      <h1>About Countdown Studio</h1>
+      <p>
+        Countdown Studio is a faithful, offline-capable web recreation of the iconic British TV game show
+        <em>Countdown</em>. Originally broadcast on Channel 4, Countdown challenges contestants to find
+        the longest word from a set of randomly drawn letters, reach a target number using arithmetic
+        operations, and solve a nine-letter anagram (the Conundrum). Countdown Studio brings all three
+        game formats to any browser, with no installation required.
+      </p>
+
+      <h2>What We Offer</h2>
+      <ul>
+        <li>
+          <strong>Solo Practice</strong> — Individual players can practice Letters, Numbers, and Conundrum
+          rounds at their own pace. The built-in Dictionary Corner solver automatically checks whether a
+          word can be formed from the drawn letters and validates it against the official Countdown
+          dictionary. Career stats are tracked across sessions for registered users.
+        </li>
+        <li>
+          <strong>Dual-Screen Live Stage Versus Mode</strong> — Organisations, schools, and event
+          organisers can run a full Countdown game show experience with a dedicated host control panel
+          and one or more audience display screens synced in real time over WebSocket. The host device
+          drives the round; display screens show the board and timer to the audience.
+        </li>
+        <li>
+          <strong>Offline-Capable PWA</strong> — A service worker caches all game assets after the first
+          visit, so games can run without an internet connection. This makes Countdown Studio suitable
+          for classrooms and venues with unreliable Wi-Fi.
+        </li>
+        <li>
+          <strong>Multiple Themes</strong> — Choose from Classic Blue, Dark Slate, and High Contrast
+          themes to suit your display environment.
+        </li>
+      </ul>
+
+      <h2>Who It Is For</h2>
+      <p>
+        Countdown Studio is designed for fans of the TV show who want to practice at home, teachers
+        who use Countdown as a classroom activity to build vocabulary and mental arithmetic, corporate
+        event organisers who need a polished team-building game show format, and developers who want
+        to study a real-world PWA + WebSocket application.
+      </p>
+
+      <h2>Technology</h2>
+      <p>
+        The application is built with TypeScript, React, and Vite for the frontend, and an Express.js
+        + Node.js server with PostgreSQL for authentication and career data. Real-time synchronisation
+        uses a custom JSON protocol over WebSocket (<code>wss://</code>). Authentication uses scrypt
+        password hashing, JWT-signed session tokens with a 7-day TTL, and optional Google OAuth.
+        Roles are scoped: <em>individual</em> accounts get solo practice, <em>organization</em>
+        accounts can host and display live sessions, and <em>admin</em> accounts have full access.
+      </p>
+
+      <h2>Machine-Readable Resources</h2>
+      <ul>
+        <li><a href="/llms.txt">llms.txt</a> — Agent instructions, when-to-use guidance, and API reference</li>
+        <li><a href="/sitemap.xml">sitemap.xml</a> — Full page index for crawlers</li>
+        <li><a href="/api/health">GET /api/health</a> — Server status and active room stats (JSON)</li>
+      </ul>
+
+      <p style="margin-top: 2rem;">
+        <a href="/">&larr; Back to Countdown Studio</a>
+      </p>
+    </main>
+  </body>
+</html>

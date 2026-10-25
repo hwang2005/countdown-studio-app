@@ -397,6 +397,9 @@ async function startServer() {
       '- [Stage Display](https://www.countdown-studio.id.vn/versus-display.html) — Audience display screen (requires organisation account)',
       '- [Agent instructions](https://www.countdown-studio.id.vn/llms.txt) — llms.txt with when-to-use guidance',
       '- [Sitemap](https://www.countdown-studio.id.vn/sitemap.xml) — Full page index',
+      '- [About](https://www.countdown-studio.id.vn/about) — About Countdown Studio',
+      '- [Contact](https://www.countdown-studio.id.vn/contact) — Contact and support',
+      '- [Privacy](https://www.countdown-studio.id.vn/privacy) — Privacy policy',
       '',
       '## API',
       '',
@@ -407,11 +410,57 @@ async function startServer() {
     ].join('\n');
 
     res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
-    res.setHeader('Vary', 'Accept');
+    // Vary must list ALL dimensions we content-negotiate on.
+    // The CORS middleware already set Vary: Origin; we append Accept here.
+    res.setHeader('Vary', 'Accept, Origin');
     res.setHeader('Cache-Control', 'public, max-age=300');
     return res.status(200).send(body);
   });
-  // ── End agent-readiness endpoints ────────────────────────────────────────────
+
+  // ── Trust anchor pages (/about, /contact, /privacy) ──────────────────────
+  // These routes serve real content pages that AI agents check to verify
+  // business legitimacy. They also support Markdown negotiation.
+
+  function trustPageMarkdown(title: string, url: string, filePath: string) {
+    return (req: Request, res: Response, next: () => void) => {
+      const accept = req.get('Accept') || '';
+      if (!accept.includes('text/markdown')) return next();
+      const body = [
+        `# ${title} — Countdown Studio`,
+        '',
+        `> See the full page at ${url}`,
+        '',
+        '## Quick links',
+        '',
+        '- [Homepage](https://www.countdown-studio.id.vn/) — Product overview',
+        '- [Agent instructions](https://www.countdown-studio.id.vn/llms.txt) — llms.txt',
+        '- [Sitemap](https://www.countdown-studio.id.vn/sitemap.xml) — Page index',
+        '- [About](https://www.countdown-studio.id.vn/about) — About',
+        '- [Contact](https://www.countdown-studio.id.vn/contact) — Contact',
+        '- [Privacy](https://www.countdown-studio.id.vn/privacy) — Privacy policy',
+      ].join('\n');
+      res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+      res.setHeader('Vary', 'Accept, Origin');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      return res.status(200).send(body);
+    };
+  }
+
+  app.get('/about', trustPageMarkdown('About', 'https://www.countdown-studio.id.vn/about', 'about.html'), (_req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.sendFile(path.resolve(__dirname, '..', 'about.html'));
+  });
+
+  app.get('/contact', trustPageMarkdown('Contact', 'https://www.countdown-studio.id.vn/contact', 'contact.html'), (_req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.sendFile(path.resolve(__dirname, '..', 'contact.html'));
+  });
+
+  app.get('/privacy', trustPageMarkdown('Privacy Policy', 'https://www.countdown-studio.id.vn/privacy', 'privacy.html'), (_req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.sendFile(path.resolve(__dirname, '..', 'privacy.html'));
+  });
+  // ── End trust anchor pages ────────────────────────────────────────────────
 
   // Authentication and RBAC API. Organization accounts are provisioned by an
   // administrator; public registration intentionally exposes only Individual
