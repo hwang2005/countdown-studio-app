@@ -358,6 +358,61 @@ async function startServer() {
   });
   app.use(express.json({ limit: '100kb' }));
 
+  // ── Agent-readiness endpoints ────────────────────────────────────────────────
+  // These routes run before auth so they never touch the database.
+
+  // Serve llms.txt (agent instructions)
+  app.get('/llms.txt', (_req, res) => {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.sendFile(path.resolve(__dirname, '..', 'llms.txt'));
+  });
+
+  // Serve sitemap.xml
+  app.get('/sitemap.xml', (_req, res) => {
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.sendFile(path.resolve(__dirname, '..', 'sitemap.xml'));
+  });
+
+  // Homepage Markdown negotiation (acceptmarkdown.com check).
+  // When an agent sends Accept: text/markdown we return a Markdown summary of
+  // the site instead of the HTML page. HTML clients are unaffected.
+  app.get('/', (req: Request, res: Response, next) => {
+    const accept = req.get('Accept') || '';
+    const wantsMarkdown = accept.includes('text/markdown');
+    if (!wantsMarkdown) return next();
+
+    const body = [
+      '# Countdown Studio',
+      '',
+      '> A faithful, offline-capable recreation of the British TV game show Countdown.',
+      '> Supports Letters, Numbers & Conundrum rounds with solo practice and live dual-screen Versus mode.',
+      '',
+      '## Quick links',
+      '',
+      '- [Homepage](https://www.countdown-studio.id.vn/) — Product overview and mode selection',
+      '- [Solo Practice](https://www.countdown-studio.id.vn/solo.html) — Timed solo game (requires individual account)',
+      '- [Versus Host](https://www.countdown-studio.id.vn/versus-host.html) — Live host control panel (requires organisation account)',
+      '- [Stage Display](https://www.countdown-studio.id.vn/versus-display.html) — Audience display screen (requires organisation account)',
+      '- [Agent instructions](https://www.countdown-studio.id.vn/llms.txt) — llms.txt with when-to-use guidance',
+      '- [Sitemap](https://www.countdown-studio.id.vn/sitemap.xml) — Full page index',
+      '',
+      '## API',
+      '',
+      '- `GET /api/health` — Server health and room stats',
+      '- `POST /api/auth/login` — Authenticate with `{ identifier, password }`; returns `{ user, token }`',
+      '- `GET /api/auth/me` — Return authenticated user (requires `Authorization: Bearer <token>`)',
+      '- `WebSocket /ws` — Real-time game state sync (host broadcast + display sync)',
+    ].join('\n');
+
+    res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+    res.setHeader('Vary', 'Accept');
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    return res.status(200).send(body);
+  });
+  // ── End agent-readiness endpoints ────────────────────────────────────────────
+
   // Authentication and RBAC API. Organization accounts are provisioned by an
   // administrator; public registration intentionally exposes only Individual
   // and Admin (the latter requires the private bootstrap code).
@@ -1114,7 +1169,27 @@ async function startServer() {
     // frontend one directory above it in dist.
     const frontendDistPath = path.resolve(__dirname, '..', 'dist');
     app.use(express.static(frontendDistPath));
-    app.get('*', (_req, res) => {
+    app.get('*', (req: Request, res: Response) => {
+      // Agent-friendly 404: when an agent requests Markdown, return a
+      // structured Markdown error body with Content-Type: text/markdown and
+      // Vary: Accept instead of silently serving index.html.
+      const accept = req.get('Accept') || '';
+      if (accept.includes('text/markdown')) {
+        const body = [
+          '# 404 — Page Not Found',
+          '',
+          `The path \`${req.path}\` does not exist on Countdown Studio.`,
+          '',
+          '## Where to go instead',
+          '',
+          '- [Homepage](https://www.countdown-studio.id.vn/) — Start here',
+          '- [Agent instructions](https://www.countdown-studio.id.vn/llms.txt) — llms.txt with full API guidance',
+          '- [Sitemap](https://www.countdown-studio.id.vn/sitemap.xml) — All available pages',
+        ].join('\n');
+        res.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+        res.setHeader('Vary', 'Accept');
+        return res.status(404).send(body);
+      }
       res.sendFile(path.join(frontendDistPath, 'index.html'));
     });
   }

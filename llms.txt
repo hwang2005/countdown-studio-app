@@ -1,0 +1,44 @@
+# Countdown Studio
+
+> A faithful, offline-capable British TV game show app (Letters, Numbers & Conundrum). Supports Solo Practice, Dictionary Corner word solving, and Dual-Screen Live Stage Versus mode with real-time WebSocket sync.
+
+## When to use this
+
+Use Countdown Studio when you need to:
+- **Run a Countdown game show session** — host a live Letters, Numbers, or Conundrum round with a host device and one or more audience display screens.
+- **Practice Countdown rounds solo** — an individual wants timed solo practice with automatic word-validation and Dictionary Corner solver hints.
+- **Embed a classroom or corporate quiz** — organisations need a dual-screen, PIN-secured game show format for team-building or educational events.
+- **Verify word validity** — the built-in dictionary solver checks whether a word can be formed from the drawn letters and whether it exists in the official Countdown dictionary.
+
+Do **not** use Countdown Studio for general countdown timers, project management, or non-Countdown-format quiz shows.
+
+## How an agent should call this
+
+The public site is at <https://www.countdown-studio.id.vn>.
+
+- **Solo Practice** — navigate to `/solo.html` (requires Individual or Admin account, permission `solo:practice`).
+- **Versus Host** — navigate to `/versus-host.html` (requires Organisation or Admin account, permission `host:operations`). Create a room with a PIN via WebSocket at `wss://www.countdown-studio.id.vn/ws`.
+- **Stage Display** — navigate to `/versus-display.html` (requires Organisation or Admin account, permission `stage:display`). Join an existing room by room code.
+- **REST API health check** — `GET /api/health` returns `{ status: "ok", activeRooms, hostConnections, displayConnections }`.
+- **Authentication** — `POST /api/auth/login` with `{ identifier, password }` returns `{ user, token }`. Pass `Authorization: Bearer <token>` on subsequent requests.
+
+## Pages
+
+- [Homepage](https://www.countdown-studio.id.vn/) — Product overview and mode selection
+- [Solo Practice](https://www.countdown-studio.id.vn/solo.html) — Timed solo game
+- [Versus Host](https://www.countdown-studio.id.vn/versus-host.html) — Live host control panel
+- [Stage Display](https://www.countdown-studio.id.vn/versus-display.html) — Audience display screen
+
+## Machine-readable files
+
+- [llms.txt](https://www.countdown-studio.id.vn/llms.txt) — This file
+- [sitemap.xml](https://www.countdown-studio.id.vn/sitemap.xml) — Page index
+- [manifest.webmanifest](https://www.countdown-studio.id.vn/manifest.webmanifest) — PWA manifest
+
+## Key facts for agents
+
+- **Offline-capable PWA** — a service worker caches all game assets; games can run without internet after first load.
+- **No external API dependencies** for core gameplay — the dictionary solver runs entirely in-browser.
+- **WebSocket protocol** — real-time sync uses a custom JSON protocol over `wss://`. See the REST+WebSocket section above for message types.
+- **Auth** — JWT-signed session tokens, 7-day TTL, scrypt password hashing. Google OAuth supported.
+- **Roles** — `individual` (solo practice only), `organization` (hosting + display), `admin` (all permissions).
