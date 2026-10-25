@@ -373,6 +373,21 @@ async function startServer() {
     return null;
   }
 
+  // Keep every request header that changes the representation in Vary. This
+  // matters when a browser request also carries an Origin header: replacing
+  // `Vary: Origin` with `Vary: Accept` can make a CDN cache the wrong variant.
+  function addVary(res: Response, ...fields: string[]) {
+    const existing = (res.getHeader('Vary') || '').toString()
+      .split(',')
+      .map((field) => field.trim().toLowerCase())
+      .filter(Boolean);
+    const merged = [...existing];
+    for (const field of fields) {
+      if (!merged.includes(field.toLowerCase())) merged.push(field.toLowerCase());
+    }
+    res.setHeader('Vary', merged.join(', '));
+  }
+
   // Serve llms.txt (agent instructions)
   const sendLlmsTxt = (_req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
@@ -416,7 +431,7 @@ async function startServer() {
   // the site instead of the HTML page. HTML clients are unaffected.
   app.get('/', (req: Request, res: Response, next) => {
     // Both Markdown and HTML responses negotiate on Accept
-    res.setHeader('Vary', 'Accept, Origin');
+    addVary(res, 'Accept', 'Origin');
     const accept = req.get('Accept') || '';
     const wantsMarkdown = accept.includes('text/markdown');
     if (!wantsMarkdown) return next();
@@ -465,7 +480,7 @@ async function startServer() {
 
   function trustPageMarkdown(title: string, url: string, _filePath: string) {
     return (req: Request, res: Response, next: () => void) => {
-      res.setHeader('Vary', 'Accept, Origin');
+      addVary(res, 'Accept', 'Origin');
       const accept = req.get('Accept') || '';
       if (!accept.includes('text/markdown')) return next();
       const body = [
@@ -1283,7 +1298,7 @@ async function startServer() {
 
   // Universal 404 handler for nonexistent paths (runs in both dev and prod)
   app.use((req: Request, res: Response) => {
-    res.setHeader('Vary', 'Accept');
+    addVary(res, 'Accept', 'Origin');
     const accept = req.get('Accept') || '';
 
     // Agent-friendly Markdown 404

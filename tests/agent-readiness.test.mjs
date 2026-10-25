@@ -53,6 +53,20 @@ async function testMarkdownHomepage() {
   assert(body.includes('#'), 'Body should contain at least one Markdown heading');
 }
 
+async function testNegotiationVaryPreservesOrigin() {
+  const res = await fetch(`${BASE}/`, {
+    headers: {
+      Accept: 'text/markdown',
+      Origin: 'https://www.countdown-studio.id.vn',
+    },
+    redirect: 'follow',
+  });
+  assert(res.status === 200, `Expected 200, got ${res.status}`);
+  const vary = (res.headers.get('vary') || '').toLowerCase();
+  assert(vary.includes('accept'), `Vary should include Accept, got "${vary}"`);
+  assert(vary.includes('origin'), `Vary should preserve Origin, got "${vary}"`);
+}
+
 async function testHtmlHomepage() {
   const res = await fetch(`${BASE}/`, {
     headers: { Accept: 'text/html' },
@@ -136,6 +150,8 @@ async function testMetadataCompleteness() {
   assert(body.includes('rel="canonical"'), 'Homepage should have a canonical link tag');
   assert(body.includes('og:image'), 'Homepage should have og:image meta tag');
   assert(body.includes('og:type'), 'Homepage should have og:type meta tag');
+  assert(body.includes('og:site_name'), 'Homepage should identify the Countdown Studio site name');
+  assert(body.includes('name="robots"'), 'Homepage should allow search indexing');
   assert(body.includes('lang="en"'), 'Homepage html element should have lang attribute');
 }
 
@@ -228,6 +244,7 @@ async function testBrandDiscoverability() {
   assert(body.includes('<title>Countdown Studio'), 'Document title should start with Countdown Studio');
   assert(body.includes('Countdown Studio</span>'), 'Main h1 heading should clearly include Countdown Studio brand');
   assert(body.toLowerCase().includes('application-name" content="countdown studio'), 'Application-name meta tag should declare Countdown Studio');
+  assert(body.includes('og:site_name" content="Countdown Studio"'), 'Open Graph site name should declare Countdown Studio');
 }
 
 // ---------------------------------------------------------------------------
@@ -236,6 +253,7 @@ async function testBrandDiscoverability() {
   console.log(`\nAgent-readiness tests → ${BASE}\n`);
 
   await check('Markdown homepage: returns 200 + Content-Type: text/markdown + Vary: Accept', testMarkdownHomepage);
+  await check('Markdown negotiation: Vary preserves both Accept and Origin', testNegotiationVaryPreservesOrigin);
   await check('HTML homepage: returns 200 + Content-Type: text/html (unchanged for browser clients)', testHtmlHomepage);
   await check('404 with Accept: text/markdown → HTTP 404 + text/markdown body (≥20 chars) + Vary: Accept', testMarkdown404);
   await check('404 with Accept: text/html → HTTP 404 + HTML 404 error page', testHtml404);

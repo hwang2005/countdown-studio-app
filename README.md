@@ -227,6 +227,13 @@ serve the `/ws` WebSocket endpoint. For cross-device rooms, deploy the
 full-stack service below and point the production domain to that service (or
 keep Pages as the frontend and provide a separate `?ws=wss://.../ws` backend).
 
+GitHub Pages is also a static host: it cannot vary the homepage body or
+`Content-Type` based on `Accept`. The agent-readiness Markdown negotiation and
+Markdown 404 requirements therefore require the public domain to point at the
+Node/Docker/Render service (the Express routes in `server.ts`), not only at
+the Pages artifact. After changing DNS, verify the public origin with
+`npm run test:agent` and `SERVER_URL=https://your-domain.example npm run test:agent`.
+
 When the authentication API is hosted separately from the static frontend,
 provide its origin with `?api=https://api.example.com` (or set
 `VITE_API_URL=https://api.example.com` at build time, or set
