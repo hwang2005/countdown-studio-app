@@ -280,7 +280,7 @@ function applyStageLayoutToDOM(layout = stageLayout, customBg = loadCustomStageB
         canvas.style.setProperty('--stage-bg-image', `url("${probe.src}")`);
       }
     };
-    probe.src = './assets/countdown-clock-placeholder.jpg';
+    probe.src = './assets/stage-bg.svg';
   }
 
   const handsCheckbox = document.getElementById('calib-hands-only-toggle');
@@ -770,6 +770,31 @@ document.addEventListener('DOMContentLoaded', () => {
       applyStageLayoutToDOM(stageLayout, msg.payload.bg || null);
     } else if (msg.type === 'STAGE_CONTROLS_SYNC' && msg.payload !== undefined) {
       setStageControlsHidden(Boolean(msg.payload.hidden), false);
+    } else if (msg.type === 'STAGE_CONFIG_SYNC' && msg.payload) {
+      // Remote rooms may send either the initial room snapshot or a single
+      // Host-authored config update. Display applies it locally but never
+      // sends the change back as an authoritative command.
+      const config = msg.payload;
+      if (config.layout) {
+        stageLayout = saveStageLayout(config.layout);
+        applyStageLayoutToDOM(stageLayout);
+      }
+      if (Object.prototype.hasOwnProperty.call(config, 'background')) {
+        saveCustomStageBackground(config.background || null);
+        applyStageLayoutToDOM(stageLayout, config.background || null);
+      }
+      if (typeof config.controlsHidden === 'boolean') {
+        setStageControlsHidden(config.controlsHidden, false);
+      }
+      if (config.kind === 'layout' && config.value) {
+        stageLayout = saveStageLayout(config.value);
+        applyStageLayoutToDOM(stageLayout);
+      } else if (config.kind === 'background') {
+        saveCustomStageBackground(config.value || null);
+        applyStageLayoutToDOM(stageLayout, config.value || null);
+      } else if (config.kind === 'controls' && config.value) {
+        setStageControlsHidden(Boolean(config.value.hidden), false);
+      }
     }
   });
 

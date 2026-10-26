@@ -11,6 +11,7 @@
     "build:all": "npm run build && npm run build:server",
     "preview": "vite preview",
     "test:agent": "node tests/agent-readiness.test.mjs",
+    "test:stage-contract": "node tests/stage-sync-contract.test.mjs",
     "clean": "rm -rf dist dist-server",
     "lint": "tsc --noEmit"
   },

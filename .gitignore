@@ -12,3 +12,4 @@ coverage/
 chat/
 database/
 database/auth-rbac.sql
+.playwright-cli/

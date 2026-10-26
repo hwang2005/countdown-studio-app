@@ -59,7 +59,7 @@
   width: min(100vw, calc(100vh * 16 / 9));
   height: min(100vh, calc(100vw * 9 / 16));
   background-color: #050D24;
-  background-image: var(--stage-bg-image, url('/assets/countdown-clock-placeholder.jpg'), url('../assets/countdown-clock-placeholder.jpg'), url('./assets/countdown-clock-placeholder.jpg'), url('../assets/stage-bg.svg'));
+  background-image: var(--stage-bg-image, url('../assets/stage-bg.svg'));
   background-size: 100% 100%;
   background-position: center center;
   background-repeat: no-repeat;
@@ -823,7 +823,7 @@
   width: 100%;
   max-width: 100%;
   background-color: #050D24;
-  background-image: var(--stage-bg-image, url('/assets/countdown-clock-placeholder.jpg'), url('../assets/countdown-clock-placeholder.jpg'), url('./assets/countdown-clock-placeholder.jpg'), url('../assets/stage-bg.svg'));
+  background-image: var(--stage-bg-image, url('../assets/stage-bg.svg'));
   background-size: 100% 100%;
   background-position: center center;
   background-repeat: no-repeat;

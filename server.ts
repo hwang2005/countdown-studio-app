@@ -26,6 +26,11 @@ interface GameRoom {
   hostSocket: WebSocket | null;
   displays: Set<WebSocket>;
   latestState: any;
+  stageConfig: {
+    layout?: Record<string, unknown>;
+    background?: string | null;
+    controlsHidden?: boolean;
+  };
   lastActive: number;
   hostDisconnectedAt: number | null;
 }
@@ -238,6 +243,9 @@ function bearer(req: Request): string | undefined { return req.get('Authorizatio
 function requirePermission(permission: string) { return async (req: Request, res: Response, next: () => void) => { try { const user = await authenticateToken(bearer(req)); if (!user) return res.status(401).json({ error: 'UNAUTHENTICATED' }); if (!user.permissions.includes(permission)) return res.status(403).json({ error: 'FORBIDDEN' }); (req as any).user = user; next(); } catch { res.status(503).json({ error: 'AUTH_DATABASE_UNAVAILABLE' }); } }; }
 
 const ROOM_ID_PATTERN = /^[A-Z0-9][A-Z0-9-]{2,31}$/;
+const ROOM_PIN_PATTERN = /^\d{4,8}$/;
+const MAX_WS_MESSAGE_BYTES = 900 * 1024;
+const MAX_STAGE_BACKGROUND_BYTES = 700 * 1024;
 const ROOM_IDLE_TIMEOUT_MS = 12 * 60 * 60 * 1000;
 const ORPHANED_ROOM_TIMEOUT_MS = 30 * 1000;
 const MAX_DISPLAYS_PER_ROOM = readPositiveInteger(process.env.MAX_DISPLAYS_PER_ROOM, 20);
@@ -291,6 +299,43 @@ function sendError(ws: WebSocket, code: string, message: string) {
   if (ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type: 'error', code, message }));
   }
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
+function isValidStageConfigPayload(payload: unknown): boolean {
+  if (!isPlainObject(payload)) return false;
+  const kind = payload.kind;
+  if (kind === 'layout') return isPlainObject(payload.value);
+  if (kind === 'controls') return isPlainObject(payload.value) && typeof payload.value.hidden === 'boolean';
+  if (kind === 'background') {
+    return payload.value === null || (
+      typeof payload.value === 'string' &&
+      payload.value.startsWith('data:image/') &&
+      Buffer.byteLength(payload.value, 'utf8') <= MAX_STAGE_BACKGROUND_BYTES
+    );
+  }
+  return false;
+}
+
+function isValidStatePayload(payload: unknown): boolean {
+  if (!isPlainObject(payload)) return false;
+  return typeof payload.matchId === 'string'
+    && typeof payload.phase === 'string'
+    && Array.isArray(payload.players)
+    && payload.players.length === 2
+    && Array.isArray(payload.schedule)
+    && payload.schedule.length >= 1
+    && payload.schedule.length <= 25;
+}
+
+function applyStageConfig(room: GameRoom, payload: Record<string, unknown>) {
+  const value = payload.value;
+  if (payload.kind === 'layout' && isPlainObject(value)) room.stageConfig.layout = value;
+  if (payload.kind === 'controls' && isPlainObject(value)) room.stageConfig.controlsHidden = value.hidden as boolean;
+  if (payload.kind === 'background') room.stageConfig.background = value as string | null;
 }
 
 function closeRoomForDisplays(room: GameRoom, message: string) {
@@ -1029,6 +1074,10 @@ async function startServer() {
 
     ws.on('message', async (raw) => {
       try {
+        if (Buffer.byteLength(raw.toString(), 'utf8') > MAX_WS_MESSAGE_BYTES) {
+          sendError(ws, 'PAYLOAD_TOO_LARGE', 'WebSocket message exceeds the allowed size.');
+          return;
+        }
         const msg = JSON.parse(raw.toString());
         const type = msg.type;
 
@@ -1062,6 +1111,10 @@ async function startServer() {
             ws.send(JSON.stringify({ type: 'error', code: 'INVALID_ROOM', message: 'Invalid room code' }));
             return;
           }
+          if (pin && !ROOM_PIN_PATTERN.test(pin)) {
+            sendError(ws, 'INVALID_PIN_FORMAT', 'Host PIN must contain 4 to 8 digits.');
+            return;
+          }
 
           let room = rooms.get(rawRoomId);
           if (!room) {
@@ -1074,6 +1127,7 @@ async function startServer() {
               hostSocket: ws,
               displays: new Set(),
               latestState: null,
+              stageConfig: {},
               lastActive: Date.now(),
               hostDisconnectedAt: null,
             };
@@ -1189,6 +1243,15 @@ async function startServer() {
             }));
           }
 
+          if (Object.keys(room.stageConfig).length > 0) {
+            ws.send(JSON.stringify({
+              type: 'stage:config',
+              sender: 'host',
+              payload: room.stageConfig,
+              timestamp: Date.now(),
+            }));
+          }
+
           // Notify host about new display count
           if (room.hostSocket && room.hostSocket.readyState === WebSocket.OPEN) {
             room.hostSocket.send(JSON.stringify({
@@ -1199,11 +1262,88 @@ async function startServer() {
           return;
         }
 
+        // Displays may send only contestant buzzer events or request the
+        // latest state. They cannot mutate room state or stage configuration.
+        if (type === 'display:buzz' || type === 'display:request_state') {
+          if (clientRole !== 'display' || !clientRoomId) {
+            sendError(ws, 'UNAUTHORIZED', 'Only an authenticated Stage Display may send this message.');
+            return;
+          }
+          if (String(msg.roomId || '').toUpperCase().trim() !== clientRoomId) {
+            sendError(ws, 'UNAUTHORIZED', 'Room identifier does not match the authenticated Display session.');
+            return;
+          }
+          const room = rooms.get(clientRoomId);
+          if (!room || !room.hostSocket || room.hostSocket.readyState !== WebSocket.OPEN) {
+            sendError(ws, 'ROOM_NOT_FOUND', 'The Host is no longer connected to this room.');
+            return;
+          }
+          if (type === 'display:buzz') {
+            const payload = msg.payload;
+            if (!isPlainObject(payload) || ![1, 2].includes(Number(payload.player))) {
+              sendError(ws, 'INVALID_PAYLOAD', 'Invalid contestant buzzer payload.');
+              return;
+            }
+            room.hostSocket.send(JSON.stringify({
+              type: 'display:buzz',
+              sender: 'display',
+              payload: { player: Number(payload.player), timestamp: Number(payload.timestamp) || Date.now() },
+              timestamp: Date.now(),
+            }));
+          } else if (room.latestState) {
+            ws.send(JSON.stringify({
+              type: 'stage:sync',
+              sender: 'host',
+              payload: room.latestState,
+              timestamp: Date.now(),
+            }));
+          }
+          room.lastActive = Date.now();
+          return;
+        }
+
+        // Only the authenticated Host may publish stage configuration.
+        if (type === 'host:stage_config') {
+          if (clientRole !== 'host' || !clientRoomId || !clientHostToken) {
+            sendError(ws, 'UNAUTHORIZED', 'Only the authenticated Host may publish stage configuration.');
+            return;
+          }
+          if (String(msg.roomId || '').toUpperCase().trim() !== clientRoomId) {
+            sendError(ws, 'UNAUTHORIZED', 'Room identifier does not match the authenticated Host session.');
+            return;
+          }
+          const room = rooms.get(clientRoomId);
+          if (!room || room.hostToken !== clientHostToken || room.hostSocket !== ws) {
+            sendError(ws, 'SESSION_EXPIRED', 'Host session has expired.');
+            return;
+          }
+          if (!isValidStageConfigPayload(msg.payload)) {
+            sendError(ws, 'INVALID_PAYLOAD', 'Invalid stage configuration payload.');
+            return;
+          }
+          applyStageConfig(room, msg.payload);
+          room.lastActive = Date.now();
+          const packet = JSON.stringify({
+            type: 'stage:config',
+            sender: 'host',
+            payload: msg.payload,
+            timestamp: Date.now(),
+          });
+          for (const displayWs of room.displays) {
+            if (displayWs.readyState === WebSocket.OPEN) displayWs.send(packet);
+          }
+          return;
+        }
+
         // Host closes the room permanently. Displays are notified and removed
         // so an old QR/link cannot keep accessing the room afterwards.
         if (type === 'host:close_room') {
           if (clientRole !== 'host' || !clientRoomId || !clientHostToken) {
             ws.send(JSON.stringify({ type: 'error', code: 'UNAUTHORIZED', message: 'You do not have Host permissions' }));
+            return;
+          }
+          if (String(msg.roomId || '').toUpperCase().trim() !== clientRoomId) {
+            sendError(ws, 'UNAUTHORIZED', 'Room identifier does not match the authenticated Host session.');
             return;
           }
           const room = rooms.get(clientRoomId);
@@ -1226,6 +1366,14 @@ async function startServer() {
         if (type === 'host:broadcast') {
           if (clientRole !== 'host' || !clientRoomId || !clientHostToken) {
             ws.send(JSON.stringify({ type: 'error', code: 'UNAUTHORIZED', message: 'You do not have Host permissions' }));
+            return;
+          }
+          if (String(msg.roomId || '').toUpperCase().trim() !== clientRoomId) {
+            sendError(ws, 'UNAUTHORIZED', 'Room identifier does not match the authenticated Host session.');
+            return;
+          }
+          if (!isValidStatePayload(msg.payload)) {
+            sendError(ws, 'INVALID_PAYLOAD', 'State payload does not match the Versus match contract.');
             return;
           }
 

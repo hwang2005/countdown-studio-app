@@ -856,7 +856,7 @@ function renderHostConsole(state) {
           previewEl.style.setProperty('--stage-bg-image', `url("${probe.src}")`);
         }
       };
-      probe.src = './assets/countdown-clock-placeholder.jpg';
+      probe.src = './assets/stage-bg.svg';
     }
   }
 
@@ -1237,6 +1237,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (closeRoomPanel) {
       closeRoomPanel.hidden = !isOnline;
     }
+
+    // A newly connected Display receives the authoritative stage setup from
+    // the Host, including settings that were saved before the room opened.
+    if (isOnline) {
+      syncChannel.send('STAGE_LAYOUT_SYNC', loadStageLayout());
+      syncChannel.send('STAGE_BG_SYNC', { bg: loadCustomStageBackground() });
+      syncChannel.send('STAGE_CONTROLS_SYNC', { hidden: loadStageControlsHidden() });
+      broadcastState(store.getState());
+    }
   });
 
   const openRemoteModal = () => {
@@ -1281,6 +1290,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const pin = (inputPin?.value || '').trim();
     if (!room) {
       showToast('Please enter a Room Code.', 'error');
+      return;
+    }
+    if (pin && !/^\d{4,8}$/.test(pin)) {
+      showToast('Host PIN must contain 4 to 8 digits.', 'error');
+      inputPin?.focus();
       return;
     }
     currentRoomId = room;

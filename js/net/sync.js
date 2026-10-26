@@ -13,7 +13,7 @@ const CHANNEL_NAME = 'countdown_studio_stage_sync_v1';
 const STORAGE_SIGNAL_KEY = 'countdown_studio_stage_signal_v1';
 const REMOTE_CONNECT_TIMEOUT_MS = 5000;
 const REMOTE_RECONNECT_DELAY_MS = 1000;
-const MAX_REMOTE_CONNECT_ATTEMPTS = 2;
+const MAX_REMOTE_CONNECT_ATTEMPTS = 4;
 const STAGE_WS_QUERY_PARAM = 'ws';
 const STAGE_WS_GLOBAL_CONFIG = '__COUNTDOWN_STAGE_WS_URL__';
 const AUTH_TOKEN_KEY = 'countdown_studio_auth_token_v1';
@@ -361,6 +361,24 @@ export class StageSyncChannel {
             return;
           }
 
+          if (msg.type === 'stage:config' && msg.payload) {
+            this.handleIncoming({
+              type: 'STAGE_CONFIG_SYNC',
+              sender: 'host',
+              payload: msg.payload,
+            });
+            return;
+          }
+
+          if (msg.type === 'display:buzz' && msg.payload && this.role === 'host') {
+            this.handleIncoming({
+              type: 'DISPLAY_BUZZ',
+              sender: 'display',
+              payload: msg.payload,
+            });
+            return;
+          }
+
           if (msg.type === 'error') {
             if (msg.code === 'ROOM_NOT_FOUND') {
               this.roomClosed = true;
@@ -407,10 +425,14 @@ export class StageSyncChannel {
         if (this.roomId && !this.roomClosed) {
           if (this.remoteConnectAttempts < MAX_REMOTE_CONNECT_ATTEMPTS) {
             this.notifyStatus({ retrying: true, error: this.lastRemoteError });
+            const retryDelay = Math.min(
+              8000,
+              REMOTE_RECONNECT_DELAY_MS * (2 ** Math.max(0, this.remoteConnectAttempts - 1))
+            );
             this.remoteReconnectTimer = setTimeout(() => {
               this.remoteReconnectTimer = null;
               if (this.roomId && !this.remoteConnectionFailed) this._initWebSocket();
-            }, REMOTE_RECONNECT_DELAY_MS);
+            }, retryDelay);
           } else {
             this.remoteConnectionFailed = true;
             this.notifyStatus({ connectionFailed: true, error: this.lastRemoteError });
@@ -553,14 +575,45 @@ export class StageSyncChannel {
     }
 
     // 4. Remote WebSocket broadcast (Host -> Server -> Displays)
-    if (this.role === 'host' && this.ws && this.ws.readyState === WebSocket.OPEN && this.hostToken && this.roomId) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN && this.roomId) {
       try {
-        this.ws.send(JSON.stringify({
-          type: 'host:broadcast',
-          roomId: this.roomId,
-          token: this.hostToken,
-          payload: payload,
-        }));
+        if (this.role === 'host' && this.hostToken) {
+          if (type === 'STATE_SYNC') {
+            this.ws.send(JSON.stringify({
+              type: 'host:broadcast',
+              roomId: this.roomId,
+              token: this.hostToken,
+              payload,
+            }));
+          } else if (type === 'STAGE_LAYOUT_SYNC' || type === 'STAGE_BG_SYNC' || type === 'STAGE_CONTROLS_SYNC') {
+            const kind = type === 'STAGE_LAYOUT_SYNC'
+              ? 'layout'
+              : type === 'STAGE_BG_SYNC'
+                ? 'background'
+                : 'controls';
+            const value = type === 'STAGE_BG_SYNC' ? (payload?.bg || null) : payload;
+            this.ws.send(JSON.stringify({
+              type: 'host:stage_config',
+              roomId: this.roomId,
+              token: this.hostToken,
+              payload: { kind, value },
+            }));
+          }
+        } else if (this.role === 'display' && type === 'REQUEST_STATE') {
+          this.ws.send(JSON.stringify({
+            type: 'display:request_state',
+            roomId: this.roomId,
+          }));
+        } else if (this.role === 'display' && type === 'DISPLAY_BUZZ') {
+          this.ws.send(JSON.stringify({
+            type: 'display:buzz',
+            roomId: this.roomId,
+            payload: {
+              player: Number(payload?.player),
+              timestamp: Number(payload?.timestamp) || Date.now(),
+            },
+          }));
+        }
       } catch (err) {
         console.error('Remote broadcast failed:', err);
       }
