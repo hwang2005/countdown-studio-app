@@ -1575,5 +1575,52 @@ button.is-permission-locked {
   flex-wrap: wrap;
 }
 
+.host-history-list {
+  display: grid;
+  gap: 0.4rem;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.host-history-row {
+  display: grid;
+  grid-template-columns: minmax(5rem, 0.6fr) minmax(10rem, 1fr) minmax(10rem, 1.4fr);
+  gap: 0.65rem;
+  align-items: center;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  text-align: left;
+  color: var(--text-primary);
+  background: rgba(5, 11, 28, 0.55);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.host-history-row:hover,
+.host-history-row:focus-visible {
+  border-color: var(--accent-primary);
+  background: rgba(37, 99, 235, 0.16);
+}
+
+.host-history-detail {
+  max-height: 260px;
+  overflow: auto;
+  margin: 0.75rem 0 0;
+  padding: 0.75rem;
+  color: var(--text-secondary);
+  background: rgba(5, 11, 28, 0.55);
+  border-radius: var(--radius-md);
+  font-size: 0.72rem;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 760px) {
+  .host-history-row {
+    grid-template-columns: 1fr;
+    gap: 0.2rem;
+  }
+}
+
 
 

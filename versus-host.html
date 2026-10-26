@@ -315,6 +315,20 @@
           <div id="host-challenge-result" class="font-mono" style="font-size: 0.875rem; margin-bottom: var(--space-3);"></div>
           <div id="host-solver-output"></div>
         </section>
+
+        <!-- Archived match history (organization/admin only) -->
+        <section class="panel" aria-labelledby="host-history-title">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+            <div>
+              <h2 id="host-history-title" style="font-size: 1.1rem; margin: 0;">Archived Match History</h2>
+              <div id="host-history-status" class="meta-inline" style="margin-top: 0.25rem;">Loading…</div>
+            </div>
+            <button type="button" id="host-btn-refresh-history" class="btn btn--secondary btn--sm">Refresh</button>
+          </div>
+          <div id="host-history-list" class="host-history-list" style="margin-top: var(--space-3);"></div>
+          <button type="button" id="host-btn-download-history" class="btn btn--secondary btn--sm" style="margin-top: 0.65rem;" disabled>Download selected JSON</button>
+          <pre id="host-history-detail" class="host-history-detail" aria-live="polite">Select an archived match to inspect its snapshot.</pre>
+        </section>
       </div>
 
       <!-- RIGHT COLUMN: Live 16:9 Stage Preview, Clock & Operator Log -->

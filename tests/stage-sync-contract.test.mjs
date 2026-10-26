@@ -11,6 +11,9 @@ const sync = read('js/net/sync.js');
 const host = read('js/app-host.js');
 const display = read('js/app-display.js');
 const displayCss = read('css/display.css');
+const roomMigration = read('database/versus-room-history.sql');
+const packageJson = read('package.json');
+const seedAccounts = read('scripts/seed-test-accounts.ts');
 
 const checks = [
   ['rooms retain stage configuration', server.includes('stageConfig')],
@@ -25,6 +28,14 @@ const checks = [
   ['Host publishes saved stage setup after connecting', host.includes("send('STAGE_LAYOUT_SYNC', loadStageLayout())")],
   ['Display applies initial and incremental stage config', display.includes('config.kind === \'layout\'' )],
   ['Display uses the real SVG stage background fallback', displayCss.includes('url(\'../assets/stage-bg.svg\')')],
+  ['persistent room migration defines active rooms', roomMigration.includes('CREATE TABLE IF NOT EXISTS versus_rooms')],
+  ['archive migration is idempotent per room lifecycle', roomMigration.includes('uq_versus_archive_room_once')],
+  ['server restores persistent rooms on startup', server.includes('hydratePersistentRooms()')],
+  ['server archives closed rooms transactionally', server.includes('archiveAndCloseRoom') && server.includes('ON CONFLICT (room_id) DO NOTHING')],
+  ['server exposes permission-scoped history APIs', server.includes("/api/versus/history") && server.includes("requirePermission('host:operations')")],
+  ['Host Console renders archived history', host.includes('loadMatchHistory') && host.includes('host-history-list')],
+  ['test account bootstrap uses environment passwords', seedAccounts.includes('TEST_INDIVIDUAL_PASSWORD') && seedAccounts.includes('TEST_ADMIN_PASSWORD')],
+  ['test account bootstrap is available as an npm script', packageJson.includes('seed:test-accounts')],
 ];
 
 for (const [label, condition] of checks) {

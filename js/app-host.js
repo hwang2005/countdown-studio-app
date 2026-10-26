@@ -69,6 +69,8 @@ import {
 import { loadDictionary, solveLettersRound } from './solver/wordSolver.js';
 import { solveNumbersInWorker } from './solver/numbersSolver.js';
 import { StageSyncChannel } from './net/sync.js';
+import { apiFetch, readApiJson } from './net/api.js';
+import { authHeaders } from './auth.js';
 import { fetchWordDefinition } from './net/dictionaryApi.js';
 import { renderLetterTiles, renderNumberTiles } from './ui/tiles.js';
 import { renderDictionaryCorner, renderNumbersSolution } from './ui/board.js';
@@ -88,6 +90,64 @@ let clock = null;
 let buzzerAnswerTimer = null;
 let hostCustomSchedule = [];
 let lastRenderedPreviewBoardKey = null;
+let selectedArchiveSnapshot = null;
+
+async function loadMatchHistory() {
+  const list = document.getElementById('host-history-list');
+  const status = document.getElementById('host-history-status');
+  if (!list) return;
+  if (status) status.textContent = 'Loading archived matches…';
+  try {
+    const response = await apiFetch('/api/versus/history?limit=25', { headers: authHeaders() });
+    const data = await readApiJson(response);
+    if (!response.ok) throw new Error(data.message || data.error || 'Unable to load match history.');
+    list.replaceChildren();
+    if (!data.items?.length) {
+      list.textContent = 'No archived matches yet.';
+    } else {
+      for (const item of data.items) {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'host-history-row';
+        row.dataset.archiveId = String(item.id);
+        const scores = Array.isArray(item.final_scores)
+          ? item.final_scores.map((score) => `${score.name}: ${score.score}`).join(' · ')
+          : 'No final score';
+        const roomEl = document.createElement('strong');
+        roomEl.textContent = item.room_code;
+        const dateEl = document.createElement('span');
+        dateEl.textContent = new Date(item.closed_at).toLocaleString();
+        const scoreEl = document.createElement('span');
+        scoreEl.textContent = scores;
+        row.append(roomEl, dateEl, scoreEl);
+        row.addEventListener('click', () => showMatchArchive(item.id));
+        list.appendChild(row);
+      }
+    }
+    if (status) status.textContent = `${data.total || 0} archived match(es)`;
+  } catch (error) {
+    if (status) status.textContent = error instanceof Error ? error.message : 'History unavailable.';
+  }
+}
+
+async function showMatchArchive(archiveId) {
+  const detail = document.getElementById('host-history-detail');
+  if (!detail) return;
+  try {
+    const response = await apiFetch(`/api/versus/history/${encodeURIComponent(archiveId)}`, { headers: authHeaders() });
+    const data = await readApiJson(response);
+    if (!response.ok) throw new Error(data.message || data.error || 'Archive unavailable.');
+    selectedArchiveSnapshot = data.item;
+    detail.textContent = JSON.stringify(data.item, null, 2);
+    const downloadButton = document.getElementById('host-btn-download-history');
+    if (downloadButton) downloadButton.disabled = false;
+  } catch (error) {
+    selectedArchiveSnapshot = null;
+    const downloadButton = document.getElementById('host-btn-download-history');
+    if (downloadButton) downloadButton.disabled = true;
+    detail.textContent = error instanceof Error ? error.message : 'Archive unavailable.';
+  }
+}
 
 /**
  * Gets a URL relative to the page currently being served.  Using the page URL
@@ -1514,6 +1574,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('host-btn-export-png')?.addEventListener('click', () => {
     exportMatchSummaryPNG(store.getState());
   });
+
+  document.getElementById('host-btn-refresh-history')?.addEventListener('click', loadMatchHistory);
+  document.getElementById('host-btn-download-history')?.addEventListener('click', () => {
+    if (!selectedArchiveSnapshot) return;
+    const blob = new Blob([JSON.stringify(selectedArchiveSnapshot, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `countdown-match-${selectedArchiveSnapshot.room_code || 'archive'}-${selectedArchiveSnapshot.id}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  });
+  loadMatchHistory();
 
   // Global Host Keyboard Hotkeys
   document.addEventListener('keydown', (e) => {

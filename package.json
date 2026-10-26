@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "test:agent": "node tests/agent-readiness.test.mjs",
     "test:stage-contract": "node tests/stage-sync-contract.test.mjs",
+    "seed:test-accounts": "tsx scripts/seed-test-accounts.ts",
     "clean": "rm -rf dist dist-server",
     "lint": "tsc --noEmit"
   },

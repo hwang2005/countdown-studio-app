@@ -380,6 +380,16 @@ export class StageSyncChannel {
           }
 
           if (msg.type === 'error') {
+            if (msg.code === 'ROOM_WAITING') {
+              const waitingMessage = msg.message || 'Waiting for Host to reconnect.';
+              this.lastRemoteError = null;
+              clearTimeout(this.remoteConnectTimeoutTimer);
+              this.remoteConnectTimeoutTimer = null;
+              this.notifyStatus({ retrying: true, error: waitingMessage });
+              try { socket.close(); } catch {}
+              this.ws = null;
+              return;
+            }
             if (msg.code === 'ROOM_NOT_FOUND') {
               this.roomClosed = true;
               this.isRemoteConnected = false;

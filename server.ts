@@ -21,7 +21,9 @@ const projectRoot = fs.existsSync(path.join(__dirname, 'package.json'))
 
 interface GameRoom {
   id: string;
-  pin: string;
+  dbId: number | null;
+  hostUserId: number;
+  pinHash: string;
   hostToken: string;
   hostSocket: WebSocket | null;
   displays: Set<WebSocket>;
@@ -31,6 +33,7 @@ interface GameRoom {
     background?: string | null;
     controlsHidden?: boolean;
   };
+  openedAt: number;
   lastActive: number;
   hostDisconnectedAt: number | null;
 }
@@ -246,9 +249,11 @@ const ROOM_ID_PATTERN = /^[A-Z0-9][A-Z0-9-]{2,31}$/;
 const ROOM_PIN_PATTERN = /^\d{4,8}$/;
 const MAX_WS_MESSAGE_BYTES = 900 * 1024;
 const MAX_STAGE_BACKGROUND_BYTES = 700 * 1024;
-const ROOM_IDLE_TIMEOUT_MS = 12 * 60 * 60 * 1000;
-const ORPHANED_ROOM_TIMEOUT_MS = 30 * 1000;
+const ROOM_IDLE_TIMEOUT_MS = readPositiveInteger(process.env.ROOM_IDLE_TIMEOUT_MS, 12 * 60 * 60 * 1000);
+const ORPHANED_ROOM_TIMEOUT_MS = readPositiveInteger(process.env.ORPHANED_ROOM_TIMEOUT_MS, 30 * 1000);
 const MAX_DISPLAYS_PER_ROOM = readPositiveInteger(process.env.MAX_DISPLAYS_PER_ROOM, 20);
+const ROOM_PERSISTENCE_ENABLED = Boolean(process.env.DATABASE_URL || process.env.DB_NAME);
+const ROOM_SCHEMA_VERSION = 1;
 const DEFAULT_ALLOWED_ORIGINS = [
   'http://localhost:3000',
   'http://localhost:5173',
@@ -338,6 +343,162 @@ function applyStageConfig(room: GameRoom, payload: Record<string, unknown>) {
   if (payload.kind === 'background') room.stageConfig.background = value as string | null;
 }
 
+function roomStageConfigJson(room: GameRoom) {
+  return JSON.stringify(room.stageConfig || {});
+}
+
+async function persistRoomCreated(room: GameRoom): Promise<void> {
+  if (!ROOM_PERSISTENCE_ENABLED) return;
+  try {
+    const { rows } = await getDbPool().query<{ id: number }>(
+      `INSERT INTO versus_rooms
+        (room_code, host_user_id, pin_hash, status, latest_state, stage_config, opened_at, last_active_at, updated_at)
+       VALUES ($1, $2, $3, 'active', $4::jsonb, $5::jsonb, to_timestamp($6 / 1000.0), to_timestamp($6 / 1000.0), NOW())
+       ON CONFLICT (room_code) WHERE status='active' DO UPDATE SET
+         host_user_id = EXCLUDED.host_user_id,
+         pin_hash = EXCLUDED.pin_hash,
+         status = 'active',
+         latest_state = COALESCE(EXCLUDED.latest_state, versus_rooms.latest_state),
+         stage_config = COALESCE(EXCLUDED.stage_config, versus_rooms.stage_config),
+         last_active_at = NOW(),
+         host_disconnected_at = NULL,
+         closed_at = NULL,
+         close_reason = NULL,
+         updated_at = NOW()
+       RETURNING id`,
+      [room.id, room.hostUserId, room.pinHash, room.latestState ? JSON.stringify(room.latestState) : null, roomStageConfigJson(room), room.openedAt]
+    );
+    room.dbId = rows[0]?.id || room.dbId;
+  } catch (error) {
+    console.error('[Versus persistence] Could not create/update room:', error);
+  }
+}
+
+async function persistRoomState(room: GameRoom): Promise<void> {
+  if (!ROOM_PERSISTENCE_ENABLED || !room.dbId) return;
+  try {
+    await getDbPool().query(
+      `UPDATE versus_rooms
+       SET latest_state=$2::jsonb, stage_config=$3::jsonb, last_active_at=NOW(), updated_at=NOW(), host_disconnected_at=NULL
+       WHERE id=$1 AND status='active'`,
+      [room.dbId, room.latestState ? JSON.stringify(room.latestState) : null, roomStageConfigJson(room)]
+    );
+  } catch (error) {
+    console.error('[Versus persistence] Could not save room state:', error);
+  }
+}
+
+async function persistRoomDisconnected(room: GameRoom): Promise<void> {
+  if (!ROOM_PERSISTENCE_ENABLED || !room.dbId) return;
+  try {
+    await getDbPool().query(
+      `UPDATE versus_rooms SET host_disconnected_at=NOW(), last_active_at=NOW(), updated_at=NOW() WHERE id=$1 AND status='active'`,
+      [room.dbId]
+    );
+  } catch (error) {
+    console.error('[Versus persistence] Could not save host disconnect:', error);
+  }
+}
+
+async function archiveAndCloseRoom(room: GameRoom, reason: string): Promise<void> {
+  if (!ROOM_PERSISTENCE_ENABLED || !room.dbId) return;
+  let client: PoolClient | undefined;
+  try {
+    client = await getDbPool().connect();
+    await client.query('BEGIN');
+    const locked = await client.query<any>(
+      `SELECT id, room_code, host_user_id, opened_at, latest_state, stage_config, status
+       FROM versus_rooms WHERE id=$1 FOR UPDATE`, [room.dbId]
+    );
+    const row = locked.rows[0];
+    if (!row || row.status === 'closed') {
+      await client.query('COMMIT');
+      return;
+    }
+    const finalState = room.latestState || row.latest_state || null;
+    const stageConfig = room.stageConfig || row.stage_config || {};
+    const scores = finalState && Array.isArray(finalState.players)
+      ? finalState.players.map((player: any) => ({ id: player.id, name: player.name, score: player.score }))
+      : null;
+    await client.query(
+      `INSERT INTO versus_match_archive
+        (room_id, room_code, host_user_id, match_id, schema_version, opened_at, closed_at, close_reason, final_state, stage_config, final_scores)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8::jsonb, $9::jsonb, $10::jsonb)
+       ON CONFLICT (room_id) DO NOTHING`,
+      [row.id, row.room_code, row.host_user_id, finalState?.matchId || null, ROOM_SCHEMA_VERSION,
+        row.opened_at, reason, finalState ? JSON.stringify(finalState) : null, JSON.stringify(stageConfig), scores ? JSON.stringify(scores) : null]
+    );
+    await client.query(
+      `UPDATE versus_rooms SET status='closed', closed_at=NOW(), close_reason=$2, updated_at=NOW() WHERE id=$1`,
+      [room.dbId, reason]
+    );
+    await client.query('COMMIT');
+  } catch (error) {
+    await client?.query('ROLLBACK').catch(() => undefined);
+    console.error('[Versus persistence] Could not archive room:', error);
+  } finally {
+    client?.release();
+  }
+}
+
+async function hydratePersistentRooms(): Promise<void> {
+  if (!ROOM_PERSISTENCE_ENABLED) return;
+  try {
+    const { rows } = await getDbPool().query<any>(
+      `SELECT id, room_code, host_user_id, pin_hash, latest_state, stage_config, opened_at, last_active_at, host_disconnected_at
+       FROM versus_rooms WHERE status='active'`
+    );
+    for (const row of rows) {
+      rooms.set(row.room_code, {
+        id: row.room_code,
+        dbId: row.id,
+        hostUserId: row.host_user_id,
+        pinHash: row.pin_hash,
+        hostToken: crypto.randomUUID(),
+        hostSocket: null,
+        displays: new Set(),
+        latestState: row.latest_state || null,
+        stageConfig: row.stage_config || {},
+        openedAt: new Date(row.opened_at).getTime(),
+        lastActive: new Date(row.last_active_at).getTime(),
+        hostDisconnectedAt: null,
+      });
+    }
+    if (rows.length) console.log(`[Versus persistence] Restored ${rows.length} active room(s).`);
+  } catch (error) {
+    console.error('[Versus persistence] Could not restore active rooms:', error);
+  }
+}
+
+async function loadPersistentRoom(roomId: string): Promise<GameRoom | null> {
+  if (!ROOM_PERSISTENCE_ENABLED) return null;
+  try {
+    const { rows } = await getDbPool().query<any>(
+      `SELECT id, room_code, host_user_id, pin_hash, latest_state, stage_config, opened_at, last_active_at
+       FROM versus_rooms WHERE room_code=$1 AND status='active' LIMIT 1`, [roomId]
+    );
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      id: row.room_code,
+      dbId: row.id,
+      hostUserId: row.host_user_id,
+      pinHash: row.pin_hash,
+      hostToken: crypto.randomUUID(),
+      hostSocket: null,
+      displays: new Set(),
+      latestState: row.latest_state || null,
+      stageConfig: row.stage_config || {},
+      openedAt: new Date(row.opened_at).getTime(),
+      lastActive: new Date(row.last_active_at).getTime(),
+      hostDisconnectedAt: null,
+    };
+  } catch (error) {
+    console.error('[Versus persistence] Could not load room:', error);
+    return null;
+  }
+}
+
 function closeRoomForDisplays(room: GameRoom, message: string) {
   const closedPacket = JSON.stringify({ type: 'room:closed', roomId: room.id, message });
   for (const displayWs of room.displays) {
@@ -350,7 +511,7 @@ function closeRoomForDisplays(room: GameRoom, message: string) {
 }
 
 // Clean up inactive and orphaned rooms without affecting other active rooms.
-setInterval(() => {
+setInterval(async () => {
   const now = Date.now();
   for (const [id, room] of rooms.entries()) {
     const orphanedTooLong =
@@ -361,6 +522,7 @@ setInterval(() => {
 
     if (orphanedTooLong || (idleTooLong && !room.hostSocket)) {
       closeRoomForDisplays(room, 'Host has left the room or the room has expired.');
+      await archiveAndCloseRoom(room, orphanedTooLong ? 'host_disconnected_timeout' : 'idle_timeout');
       rooms.delete(id);
     }
   }
@@ -1057,6 +1219,71 @@ async function startServer() {
     });
   });
 
+  app.get('/api/versus/history', requirePermission('host:operations'), async (req: Request, res: Response) => {
+    const user = (req as any).user as AuthUser;
+    const limit = Math.min(100, Math.max(1, Number.parseInt(String(req.query.limit || '25'), 10) || 25));
+    const offset = Math.max(0, Number.parseInt(String(req.query.offset || '0'), 10) || 0);
+    const roomCode = String(req.query.room || '').toUpperCase().trim();
+    const from = String(req.query.from || '').trim();
+    const to = String(req.query.to || '').trim();
+    const filters: string[] = [];
+    const values: unknown[] = [];
+    if (user.role !== 'admin') {
+      values.push(user.id);
+      filters.push(`a.host_user_id=$${values.length}`);
+    }
+    if (roomCode) {
+      values.push(roomCode);
+      filters.push(`a.room_code=$${values.length}`);
+    }
+    if (from) {
+      values.push(from);
+      filters.push(`a.closed_at >= $${values.length}::timestamptz`);
+    }
+    if (to) {
+      values.push(to);
+      filters.push(`a.closed_at < ($${values.length}::date + INTERVAL '1 day')`);
+    }
+    const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+    try {
+      const countResult = await getDbPool().query<{ count: string }>(
+        `SELECT COUNT(*)::text AS count FROM versus_match_archive a ${where}`, values
+      );
+      const listValues = [...values, limit, offset];
+      const { rows } = await getDbPool().query<any>(
+        `SELECT a.id, a.room_code, a.match_id, a.schema_version, a.opened_at, a.closed_at,
+                a.close_reason, a.final_scores, a.host_user_id, p.display_name AS host_name
+         FROM versus_match_archive a
+         JOIN user_profiles p ON p.user_id=a.host_user_id
+         ${where} ORDER BY a.closed_at DESC LIMIT $${listValues.length - 1} OFFSET $${listValues.length}`,
+        listValues
+      );
+      return res.json({ items: rows, total: Number(countResult.rows[0]?.count || 0), limit, offset });
+    } catch (error) {
+      console.error('[Versus history] List failed:', error);
+      return res.status(503).json({ error: 'VERSUS_HISTORY_UNAVAILABLE' });
+    }
+  });
+
+  app.get('/api/versus/history/:archiveId', requirePermission('host:operations'), async (req: Request, res: Response) => {
+    const user = (req as any).user as AuthUser;
+    const archiveId = Number.parseInt(String(req.params.archiveId), 10);
+    if (!Number.isInteger(archiveId) || archiveId <= 0) return res.status(400).json({ error: 'INVALID_ARCHIVE_ID' });
+    try {
+      const { rows } = await getDbPool().query<any>(
+        `SELECT a.*, p.display_name AS host_name
+         FROM versus_match_archive a JOIN user_profiles p ON p.user_id=a.host_user_id
+         WHERE a.id=$1 AND ($2='admin' OR a.host_user_id=$3)`,
+        [archiveId, user.role, user.id]
+      );
+      if (!rows[0]) return res.status(404).json({ error: 'ARCHIVE_NOT_FOUND' });
+      return res.json({ item: rows[0] });
+    } catch (error) {
+      console.error('[Versus history] Detail failed:', error);
+      return res.status(503).json({ error: 'VERSUS_HISTORY_UNAVAILABLE' });
+    }
+  });
+
   // Setup WebSocket Server attached to the same HTTP server on /ws
   const wss = new WebSocketServer({
     server,
@@ -1116,22 +1343,28 @@ async function startServer() {
             return;
           }
 
-          let room = rooms.get(rawRoomId);
+          let room = rooms.get(rawRoomId) || await loadPersistentRoom(rawRoomId);
+          if (room && !rooms.has(rawRoomId)) rooms.set(rawRoomId, room);
           if (!room) {
             // Create new room with provided PIN (or default 0000)
             const token = crypto.randomUUID();
+            const openedAt = Date.now();
             room = {
               id: rawRoomId,
-              pin: pin || '0000',
+              dbId: null,
+              hostUserId: clientUser.id,
+              pinHash: await hashPassword(pin || '0000'),
               hostToken: token,
               hostSocket: ws,
               displays: new Set(),
               latestState: null,
               stageConfig: {},
-              lastActive: Date.now(),
+              openedAt,
+              lastActive: openedAt,
               hostDisconnectedAt: null,
             };
             rooms.set(rawRoomId, room);
+            await persistRoomCreated(room);
             clientRole = 'host';
             clientRoomId = rawRoomId;
             clientHostToken = token;
@@ -1151,8 +1384,8 @@ async function startServer() {
               return;
             }
 
-            // Verify existing PIN
-            if (room.pin && room.pin !== pin) {
+            // Verify existing PIN without ever storing the PIN in plaintext.
+            if (!(await verifyPassword(pin || '0000', room.pinHash))) {
               failedPinAttempts += 1;
               if (failedPinAttempts >= 5) {
                 sendError(ws, 'TOO_MANY_FAILED_ATTEMPTS', 'Too many failed Host PIN attempts. Connection closed.');
@@ -1174,6 +1407,7 @@ async function startServer() {
             room.hostSocket = ws;
             room.lastActive = Date.now();
             room.hostDisconnectedAt = null;
+            await persistRoomState(room);
             clientRole = 'host';
             clientRoomId = rawRoomId;
             clientHostToken = token;
@@ -1210,8 +1444,8 @@ async function startServer() {
           if (!room || !room.hostSocket) {
             ws.send(JSON.stringify({
               type: 'error',
-              code: 'ROOM_NOT_FOUND',
-              message: 'Room does not exist or has not been opened by Host.',
+              code: room ? 'ROOM_WAITING' : 'ROOM_NOT_FOUND',
+              message: room ? 'Room is restoring; waiting for Host to reconnect.' : 'Room does not exist or has not been opened by Host.',
             }));
             return;
           }
@@ -1323,6 +1557,7 @@ async function startServer() {
           }
           applyStageConfig(room, msg.payload);
           room.lastActive = Date.now();
+          await persistRoomState(room);
           const packet = JSON.stringify({
             type: 'stage:config',
             sender: 'host',
@@ -1352,6 +1587,7 @@ async function startServer() {
             return;
           }
           closeRoomForDisplays(room, 'Host has closed this room.');
+          await archiveAndCloseRoom(room, 'host_closed');
           room.hostSocket = null;
           room.hostDisconnectedAt = null;
           rooms.delete(room.id);
@@ -1385,6 +1621,7 @@ async function startServer() {
 
           room.latestState = msg.payload;
           room.lastActive = Date.now();
+          await persistRoomState(room);
 
           // Broadcast to all connected displays in this room
           const syncPacket = JSON.stringify({
@@ -1412,6 +1649,7 @@ async function startServer() {
         if (room && room.hostSocket === ws) {
           room.hostSocket = null;
           room.hostDisconnectedAt = Date.now();
+          void persistRoomDisconnected(room);
         }
       } else if (clientRole === 'display' && clientRoomId) {
         const room = rooms.get(clientRoomId);
@@ -1485,6 +1723,7 @@ async function startServer() {
     return res.status(404).send('<!doctype html><html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1><p>The page you requested does not exist on Countdown Studio.</p><p><a href="/">Back to Homepage</a> | <a href="/llms.txt">llms.txt</a></p></body></html>');
   });
 
+  await hydratePersistentRooms();
   const port = Number(process.env.PORT) || 3000;
   server.listen(port, '0.0.0.0', () => {
     console.log(`[Countdown Studio] Server running at http://0.0.0.0:${port}`);

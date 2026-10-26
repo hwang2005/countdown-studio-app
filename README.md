@@ -50,6 +50,7 @@ Once running, navigate to:
 - **Unit Test Suite:** `http://localhost:3000/tests/index.html`
 - **Server Health Endpoint:** `http://localhost:3000/api/health`
 - **Room Inspection Endpoint:** `http://localhost:3000/api/room/:roomId`
+- **Versus History API:** `GET /api/versus/history` and `GET /api/versus/history/:archiveId`
 
 ### Authentication & roles
 
@@ -373,6 +374,26 @@ The interface supports bilingual operation out of the box via `js/i18n.js`:
 Language preferences are persisted in `localStorage` and can be toggled via the Settings modal.
 
 ---
+
+## Persistent Versus rooms and match archive
+
+Run `database/versus-room-history.sql` after the authentication schema to enable persistent
+rooms and archived match snapshots. Active rooms survive a server restart with their latest state,
+stage configuration, and hashed Host PIN. Closing a room, an orphan timeout, or an idle timeout
+archives the final state exactly once in `versus_match_archive`.
+
+Organization users can list and inspect their own archived matches; admins can inspect all archived
+matches. The Host Console exposes the same history through its Archived Match History panel.
+
+For controlled production/staging test users, set `TEST_INDIVIDUAL_PASSWORD`,
+`TEST_ORGANIZATION_PASSWORD`, and `TEST_ADMIN_PASSWORD` as deployment secrets, then run:
+
+```bash
+npm run seed:test-accounts
+```
+
+The script is idempotent, updates password hashes, and never stores plaintext passwords in the
+repository. Test usernames are `test-individual`, `test-organization`, and `test-admin`.
 
 ## 12. Licence & Attribution
 
