@@ -5,7 +5,7 @@ import pg from 'pg';
 const { Pool } = pg;
 
 function required(name: string): string {
-  const value = process.env[name]?.trim();
+  const value = process.env[name];
   if (!value || value.length < 8) throw new Error(`${name} must be set and contain at least 8 characters.`);
   return value;
 }
@@ -30,13 +30,16 @@ const pool = new Pool({
   ssl: process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false },
 });
 
-const accounts = [
-  { username: 'test-individual', email: process.env.TEST_INDIVIDUAL_EMAIL || 'test-individual@example.invalid', role: 'individual', displayName: 'Test Individual', password: required('TEST_INDIVIDUAL_PASSWORD') },
-  { username: 'test-organization', email: process.env.TEST_ORGANIZATION_EMAIL || 'test-organization@example.invalid', role: 'organization', displayName: 'Test Organization', password: required('TEST_ORGANIZATION_PASSWORD') },
-  { username: 'test-admin', email: process.env.TEST_ADMIN_EMAIL || 'test-admin@example.invalid', role: 'admin', displayName: 'Test Administrator', password: required('TEST_ADMIN_PASSWORD') },
-];
+function buildAccounts() {
+  return [
+    { username: 'test-individual', email: process.env.TEST_INDIVIDUAL_EMAIL || 'test-individual@example.invalid', role: 'individual', displayName: 'Test Individual', password: required('TEST_INDIVIDUAL_PASSWORD') },
+    { username: 'test-organization', email: process.env.TEST_ORGANIZATION_EMAIL || 'test-organization@example.invalid', role: 'organization', displayName: 'Test Organization', password: required('TEST_ORGANIZATION_PASSWORD') },
+    { username: 'test-admin', email: process.env.TEST_ADMIN_EMAIL || 'test-admin@example.invalid', role: 'admin', displayName: 'Test Administrator', password: required('TEST_ADMIN_PASSWORD') },
+  ];
+}
 
 async function main() {
+  const accounts = buildAccounts();
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -52,6 +55,10 @@ async function main() {
         userId = created.rows[0]?.id;
       }
       if (!userId) throw new Error(`Could not create ${account.username}.`);
+      await client.query(
+        `UPDATE users SET status_id=(SELECT id FROM user_statuses WHERE code='active'), deleted_at=NULL, updated_at=NOW() WHERE id=$1`,
+        [userId]
+      );
       const passwordHash = await hashPassword(account.password);
       await client.query(
         `INSERT INTO user_credentials (user_id, password_hash, password_changed_at, failed_attempts, locked_until)
