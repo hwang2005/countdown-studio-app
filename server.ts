@@ -36,6 +36,9 @@ interface GameRoom {
   openedAt: number;
   lastActive: number;
   hostDisconnectedAt: number | null;
+  // PostgreSQL writes must stay ordered. Production latency can otherwise
+  // make an older snapshot overwrite a newer one while the room is live.
+  persistenceTail: Promise<void>;
 }
 
 const rooms = new Map<string, GameRoom>();
@@ -271,10 +274,23 @@ const ALLOWED_ORIGINS = new Set([
     .filter(Boolean),
 ]);
 
-function isAllowedOrigin(origin: string | undefined): boolean {
+function isAllowedOrigin(origin: string | undefined, request?: { headers?: Record<string, string | string[] | undefined> }): boolean {
   // Non-browser clients do not send an Origin header. Keep those clients
   // compatible while validating every browser-originated request.
-  return !origin || ALLOWED_ORIGINS.has(origin);
+  if (!origin || ALLOWED_ORIGINS.has(origin)) return true;
+
+  // A same-origin browser request is safe even when the deployment uses a
+  // provider hostname that is not known at build time (for example a Render
+  // preview/service URL). Compare against the actual Host header supplied by
+  // the reverse proxy instead of maintaining a provider-specific allowlist.
+  try {
+    const hostHeader = request?.headers?.host;
+    const host = Array.isArray(hostHeader) ? hostHeader[0] : hostHeader;
+    if (!host) return false;
+    return new URL(origin).host.toLowerCase() === host.toLowerCase();
+  } catch {
+    return false;
+  }
 }
 
 function readPositiveInteger(value: string | undefined, fallback: number): number {
@@ -376,32 +392,53 @@ async function persistRoomCreated(room: GameRoom): Promise<void> {
 
 async function persistRoomState(room: GameRoom): Promise<void> {
   if (!ROOM_PERSISTENCE_ENABLED || !room.dbId) return;
-  try {
-    await getDbPool().query(
-      `UPDATE versus_rooms
-       SET latest_state=$2::jsonb, stage_config=$3::jsonb, last_active_at=NOW(), updated_at=NOW(), host_disconnected_at=NULL
-       WHERE id=$1 AND status='active'`,
-      [room.dbId, room.latestState ? JSON.stringify(room.latestState) : null, roomStageConfigJson(room)]
-    );
-  } catch (error) {
-    console.error('[Versus persistence] Could not save room state:', error);
-  }
+  const dbId = room.dbId;
+  const latestState = room.latestState ? JSON.stringify(room.latestState) : null;
+  const stageConfig = roomStageConfigJson(room);
+  const previous = room.persistenceTail || Promise.resolve();
+  const write = previous
+    .catch(() => undefined)
+    .then(async () => {
+      try {
+        await getDbPool().query(
+          `UPDATE versus_rooms
+           SET latest_state=$2::jsonb, stage_config=$3::jsonb, last_active_at=NOW(), updated_at=NOW(), host_disconnected_at=NULL
+           WHERE id=$1 AND status='active'`,
+          [dbId, latestState, stageConfig]
+        );
+      } catch (error) {
+        console.error('[Versus persistence] Could not save room state:', error);
+      }
+    });
+  room.persistenceTail = write;
+  await write;
 }
 
 async function persistRoomDisconnected(room: GameRoom): Promise<void> {
   if (!ROOM_PERSISTENCE_ENABLED || !room.dbId) return;
-  try {
-    await getDbPool().query(
-      `UPDATE versus_rooms SET host_disconnected_at=NOW(), last_active_at=NOW(), updated_at=NOW() WHERE id=$1 AND status='active'`,
-      [room.dbId]
-    );
-  } catch (error) {
-    console.error('[Versus persistence] Could not save host disconnect:', error);
-  }
+  const dbId = room.dbId;
+  const previous = room.persistenceTail || Promise.resolve();
+  const write = previous
+    .catch(() => undefined)
+    .then(async () => {
+      try {
+        await getDbPool().query(
+          `UPDATE versus_rooms SET host_disconnected_at=NOW(), last_active_at=NOW(), updated_at=NOW() WHERE id=$1 AND status='active'`,
+          [dbId]
+        );
+      } catch (error) {
+        console.error('[Versus persistence] Could not save host disconnect:', error);
+      }
+    });
+  room.persistenceTail = write;
+  await write;
 }
 
 async function archiveAndCloseRoom(room: GameRoom, reason: string): Promise<void> {
   if (!ROOM_PERSISTENCE_ENABLED || !room.dbId) return;
+  // Finish any queued snapshot write before taking the archival lock. This
+  // guarantees the archive contains the last state sent by the Host.
+  await (room.persistenceTail || Promise.resolve()).catch(() => undefined);
   let client: PoolClient | undefined;
   try {
     client = await getDbPool().connect();
@@ -462,6 +499,7 @@ async function hydratePersistentRooms(): Promise<void> {
         openedAt: new Date(row.opened_at).getTime(),
         lastActive: new Date(row.last_active_at).getTime(),
         hostDisconnectedAt: null,
+        persistenceTail: Promise.resolve(),
       });
     }
     if (rows.length) console.log(`[Versus persistence] Restored ${rows.length} active room(s).`);
@@ -492,6 +530,7 @@ async function loadPersistentRoom(roomId: string): Promise<GameRoom | null> {
       openedAt: new Date(row.opened_at).getTime(),
       lastActive: new Date(row.last_active_at).getTime(),
       hostDisconnectedAt: null,
+      persistenceTail: Promise.resolve(),
     };
   } catch (error) {
     console.error('[Versus persistence] Could not load room:', error);
@@ -551,7 +590,7 @@ async function startServer() {
   app.use((req: Request, res: Response, next) => {
     const origin = req.get('Origin');
 
-    if (origin && !isAllowedOrigin(origin)) {
+    if (origin && !isAllowedOrigin(origin, req)) {
       return res.status(403).json({ error: 'Origin not allowed' });
     }
 
@@ -1289,7 +1328,8 @@ async function startServer() {
     server,
     path: '/ws',
     maxPayload: 1024 * 1024,
-    verifyClient: (info: { origin: string }) => isAllowedOrigin(info.origin),
+    verifyClient: (info: { origin: string; req: { headers: Record<string, string | string[] | undefined> } }) =>
+      isAllowedOrigin(info.origin, info.req),
   });
 
   wss.on('connection', (ws: WebSocket) => {
@@ -1362,6 +1402,7 @@ async function startServer() {
               openedAt,
               lastActive: openedAt,
               hostDisconnectedAt: null,
+              persistenceTail: Promise.resolve(),
             };
             rooms.set(rawRoomId, room);
             await persistRoomCreated(room);
@@ -1557,7 +1598,6 @@ async function startServer() {
           }
           applyStageConfig(room, msg.payload);
           room.lastActive = Date.now();
-          await persistRoomState(room);
           const packet = JSON.stringify({
             type: 'stage:config',
             sender: 'host',
@@ -1567,6 +1607,10 @@ async function startServer() {
           for (const displayWs of room.displays) {
             if (displayWs.readyState === WebSocket.OPEN) displayWs.send(packet);
           }
+          // Broadcast from in-memory state before awaiting PostgreSQL. The
+          // websocket message handler is entered in order, while DB writes
+          // may complete out of order under production latency.
+          void persistRoomState(room);
           return;
         }
 
@@ -1621,7 +1665,6 @@ async function startServer() {
 
           room.latestState = msg.payload;
           room.lastActive = Date.now();
-          await persistRoomState(room);
 
           // Broadcast to all connected displays in this room
           const syncPacket = JSON.stringify({
@@ -1636,6 +1679,9 @@ async function startServer() {
               displayWs.send(syncPacket);
             }
           }
+          // Persistence is deliberately queued after the live broadcast so
+          // database latency cannot reorder or stall Host -> Display sync.
+          void persistRoomState(room);
           return;
         }
       } catch (err) {

@@ -161,9 +161,15 @@ function getStageDisplayUrl(roomId = '') {
   // Preserve an explicitly configured remote WebSocket backend in copied
   // links and QR codes when the frontend is hosted separately from the Node
   // WebSocket server (for example, GitHub Pages + a small API host).
-  const wsEndpoint = new URLSearchParams(window.location.search).get('ws')
-    || window.__COUNTDOWN_STAGE_WS_URL__;
+  const pageParams = new URLSearchParams(window.location.search);
+  const wsEndpoint = pageParams.get('ws')
+    || window.__COUNTDOWN_STAGE_WS_URL__
+    || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_STAGE_WS_URL);
   if (wsEndpoint) url.searchParams.set('ws', wsEndpoint);
+  const apiEndpoint = pageParams.get('api')
+    || window.__COUNTDOWN_API_URL__
+    || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL);
+  if (apiEndpoint) url.searchParams.set('api', apiEndpoint);
   return url.toString();
 }
 

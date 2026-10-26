@@ -30,6 +30,7 @@ function isTrustedWsEndpoint(urlString, pageUrl) {
     if (hostname === pageUrl.hostname.toLowerCase()) return true;
     if (hostname === 'localhost' || hostname === '127.0.0.1') return true;
     if (hostname === 'countdown-studio.id.vn' || hostname === 'www.countdown-studio.id.vn') return true;
+    if (hostname === 'countdown-studio.onrender.com') return true;
     if (hostname === 'countdown-studio-app.onrender.com') return true;
     return false;
   } catch {
@@ -48,6 +49,14 @@ function getConfiguredWebSocketEndpoint(pageUrl) {
     if (typeof globalEndpoint === 'string' && globalEndpoint.trim() && isTrustedWsEndpoint(globalEndpoint, pageUrl)) {
       return globalEndpoint.trim();
     }
+  }
+
+  // Vite injects this for a static frontend deployment that uses a separate
+  // WebSocket backend. Full-stack deployments leave it empty and use same
+  // origin /ws automatically.
+  const buildEndpoint = typeof import.meta !== 'undefined' && import.meta.env?.VITE_STAGE_WS_URL;
+  if (typeof buildEndpoint === 'string' && buildEndpoint.trim() && isTrustedWsEndpoint(buildEndpoint, pageUrl)) {
+    return buildEndpoint.trim();
   }
 
   return '';
@@ -382,12 +391,17 @@ export class StageSyncChannel {
           if (msg.type === 'error') {
             if (msg.code === 'ROOM_WAITING') {
               const waitingMessage = msg.message || 'Waiting for Host to reconnect.';
+              // The room can remain valid while the Host socket is briefly
+              // reconnecting (common after a production deploy/restart).
+              // Let onclose schedule the normal reconnect instead of clearing
+              // `this.ws`, which previously left the Display permanently
+              // disconnected after the first ROOM_WAITING response.
               this.lastRemoteError = null;
+              this.remoteConnectAttempts = 0;
               clearTimeout(this.remoteConnectTimeoutTimer);
               this.remoteConnectTimeoutTimer = null;
               this.notifyStatus({ retrying: true, error: waitingMessage });
               try { socket.close(); } catch {}
-              this.ws = null;
               return;
             }
             if (msg.code === 'ROOM_NOT_FOUND') {
