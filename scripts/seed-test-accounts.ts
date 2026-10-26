@@ -69,7 +69,8 @@ async function main() {
       await client.query(
         `INSERT INTO user_emails (user_id, email, is_primary, verified_at)
          VALUES ($1, LOWER($2), TRUE, NOW())
-         ON CONFLICT (user_id) DO UPDATE SET email=EXCLUDED.email, is_primary=TRUE, verified_at=NOW()`,
+         ON CONFLICT (user_id) WHERE is_primary
+         DO UPDATE SET email=EXCLUDED.email, is_primary=TRUE, verified_at=NOW()`,
         [userId, account.email]
       );
       await client.query(
