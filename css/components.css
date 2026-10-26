@@ -1550,6 +1550,43 @@ button.is-permission-locked {
   font-size: 0.85rem;
 }
 
+/* External project badges shown together without replacing existing recognition. */
+.project-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: var(--space-5);
+}
+
+.project-badge {
+  display: block;
+  line-height: 0;
+  border-radius: 8px;
+  opacity: 0.9;
+  transition: opacity var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
+}
+
+.project-badge:hover,
+.project-badge:focus-visible {
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
+.project-badge img {
+  display: block;
+  max-width: 100%;
+  height: 54px;
+  border-radius: 8px;
+}
+
+@media (max-width: 620px) {
+  .project-badges {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 /* Current Session Card on Login Page */
 .auth-current-session-card {
   background: var(--bg-surface-elevated);
