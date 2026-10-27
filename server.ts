@@ -1432,11 +1432,19 @@ async function startServer() {
     server,
     path: '/ws',
     maxPayload: 1024 * 1024,
-    verifyClient: (info: { origin: string; req: { headers: Record<string, string | string[] | undefined> } }) =>
-      isAllowedOrigin(info.origin, info.req),
+    verifyClient: (info: { origin: string; req: { headers: Record<string, string | string[] | undefined> } }) => {
+      const allowed = isAllowedOrigin(info.origin, info.req);
+      console.log('[WS verifyClient]', {
+        origin: info.origin,
+        allowed,
+        host: info.req?.headers?.host,
+      });
+      return allowed;
+    },
   });
 
   wss.on('connection', (ws: WebSocket) => {
+    console.log('[WS connection] new client connected');
     let clientRole: 'host' | 'display' | null = null;
     let clientRoomId: string | null = null;
     let clientHostToken: string | null = null;
