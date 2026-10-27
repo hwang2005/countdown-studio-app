@@ -92,41 +92,75 @@ let hostCustomSchedule = [];
 let lastRenderedPreviewBoardKey = null;
 let selectedArchiveSnapshot = null;
 
-async function loadMatchHistory() {
+const HISTORY_PAGE_SIZE = 25;
+const historyFilterState = { offset: 0, total: 0 };
+
+function readHistoryFilterQuery(offset) {
+  const roomInput = document.getElementById('host-history-filter-room');
+  const fromInput = document.getElementById('host-history-filter-from');
+  const toInput = document.getElementById('host-history-filter-to');
+  const query = new URLSearchParams();
+  query.set('limit', String(HISTORY_PAGE_SIZE));
+  query.set('offset', String(Math.max(0, offset || 0)));
+  const room = (roomInput?.value || '').toUpperCase().trim();
+  if (room) query.set('room', room);
+  const from = (fromInput?.value || '').trim();
+  if (from) query.set('from', from);
+  const to = (toInput?.value || '').trim();
+  if (to) query.set('to', to);
+  return query.toString();
+}
+
+function renderHistoryRow(item, list) {
+  const row = document.createElement('button');
+  row.type = 'button';
+  row.className = 'host-history-row';
+  row.dataset.archiveId = String(item.id);
+  const scores = Array.isArray(item.final_scores)
+    ? item.final_scores.map((score) => `${score.name}: ${score.score}`).join(' · ')
+    : 'No final score';
+  const roomEl = document.createElement('strong');
+  roomEl.textContent = item.room_code;
+  const dateEl = document.createElement('span');
+  dateEl.textContent = new Date(item.closed_at).toLocaleString();
+  const scoreEl = document.createElement('span');
+  scoreEl.textContent = scores;
+  row.append(roomEl, dateEl, scoreEl);
+  row.addEventListener('click', () => showMatchArchive(item.id));
+  list.appendChild(row);
+}
+
+async function loadMatchHistory({ append = false } = {}) {
   const list = document.getElementById('host-history-list');
   const status = document.getElementById('host-history-status');
+  const moreButton = document.getElementById('host-btn-more-history');
   if (!list) return;
-  if (status) status.textContent = 'Loading archived matches…';
+  if (!append) list.replaceChildren();
+  if (status && !append) status.textContent = 'Loading archived matches…';
+  const offset = append ? historyFilterState.offset : 0;
   try {
-    const response = await apiFetch('/api/versus/history?limit=25', { headers: authHeaders() });
+    const response = await apiFetch(`/api/versus/history?${readHistoryFilterQuery(offset)}`, { headers: authHeaders() });
     const data = await readApiJson(response);
     if (!response.ok) throw new Error(data.message || data.error || 'Unable to load match history.');
-    list.replaceChildren();
-    if (!data.items?.length) {
-      list.textContent = 'No archived matches yet.';
+    if (!data.items?.length && !append) {
+      list.textContent = 'No archived matches match the current filters.';
     } else {
-      for (const item of data.items) {
-        const row = document.createElement('button');
-        row.type = 'button';
-        row.className = 'host-history-row';
-        row.dataset.archiveId = String(item.id);
-        const scores = Array.isArray(item.final_scores)
-          ? item.final_scores.map((score) => `${score.name}: ${score.score}`).join(' · ')
-          : 'No final score';
-        const roomEl = document.createElement('strong');
-        roomEl.textContent = item.room_code;
-        const dateEl = document.createElement('span');
-        dateEl.textContent = new Date(item.closed_at).toLocaleString();
-        const scoreEl = document.createElement('span');
-        scoreEl.textContent = scores;
-        row.append(roomEl, dateEl, scoreEl);
-        row.addEventListener('click', () => showMatchArchive(item.id));
-        list.appendChild(row);
-      }
+      for (const item of data.items) renderHistoryRow(item, list);
     }
-    if (status) status.textContent = `${data.total || 0} archived match(es)`;
+    historyFilterState.offset = offset + (data.items?.length || 0);
+    historyFilterState.total = Number(data.total || 0);
+    const totalLabel = historyFilterState.total > 0
+      ? `${historyFilterState.total} archived match(es)`
+      : '0 archived matches';
+    if (status) {
+      status.textContent = append
+        ? `${totalLabel} · showing ${historyFilterState.offset}`
+        : totalLabel;
+    }
+    if (moreButton) moreButton.hidden = historyFilterState.offset >= historyFilterState.total;
   } catch (error) {
-    if (status) status.textContent = error instanceof Error ? error.message : 'History unavailable.';
+    if (status && !append) status.textContent = error instanceof Error ? error.message : 'History unavailable.';
+    else if (status) status.textContent = error instanceof Error ? error.message : 'History unavailable.';
   }
 }
 
@@ -251,7 +285,7 @@ function initHostScheduleEditor() {
   if (!presetSelect || !editor || !list || !addSelect || !addButton) return;
 
   const initialPreset = settings.schedulePreset || 'tv-15';
-  presetSelect.value = SCHEDULE_PRESETS[initialPreset] || initialPreset === 'custom'
+  presetSelect.value = (SCHEDULE_PRESETS[initialPreset] || initialPreset === 'custom')
     ? initialPreset
     : 'tv-15';
   hostCustomSchedule = getScheduleRounds('custom', settings.customSchedule);
@@ -1081,6 +1115,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         { panicBlank: false },
         { logMessage: 'Panic blank screen CLEARED from Stage Display.' }
       );
+      // The Host owns the authoritative state: rebroadcast immediately so a
+      // display that re-requested state will not render the blank overlay.
+      broadcastState(store.getState());
       renderHostConsole(store.getState());
     } else if (msg.type === 'STAGE_LAYOUT_SYNC' && msg.payload) {
       saveStageLayout(msg.payload);
@@ -1238,7 +1275,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   let currentRoomId = localStorage.getItem('countdown_studio_host_room_v1') || generateRandomRoomCode();
-  let currentPin = localStorage.getItem('countdown_studio_host_pin_v1') || '1234';
+  // Never persist the plaintext PIN. The server default ('0000') matches the
+  // value a host gets when the PIN field is left empty.
+  let currentPin = '0000';
 
   if (inputRoomCode) inputRoomCode.value = currentRoomId;
   if (inputPin) inputPin.value = currentPin;
@@ -1258,9 +1297,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   renderRemoteQR(currentRoomId);
 
   // Status handler from StageSyncChannel
+  let wasBroadcastOnline = false;
   syncChannel?.onStatusChange((status) => {
     const isOnline = Boolean(status.connected);
     const count = status.displayCount || 0;
+
+    // Celebrate only after the server has actually accepted the Host
+    // session (host:auth_success), not when the connect attempt starts.
+    if (isOnline && !wasBroadcastOnline) {
+      showToast(`Broadcast live for room ${status.roomId}! Connected displays: ${count}.`, 'success');
+    }
+    wasBroadcastOnline = isOnline;
 
     // Top Bar updates
     if (hostRemoteDot) {
@@ -1366,11 +1413,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     currentRoomId = room;
     currentPin = pin;
     localStorage.setItem('countdown_studio_host_room_v1', room);
-    localStorage.setItem('countdown_studio_host_pin_v1', pin);
 
     syncChannel.connectRemote(room, 'host', pin);
     broadcastState(store.getState());
-    showToast(`Connected to broadcast server for room ${room}!`, 'success');
+    showToast(`Opening broadcast room ${room}...`, 'info');
   });
 
   btnDisconnectRemote?.addEventListener('click', () => {
@@ -1581,7 +1627,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     exportMatchSummaryPNG(store.getState());
   });
 
-  document.getElementById('host-btn-refresh-history')?.addEventListener('click', loadMatchHistory);
+  document.getElementById('host-btn-refresh-history')?.addEventListener('click', () => loadMatchHistory());
+  document.getElementById('host-btn-more-history')?.addEventListener('click', () => loadMatchHistory({ append: true }));
+  document.getElementById('host-btn-apply-history-filters')?.addEventListener('click', () => loadMatchHistory());
+  document.getElementById('host-btn-clear-history-filters')?.addEventListener('click', () => {
+    const roomInput = document.getElementById('host-history-filter-room');
+    const fromInput = document.getElementById('host-history-filter-from');
+    const toInput = document.getElementById('host-history-filter-to');
+    if (roomInput) roomInput.value = '';
+    if (fromInput) fromInput.value = '';
+    if (toInput) toInput.value = '';
+    loadMatchHistory();
+  });
   document.getElementById('host-btn-download-history')?.addEventListener('click', () => {
     if (!selectedArchiveSnapshot) return;
     const blob = new Blob([JSON.stringify(selectedArchiveSnapshot, null, 2)], { type: 'application/json' });

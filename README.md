@@ -51,11 +51,13 @@ Once running, navigate to:
 - **Server Health Endpoint:** `http://localhost:3000/api/health`
 - **Room Inspection Endpoint:** `http://localhost:3000/api/room/:roomId`
 - **Versus History API:** `GET /api/versus/history` and `GET /api/versus/history/:archiveId`
+- **Admin User Provisioning API:** `POST /api/admin/users` and `GET /api/admin/users` (admin only)
 
 ### Authentication & roles
 
 The backend exposes `/api/auth/register`, `/api/auth/login`, and `/api/auth/me`. Run `database/auth-rbac.sql` to add the application roles and permissions. Public registration accepts `individual`
-(Solo Practice) and `admin` (requires `ADMIN_REGISTRATION_CODE`); `organization` accounts are provisioned by an administrator and can use Stage Display and Host Operations. Admin accounts can use all three features.
+(Solo Practice) and `admin` (requires `ADMIN_REGISTRATION_CODE`); `organization` accounts are provisioned by an administrator via `POST /api/admin/users` (or `npm run seed:test-accounts` in test deployments) and can use Stage Display and Host Operations. Admin accounts can use all three features.
+RBAC permissions are loaded from the database (seeded by `auth-rbac.sql`) with a built-in static fallback.
 
 Copy `.env.example` to `.env` and set the Supabase PostgreSQL `DATABASE_URL`
 and a long random `AUTH_TOKEN_SECRET` before starting
@@ -383,7 +385,33 @@ stage configuration, and hashed Host PIN. Closing a room, an orphan timeout, or 
 archives the final state exactly once in `versus_match_archive`.
 
 Organization users can list and inspect their own archived matches; admins can inspect all archived
-matches. The Host Console exposes the same history through its Archived Match History panel.
+matches. The Host Console exposes the same history through its Archived Match History panel, which
+supports room-code and date-range filters plus incremental "Load older matches" pagination.
+
+When role permissions are loaded, the database tables seeded by `database/auth-rbac.sql`
+(`permissions` and `role_permissions`) are authoritative; the static fallback in `server.ts`
+(`ROLE_PERMISSIONS`) is only used when those tables have not been seeded.
+
+### Admin provisioning of Organization accounts
+
+Administrators (permission `user:manage`) can provision Organization accounts through the API:
+
+```bash
+curl -X POST https://countdown-studio.id.vn/api/admin/users \
+  -H "Authorization: Bearer <admin-session-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"username":"school-club","email":"club@school.edu","password":"********","displayName":"School Countdown Club"}'
+```
+
+`GET /api/admin/users?role=organization` lists active accounts. Public registration keeps
+rejecting the `organization` role (`ROLE_NOT_REGISTERABLE`), so the admin API and
+`npm run seed:test-accounts` remain the only provisioning paths.
+
+### Archived snapshot privacy note
+
+Archived match snapshots contain the round secret data (for example the conundrum answer) and are
+downloadable as JSON from the Host Console. Access is restricted to the owning organization
+account or an administrator — do not share the download without removing secrets first.
 
 For controlled production/staging test users, set `TEST_INDIVIDUAL_PASSWORD`,
 `TEST_ORGANIZATION_PASSWORD`, and `TEST_ADMIN_PASSWORD` as deployment secrets, then run:

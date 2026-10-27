@@ -242,8 +242,43 @@ async function loadUser(userId: number): Promise<AuthUser | null> {
     JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id
     JOIN user_statuses s ON s.id=u.status_id AND s.code='active' WHERE u.id=$1 AND (ur.expires_at IS NULL OR ur.expires_at>NOW())`, [userId]);
   const row = rows[0]; if (!row || !['individual', 'organization', 'admin'].includes(row.role)) return null;
-  const role = row.role as AppRole; return { id: row.id, publicId: row.public_id, username: row.username, email: row.email, displayName: row.display_name, role, permissions: ROLE_PERMISSIONS[role] };
+  const role = row.role as AppRole;
+  // Database-side RBAC (seeded by database/auth-rbac.sql) is authoritative.
+  // The hardcoded ROLE_PERMISSIONS map is the fallback when the permissions
+  // tables have not been seeded so the server still boots without them.
+  let permissions: string[] = ROLE_PERMISSIONS[role];
+  try {
+    const { rows: permRows } = await getDbPool().query<{ code: string }>(
+      `SELECT p.code FROM role_permissions rp
+         JOIN roles r ON r.id=rp.role_id
+         JOIN permissions p ON p.id=rp.permission_id
+       WHERE r.code=$1`, [role]
+    );
+    if (permRows.length) permissions = permRows.map((permRow) => String(permRow.code));
+  } catch (error) {
+    console.warn('[Auth] Falling back to static role permissions:', error instanceof Error ? error.message : error);
+  }
+  return { id: row.id, publicId: row.public_id, username: row.username, email: row.email, displayName: row.display_name, role, permissions };
 }
+async function insertUserAccount(
+  connection: PoolClient,
+  account: { username: string; email: string; password: string; displayName: string; role: AppRole },
+): Promise<number> {
+  const publicId = crypto.randomUUID();
+  const userResult = await connection.query<{ id: number }>(
+    'INSERT INTO users (public_id, username, status_id) SELECT $1::uuid, $2, id FROM user_statuses WHERE code=\'active\' RETURNING id',
+    [publicId, account.username]
+  );
+  const userId = userResult.rows[0]?.id;
+  if (!userId) throw new Error('Active user status is missing.');
+  const passHash = await hashPassword(account.password);
+  await connection.query('INSERT INTO user_credentials (user_id, password_hash) VALUES ($1, $2)', [userId, passHash]);
+  await connection.query('INSERT INTO user_emails (user_id, email, is_primary, verified_at) VALUES ($1, LOWER($2), TRUE, NOW())', [userId, account.email]);
+  await connection.query('INSERT INTO user_profiles (user_id, display_name) VALUES ($1, $2)', [userId, account.displayName]);
+  await connection.query('INSERT INTO user_roles (user_id, role_id) SELECT $1, id FROM roles WHERE code=$2', [userId, account.role]);
+  return userId;
+}
+
 async function authenticateToken(token: string | undefined): Promise<AuthUser | null> { const session = token ? readSessionToken(token) : null; return session ? loadUser(session.sub) : null; }
 function bearer(req: Request): string | undefined { return req.get('Authorization')?.replace(/^Bearer\s+/i, '') || undefined; }
 function requirePermission(permission: string) { return async (req: Request, res: Response, next: () => void) => { try { const user = await authenticateToken(bearer(req)); if (!user) return res.status(401).json({ error: 'UNAUTHENTICATED' }); if (!user.permissions.includes(permission)) return res.status(403).json({ error: 'FORBIDDEN' }); (req as any).user = user; next(); } catch { res.status(503).json({ error: 'AUTH_DATABASE_UNAVAILABLE' }); } }; }
@@ -787,6 +822,80 @@ async function startServer() {
   // Authentication and RBAC API. Organization accounts are provisioned by an
   // administrator; public registration intentionally exposes only Individual
   // and Admin (the latter requires the private bootstrap code).
+  app.post('/api/admin/users', requirePermission('user:manage'), async (req: Request, res: Response) => {
+    const clientIp = getClientIp(req);
+    if (!checkRateLimit(clientIp, 'admin_users', 30, 10 * 60 * 1000)) {
+      return res.status(429).json({ error: 'TOO_MANY_REQUESTS', message: 'Too many admin provisioning requests. Please try again after 10 minutes.' });
+    }
+
+    const body = req.body || {};
+    const username = String(body.username || '').trim();
+    const email = String(body.email || '').trim();
+    const password = String(body.password || '');
+    const displayName = String(body.displayName || '').trim();
+    // Only non-escalating roles may be provisioned via the admin API. Admin
+    // accounts are bootstrapped through /api/auth/register + ADMIN_REGISTRATION_CODE.
+    const featuresRole = String(body.role || 'organization').toLowerCase();
+    if (featuresRole !== 'organization' && featuresRole !== 'individual') {
+      return res.status(400).json({ error: 'INVALID_ROLE', message: "Role must be 'organization' or 'individual'." });
+    }
+    if (
+      !/^[a-zA-Z0-9_.-]{3,32}$/.test(username) ||
+      !/^\S+@\S+\.\S+$/.test(email) ||
+      password.length < 8 ||
+      password.length > 128 ||
+      !displayName ||
+      displayName.length > 64
+    ) {
+      return res.status(400).json({ error: 'INVALID_INPUT', message: 'Username, email, display name, and password (8-128 characters) are required.' });
+    }
+
+    let connection: PoolClient | undefined;
+    try {
+      connection = await getDbPool().connect(); await connection.query('BEGIN');
+      const userId = await insertUserAccount(connection, { username, email, password, displayName, role: featuresRole });
+      await connection.query('COMMIT');
+      const user = await loadUser(userId); if (!user) throw new Error('Created user could not be loaded.');
+      return res.status(201).json({
+        user: publicUser(user),
+        // No session token is issued here: the provisioned account should not
+        // be usable by the administrator. The account owner signs in normally.
+        message: `${featuresRole === 'organization' ? 'Organization' : 'Individual'} account '${user.username}' has been provisioned.`,
+      });
+    } catch (error: any) {
+      if (connection) await connection.query('ROLLBACK');
+      const duplicate = error?.code === '23505';
+      return res.status(duplicate ? 409 : 503).json({ error: duplicate ? 'ACCOUNT_EXISTS' : 'ADMIN_DATABASE_UNAVAILABLE', message: duplicate ? 'Username or email already exists.' : 'Cannot connect to authentication database.' });
+    } finally { connection?.release(); }
+  });
+
+  app.get('/api/admin/users', requirePermission('user:manage'), async (req: Request, res: Response) => {
+    const roleFilter = String(req.query.role || '').toLowerCase();
+    const validRoles = ['individual', 'organization', 'admin'];
+    const limit = Math.min(200, Math.max(1, Number.parseInt(String(req.query.limit || '50'), 10) || 50));
+    if (roleFilter && !validRoles.includes(roleFilter)) {
+      return res.status(400).json({ error: 'INVALID_ROLE', message: 'Unknown role filter.' });
+    }
+    try {
+      const { rows } = await getDbPool().query<any>(
+        `SELECT u.public_id, u.username, u.created_at, e.email, p.display_name, r.code role, u.deleted_at
+           FROM users u
+           JOIN user_emails e ON e.user_id=u.id AND e.is_primary=TRUE
+           JOIN user_profiles p ON p.user_id=u.id
+           JOIN user_roles ur ON ur.user_id=u.id
+           JOIN roles r ON r.id=ur.role_id
+           JOIN user_statuses s ON s.id=u.status_id AND s.code='active'
+          WHERE u.deleted_at IS NULL ${roleFilter ? 'AND r.code=$1' : ''}
+          ORDER BY u.created_at DESC LIMIT ${limit}`,
+        roleFilter ? [roleFilter] : []
+      );
+      return res.json({ items: rows, total: rows.length, limit });
+    } catch (error) {
+      console.error('[Admin users] List failed:', error);
+      return res.status(503).json({ error: 'ADMIN_DATABASE_UNAVAILABLE' });
+    }
+  });
+
   app.post('/api/auth/register', async (req: Request, res: Response) => {
     const clientIp = getClientIp(req);
     if (!checkRateLimit(clientIp, 'register', 5, 10 * 60 * 1000)) {
@@ -820,15 +929,7 @@ async function startServer() {
     let connection: PoolClient | undefined;
     try {
       connection = await getDbPool().connect(); await connection.query('BEGIN');
-      const publicId = crypto.randomUUID();
-      const userResult = await connection.query<{ id: number }>('INSERT INTO users (public_id, username, status_id) SELECT $1::uuid, $2, id FROM user_statuses WHERE code=\'active\' RETURNING id', [publicId, String(username).trim()]);
-      const userId = userResult.rows[0]?.id;
-      if (!userId) throw new Error('Active user status is missing.');
-      const passHash = await hashPassword(String(password));
-      await connection.query('INSERT INTO user_credentials (user_id, password_hash) VALUES ($1, $2)', [userId, passHash]);
-      await connection.query('INSERT INTO user_emails (user_id, email, is_primary, verified_at) VALUES ($1, LOWER($2), TRUE, NOW())', [userId, String(email).trim()]);
-      await connection.query('INSERT INTO user_profiles (user_id, display_name) VALUES ($1, $2)', [userId, String(displayName).trim()]);
-      await connection.query('INSERT INTO user_roles (user_id, role_id) SELECT $1, id FROM roles WHERE code=$2', [userId, normalizedRole]);
+      const userId = await insertUserAccount(connection, { username: String(username).trim(), email: String(email).trim(), password: String(password), displayName: String(displayName).trim(), role: normalizedRole });
       await connection.query('COMMIT');
       const user = await loadUser(userId); if (!user) throw new Error('Created user could not be loaded.');
       return res.status(201).json({ user: publicUser(user), token: signSession(user) });
@@ -1265,6 +1366,9 @@ async function startServer() {
     const roomCode = String(req.query.room || '').toUpperCase().trim();
     const from = String(req.query.from || '').trim();
     const to = String(req.query.to || '').trim();
+    if ((from && Number.isNaN(new Date(from).getTime())) || (to && Number.isNaN(new Date(to).getTime()))) {
+      return res.status(400).json({ error: 'INVALID_HISTORY_FILTER', message: "The 'from' and 'to' filters must be valid dates (YYYY-MM-DD)." });
+    }
     const filters: string[] = [];
     const values: unknown[] = [];
     if (user.role !== 'admin') {
@@ -1371,11 +1475,6 @@ async function startServer() {
 
           if (!ROOM_ID_PATTERN.test(rawRoomId)) {
             sendError(ws, 'INVALID_ROOM', 'Invalid room code.');
-            return;
-          }
-
-          if (!rawRoomId) {
-            ws.send(JSON.stringify({ type: 'error', code: 'INVALID_ROOM', message: 'Invalid room code' }));
             return;
           }
           if (pin && !ROOM_PIN_PATTERN.test(pin)) {
@@ -1537,9 +1636,10 @@ async function startServer() {
           return;
         }
 
-        // Displays may send only contestant buzzer events or request the
-        // latest state. They cannot mutate room state or stage configuration.
-        if (type === 'display:buzz' || type === 'display:request_state') {
+        // Displays may send only contestant buzzer events, request the
+        // latest state, or dismiss the panic blank screen. They cannot
+        // mutate room state or stage configuration.
+        if (type === 'display:buzz' || type === 'display:request_state' || type === 'display:clear_panic') {
           if (clientRole !== 'display' || !clientRoomId) {
             sendError(ws, 'UNAUTHORIZED', 'Only an authenticated Stage Display may send this message.');
             return;
@@ -1565,12 +1665,28 @@ async function startServer() {
               payload: { player: Number(payload.player), timestamp: Number(payload.timestamp) || Date.now() },
               timestamp: Date.now(),
             }));
+          } else if (type === 'display:clear_panic') {
+            // Relay the dismissal to the Host, which owns the authoritative
+            // match state. The Host clears panicBlank and rebroadcasts the
+            // state so no screen re-renders the blank overlay.
+            room.hostSocket.send(JSON.stringify({
+              type: 'room:clear_panic',
+              sender: 'display',
+              timestamp: Date.now(),
+            }));
           } else if (room.latestState) {
             ws.send(JSON.stringify({
               type: 'stage:sync',
               sender: 'host',
               payload: room.latestState,
               timestamp: Date.now(),
+            }));
+          } else {
+            // Explicit acknowledgement instead of silence so the Display never
+            // assumes an indefinitely pending state request succeeded.
+            ws.send(JSON.stringify({
+              type: 'stage:empty',
+              message: 'The Host has not broadcast any match state yet.',
             }));
           }
           room.lastActive = Date.now();
@@ -1583,12 +1699,17 @@ async function startServer() {
             sendError(ws, 'UNAUTHORIZED', 'Only the authenticated Host may publish stage configuration.');
             return;
           }
+          // The socket-bound token is authoritative; the per-message token is
+          // accepted as an alternative so a client that sends its stored
+          // secret without a live socket token is not silently rejected.
+          const suppliedToken = String(msg.token || '') || clientHostToken;
+          if (!clientHostToken && suppliedToken) clientHostToken = suppliedToken;
           if (String(msg.roomId || '').toUpperCase().trim() !== clientRoomId) {
             sendError(ws, 'UNAUTHORIZED', 'Room identifier does not match the authenticated Host session.');
             return;
           }
           const room = rooms.get(clientRoomId);
-          if (!room || room.hostToken !== clientHostToken || room.hostSocket !== ws) {
+          if (!room || (room.hostToken !== clientHostToken && room.hostToken !== String(msg.token || '')) || room.hostSocket !== ws) {
             sendError(ws, 'SESSION_EXPIRED', 'Host session has expired.');
             return;
           }
@@ -1621,12 +1742,13 @@ async function startServer() {
             ws.send(JSON.stringify({ type: 'error', code: 'UNAUTHORIZED', message: 'You do not have Host permissions' }));
             return;
           }
+          if (!clientHostToken && String(msg.token || '')) clientHostToken = String(msg.token);
           if (String(msg.roomId || '').toUpperCase().trim() !== clientRoomId) {
             sendError(ws, 'UNAUTHORIZED', 'Room identifier does not match the authenticated Host session.');
             return;
           }
           const room = rooms.get(clientRoomId);
-          if (!room || room.hostToken !== clientHostToken || room.hostSocket !== ws) {
+          if (!room || (room.hostToken !== clientHostToken && room.hostToken !== String(msg.token || ''))) {
             ws.send(JSON.stringify({ type: 'error', code: 'SESSION_EXPIRED', message: 'Host session has expired' }));
             return;
           }
@@ -1648,6 +1770,7 @@ async function startServer() {
             ws.send(JSON.stringify({ type: 'error', code: 'UNAUTHORIZED', message: 'You do not have Host permissions' }));
             return;
           }
+          if (!clientHostToken && String(msg.token || '')) clientHostToken = String(msg.token);
           if (String(msg.roomId || '').toUpperCase().trim() !== clientRoomId) {
             sendError(ws, 'UNAUTHORIZED', 'Room identifier does not match the authenticated Host session.');
             return;
@@ -1658,7 +1781,7 @@ async function startServer() {
           }
 
           const room = rooms.get(clientRoomId);
-          if (!room || room.hostToken !== clientHostToken) {
+          if (!room || (room.hostToken !== clientHostToken && room.hostToken !== String(msg.token || ''))) {
             ws.send(JSON.stringify({ type: 'error', code: 'SESSION_EXPIRED', message: 'Host session has expired' }));
             return;
           }

@@ -13,7 +13,13 @@ const CHANNEL_NAME = 'countdown_studio_stage_sync_v1';
 const STORAGE_SIGNAL_KEY = 'countdown_studio_stage_signal_v1';
 const REMOTE_CONNECT_TIMEOUT_MS = 5000;
 const REMOTE_RECONNECT_DELAY_MS = 1000;
-const MAX_REMOTE_CONNECT_ATTEMPTS = 4;
+// A long reconnect budget keeps displays attached through short server
+// restarts and network blips. Persistent rooms are hydrated server-side, so a
+// display that outlives a temporary outage automatically re-attaches without
+// requiring a manual rejoin. Fatal login errors still stop the retry loop
+// immediately (see FATAL_WS_ERROR_CODES).
+const MAX_REMOTE_CONNECT_ATTEMPTS = 12;
+const MAX_REMOTE_RETRY_DELAY_MS = 8000;
 const STAGE_WS_QUERY_PARAM = 'ws';
 const STAGE_WS_GLOBAL_CONFIG = '__COUNTDOWN_STAGE_WS_URL__';
 const AUTH_TOKEN_KEY = 'countdown_studio_auth_token_v1';
@@ -388,6 +394,21 @@ export class StageSyncChannel {
             return;
           }
 
+          if (msg.type === 'room:clear_panic' && this.role === 'host') {
+            this.handleIncoming({
+              type: 'CLEAR_PANIC',
+              sender: 'display',
+            });
+            return;
+          }
+
+          if (msg.type === 'stage:empty') {
+            // The room exists but the Host has not broadcast the first match
+            // state yet. Surface it instead of leaving the Display waiting.
+            this.notifyStatus({ waitingEmpty: true, error: undefined });
+            return;
+          }
+
           if (msg.type === 'error') {
             if (msg.code === 'ROOM_WAITING') {
               const waitingMessage = msg.message || 'Waiting for Host to reconnect.';
@@ -418,7 +439,10 @@ export class StageSyncChannel {
               return;
             }
             this.lastRemoteError = msg.message || 'Server rejected room connection.';
-            if (['INVALID_PIN', 'INVALID_ROOM', 'ROOM_OCCUPIED', 'ROOM_FULL', 'UNAUTHORIZED', 'SESSION_EXPIRED'].includes(msg.code)) {
+            // Fatal codes stop the reconnect loop. The display/host must
+            // rejoin (or fix the invalid input) before retrying.
+            const FATAL_WS_ERROR_CODES = ['INVALID_PIN', 'INVALID_ROOM', 'ROOM_OCCUPIED', 'ROOM_FULL', 'UNAUTHORIZED', 'SESSION_EXPIRED', 'INVALID_PIN_FORMAT', 'TOO_MANY_FAILED_ATTEMPTS', 'PAYLOAD_TOO_LARGE', 'INVALID_PAYLOAD'];
+            if (FATAL_WS_ERROR_CODES.includes(msg.code)) {
               this.remoteConnectionFailed = true;
               clearTimeout(this.remoteConnectTimeoutTimer);
               this.remoteConnectTimeoutTimer = null;
@@ -450,7 +474,7 @@ export class StageSyncChannel {
           if (this.remoteConnectAttempts < MAX_REMOTE_CONNECT_ATTEMPTS) {
             this.notifyStatus({ retrying: true, error: this.lastRemoteError });
             const retryDelay = Math.min(
-              8000,
+              MAX_REMOTE_RETRY_DELAY_MS,
               REMOTE_RECONNECT_DELAY_MS * (2 ** Math.max(0, this.remoteConnectAttempts - 1))
             );
             this.remoteReconnectTimer = setTimeout(() => {
@@ -599,6 +623,11 @@ export class StageSyncChannel {
     }
 
     // 4. Remote WebSocket broadcast (Host -> Server -> Displays)
+    // Note: display-sourced STAGE_LAYOUT_SYNC / STAGE_BG_SYNC updates are
+    // intentionally local-only in remote rooms. Projector calibration and
+    // personalised backgrounds are properties of a specific physical screen,
+    // so each authenticated display keeps its own calibration while still
+    // receiving the Host-authored stage configuration via stage:config.
     if (this.ws && this.ws.readyState === WebSocket.OPEN && this.roomId) {
       try {
         if (this.role === 'host' && this.hostToken) {
@@ -626,6 +655,13 @@ export class StageSyncChannel {
         } else if (this.role === 'display' && type === 'REQUEST_STATE') {
           this.ws.send(JSON.stringify({
             type: 'display:request_state',
+            roomId: this.roomId,
+          }));
+        } else if (this.role === 'display' && type === 'CLEAR_PANIC') {
+          // Relay the dismissal so the Host clears the authoritative state;
+          // otherwise the next stage:sync re-shows the blank overlay.
+          this.ws.send(JSON.stringify({
+            type: 'display:clear_panic',
             roomId: this.roomId,
           }));
         } else if (this.role === 'display' && type === 'DISPLAY_BUZZ') {

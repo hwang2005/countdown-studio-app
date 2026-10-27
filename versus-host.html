@@ -325,7 +325,34 @@
             </div>
             <button type="button" id="host-btn-refresh-history" class="btn btn--secondary btn--sm">Refresh</button>
           </div>
+          <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; margin-top: var(--space-3);">
+            <input
+              type="text"
+              id="host-history-filter-room"
+              class="input-field font-mono"
+              placeholder="Room code"
+              style="max-width: 140px; text-transform: uppercase;"
+              aria-label="Filter archived matches by room code"
+            />
+            <input
+              type="date"
+              id="host-history-filter-from"
+              class="input-field font-mono"
+              style="max-width: 150px;"
+              aria-label="Filter archived matches from this date"
+            />
+            <input
+              type="date"
+              id="host-history-filter-to"
+              class="input-field font-mono"
+              style="max-width: 150px;"
+              aria-label="Filter archived matches until this date"
+            />
+            <button type="button" id="host-btn-apply-history-filters" class="btn btn--secondary btn--sm">Apply</button>
+            <button type="button" id="host-btn-clear-history-filters" class="btn btn--secondary btn--sm">Clear</button>
+          </div>
           <div id="host-history-list" class="host-history-list" style="margin-top: var(--space-3);"></div>
+          <button type="button" id="host-btn-more-history" class="btn btn--secondary btn--sm" style="margin-top: 0.65rem;" hidden>Load older matches</button>
           <button type="button" id="host-btn-download-history" class="btn btn--secondary btn--sm" style="margin-top: 0.65rem;" disabled>Download selected JSON</button>
           <pre id="host-history-detail" class="host-history-detail" aria-live="polite">Select an archived match to inspect its snapshot.</pre>
         </section>
@@ -607,8 +634,8 @@
                   inputmode="numeric"
                   pattern="[0-9]{4,8}"
                 maxlength="8"
-                value="1234"
-                placeholder="1234"
+                value="0000"
+                placeholder="0000"
               />
             </div>
           </div>

@@ -813,7 +813,12 @@ document.addEventListener('DOMContentLoaded', () => {
     renderStage(currentState);
   }
 
-  syncChannel.send('REQUEST_STATE', {});
+  // Ask for the latest local state. In remote mode this must not fire before
+  // the WebSocket exists; the server pushes the latest room state immediately
+  // after an authenticated display:join succeeds.
+  if (!syncChannel.roomId) {
+    syncChannel.send('REQUEST_STATE', {});
+  }
   startDisplayClockLoop();
   initStageCalibration();
 
@@ -856,7 +861,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (status.roomId && status.connected) {
       setRemoteDisplayGate(false);
       if (roomDot) roomDot.className = 'status-dot status-dot--online';
-      if (roomText) roomText.textContent = `Room: ${status.roomId}`;
+      if (roomText) roomText.textContent = status.waitingEmpty
+        ? `Room: ${status.roomId} (waiting for Host broadcast)`
+        : `Room: ${status.roomId}`;
       if (btnDisconnectRoom) btnDisconnectRoom.hidden = false;
       if (btnJoinRemote) btnJoinRemote.textContent = `🌐 ${status.roomId}`;
     } else if (status.roomId && status.connectionFailed) {
@@ -949,11 +956,20 @@ document.addEventListener('DOMContentLoaded', () => {
   if (overlayDrawer) {
     overlayDrawer.style.display = overlayDrawer.hidden ? 'none' : 'flex';
   }
+  const stageHostIframe = document.getElementById('stage-host-iframe');
   const toggleOverlayDrawer = () => {
     if (!overlayDrawer) return;
     const willHide = overlayDrawer.style.display !== 'none';
     overlayDrawer.hidden = willHide;
     overlayDrawer.style.display = willHide ? 'none' : 'flex';
+    if (!willHide && stageHostIframe) {
+      // The embedded Host Console is lazily loaded on first open so the
+      // display page never pays the cost of a second console instance
+      // (states, sockets, sounds) while serving the projector screen.
+      if (!stageHostIframe.getAttribute('src') && stageHostIframe.dataset.src) {
+        stageHostIframe.src = stageHostIframe.dataset.src;
+      }
+    }
   };
   document.getElementById('btn-toggle-host-overlay')?.addEventListener('click', toggleOverlayDrawer);
 

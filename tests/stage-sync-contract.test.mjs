@@ -36,6 +36,19 @@ const checks = [
   ['Host Console renders archived history', host.includes('loadMatchHistory') && host.includes('host-history-list')],
   ['test account bootstrap uses environment passwords', seedAccounts.includes('TEST_INDIVIDUAL_PASSWORD') && seedAccounts.includes('TEST_ADMIN_PASSWORD')],
   ['test account bootstrap is available as an npm script', packageJson.includes('seed:test-accounts')],
+  ['server relays display panic dismissal to the Host', server.includes("type === 'display:clear_panic'") && server.includes("'room:clear_panic'")],
+  ['client forwards remote display panic dismissal', sync.includes("type: 'display:clear_panic'") && sync.includes("'room:clear_panic'")],
+  ['client stops the reconnect loop on fatal login errors', sync.includes('TOO_MANY_FAILED_ATTEMPTS') && sync.includes('INVALID_PIN_FORMAT')],
+  ['client keeps a long reconnect budget for display reattachment', sync.includes('MAX_REMOTE_CONNECT_ATTEMPTS = 12')],
+  ['server acknowledges state requests with no stored state', server.includes("'stage:empty'")],
+  ['server exposes admin organization provisioning', server.includes("'/api/admin/users'") && server.includes("Role must be 'organization' or 'individual'.")],
+  ['admin provisioning is gated behind user management permission', server.includes("requirePermission('user:manage')")],
+  ['Host Console history supports room and date filters', host.includes('host-history-filter-room') && host.includes('/api/versus/history?')],
+  ['Host Console offers incremental history pagination', host.includes('host-btn-more-history') && host.includes('append: true')],
+  ['Display lazily loads the embedded host console iframe', display.includes('stage-host-iframe') && display.includes('dataset.src')],
+  ['Display avoids requesting state before the room socket exists', display.includes('if (!syncChannel.roomId)')],
+  ['Host never persists the plaintext room PIN', !host.includes('countdown_studio_host_pin_v1')],
+  ['history list rejects invalid date filters', server.includes('INVALID_HISTORY_FILTER')],
 ];
 
 for (const [label, condition] of checks) {
