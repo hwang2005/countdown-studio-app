@@ -1,403 +1,407 @@
 <!doctype html>
 <html lang="en" data-theme="classic-blue">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <script>
-      (function () {
-        var _fetch = window.fetch;
-        function setup(target) {
-          if (!target) return;
-          try {
-            Object.defineProperty(target, 'fetch', {
-              get: function () { return _fetch; },
-              set: function (fn) { _fetch = fn; },
-              configurable: true,
-              enumerable: true
-            });
-          } catch (e) {}
-        }
-        setup(window);
-        try { setup(Window.prototype); } catch (e) {}
-        try { if (window.__proto__) setup(window.__proto__); } catch (e) {}
 
-        window.addEventListener(
-          'error',
-          function (e) {
-            var msg = (e && (e.message || (e.error && e.error.message))) || '';
-            var file = (e && e.filename) || '';
-            if (file.indexOf('chrome-extension://') !== -1 || msg.indexOf('Cannot set property fetch') !== -1) {
-              e.stopImmediatePropagation();
-              e.preventDefault();
-            }
-          },
-          true
-        );
-        window.addEventListener(
-          'unhandledrejection',
-          function (e) {
-            var reason = (e && e.reason && (e.reason.message || String(e.reason))) || '';
-            if (reason.indexOf('Cannot set property fetch') !== -1) {
-              e.stopImmediatePropagation();
-              e.preventDefault();
-            }
-          },
-          true
-        );
-      })();
-    </script>
-    <title>Versus Host Operator Console — Countdown Studio</title>
-    <meta name="description" content="Operator control panel for Live Versus Stage Mode with BroadcastChannel projector sync, hotkeys, and live solvers." />
-    <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="icon" type="image/svg+xml" href="./assets/icon.svg" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Fraunces:opsz,wght@9..144,700;9..144,800&family=JetBrains+Mono:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="./css/theme.css" />
-    <link rel="stylesheet" href="./css/base.css" />
-    <link rel="stylesheet" href="./css/components.css" />
-    <link rel="stylesheet" href="./css/display.css" />
-    <link rel="stylesheet" href="./css/animations.css" />
-  </head>
-  <body>
-    <a href="#host-main" class="skip-link">Skip to operator console</a>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>
+    (function () {
+      var _fetch = window.fetch;
+      function setup(target) {
+        if (!target) return;
+        try {
+          Object.defineProperty(target, 'fetch', {
+            get: function () { return _fetch; },
+            set: function (fn) { _fetch = fn; },
+            configurable: true,
+            enumerable: true
+          });
+        } catch (e) { }
+      }
+      setup(window);
+      try { setup(Window.prototype); } catch (e) { }
+      try { if (window.__proto__) setup(window.__proto__); } catch (e) { }
 
-    <!-- Strict 3-Zone Top Bar Contract -->
-    <header class="top-bar">
-      <a href="./index.html" class="top-bar__brand">Countdown Studio</a>
+      window.addEventListener(
+        'error',
+        function (e) {
+          var msg = (e && (e.message || (e.error && e.error.message))) || '';
+          var file = (e && e.filename) || '';
+          if (file.indexOf('chrome-extension://') !== -1 || msg.indexOf('Cannot set property fetch') !== -1) {
+            e.stopImmediatePropagation();
+            e.preventDefault();
+          }
+        },
+        true
+      );
+      window.addEventListener(
+        'unhandledrejection',
+        function (e) {
+          var reason = (e && e.reason && (e.reason.message || String(e.reason))) || '';
+          if (reason.indexOf('Cannot set property fetch') !== -1) {
+            e.stopImmediatePropagation();
+            e.preventDefault();
+          }
+        },
+        true
+      );
+    })();
+  </script>
 
-      <nav class="top-bar__nav" aria-label="Primary navigation">
-        <a href="./solo.html" class="top-bar__link" data-auth-permission="solo:practice">Solo Practice</a>
-        <a href="./versus-host.html" class="top-bar__link" aria-current="page" data-auth-permission="host:operations">Versus Host</a>
-        <button type="button" id="host-btn-remote-room" class="btn btn--secondary btn--sm" title="Broadcast match to other devices via room code and QR code">
-          <span class="status-dot status-dot--offline" id="host-remote-dot"></span>
-          🌐 <span id="host-remote-btn-text">Online Room</span>
-        </button>
-        <button type="button" id="host-btn-embedded-display" class="btn btn--royal btn--sm" title="View the live 16:9 Stage Display in a full-screen window/modal" data-auth-permission="stage:display">
-          📺 Open Stage Display
-        </button>
-      </nav>
+  <title>Versus Host Operator Console — Countdown Studio</title>
+  <meta name="description"
+    content="Operator control panel for Live Versus Stage Mode with BroadcastChannel projector sync, hotkeys, and live solvers." />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" type="image/svg+xml" href="./assets/icon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Fraunces:opsz,wght@9..144,700;9..144,800&family=JetBrains+Mono:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="./css/theme.css" />
+  <link rel="stylesheet" href="./css/base.css" />
+  <link rel="stylesheet" href="./css/components.css" />
+  <link rel="stylesheet" href="./css/display.css" />
+  <link rel="stylesheet" href="./css/animations.css" />
+</head>
 
-      <div class="top-bar__action">
-        <button type="button" class="btn btn--primary btn--sm" data-modal-open="modal-prematch-setup">
-          New Match Setup
-        </button>
-      </div>
-    </header>
+<body>
+  <a href="#host-main" class="skip-link">Skip to operator console</a>
 
-    <main id="host-main" class="host-layout">
-      <!-- LEFT COLUMN: Round Controls, Adjudication & Operator Tools -->
-      <div class="host-col host-col--left">
-        <!-- Status & Clock Bar -->
-        <section class="panel">
-          <div class="host-status-bar">
-            <div class="host-status-title-group">
-              <h1 style="font-size: 1.45rem;">Host Operator Console</h1>
-              <div id="host-phase-label" class="meta-inline font-mono">
-                Phase: IDLE · Round 1/15 (Letters)
-              </div>
+  <!-- Strict 3-Zone Top Bar Contract -->
+  <header class="top-bar">
+    <a href="./index.html" class="top-bar__brand">Countdown Studio</a>
+
+    <nav class="top-bar__nav" aria-label="Primary navigation">
+      <a href="./solo.html" class="top-bar__link" data-auth-permission="solo:practice">Solo Practice</a>
+      <a href="./versus-host.html" class="top-bar__link" aria-current="page"
+        data-auth-permission="host:operations">Versus Host</a>
+      <button type="button" id="host-btn-remote-room" class="btn btn--secondary btn--sm"
+        title="Broadcast match to other devices via room code and QR code">
+        <span class="status-dot status-dot--offline" id="host-remote-dot"></span>
+        🌐 <span id="host-remote-btn-text">Online Room</span>
+      </button>
+      <button type="button" id="host-btn-embedded-display" class="btn btn--royal btn--sm"
+        title="View the live 16:9 Stage Display in a full-screen window/modal" data-auth-permission="stage:display">
+        📺 Open Stage Display
+      </button>
+    </nav>
+
+    <div class="top-bar__action">
+      <button type="button" class="btn btn--primary btn--sm" data-modal-open="modal-prematch-setup">
+        New Match Setup
+      </button>
+    </div>
+  </header>
+
+  <main id="host-main" class="host-layout">
+    <!-- LEFT COLUMN: Round Controls, Adjudication & Operator Tools -->
+    <div class="host-col host-col--left">
+      <!-- Status & Clock Bar -->
+      <section class="panel">
+        <div class="host-status-bar">
+          <div class="host-status-title-group">
+            <h1 style="font-size: 1.45rem;">Host Operator Console</h1>
+            <div id="host-phase-label" class="meta-inline font-mono">
+              Phase: IDLE · Round 1/15 (Letters)
             </div>
-            <div class="host-status-actions">
-              <button type="button" id="host-btn-clock-toggle" class="btn btn--primary">
-                Start / Pause Clock (SPACE)
+          </div>
+          <div class="host-status-actions">
+            <button type="button" id="host-btn-clock-toggle" class="btn btn--primary">
+              Start / Pause Clock (SPACE)
+            </button>
+            <button type="button" id="host-btn-clock-reset" class="btn btn--secondary">
+              Reset Clock
+            </button>
+            <button type="button" id="host-btn-next-round" class="btn btn--royal">
+              Next Round (N) →
+            </button>
+          </div>
+        </div>
+
+        <!-- Sudden-Death Tie-Break Alert -->
+        <div id="host-tiebreak-banner" class="panel--subtle"
+          style="border-color: var(--accent-primary); margin-bottom: var(--space-4);" hidden>
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+            <strong>Tie-Break Required! Contestants are tied at the end of regulation.</strong>
+            <button type="button" id="host-btn-tiebreak" class="btn btn--primary btn--sm">
+              Launch Sudden-Death Conundrum
+            </button>
+          </div>
+        </div>
+
+        <!-- Round-Specific Picking Controls -->
+        <!-- 1. Letters Controls -->
+        <div id="host-controls-letters" class="panel--subtle">
+          <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+            Letters Selection Controls (Hotkeys: <strong>C</strong> Consonant, <strong>V</strong> Vowel,
+            <strong>R</strong> Random 9)
+          </div>
+          <div class="host-controls-row">
+            <button type="button" id="host-btn-consonant" class="btn btn--royal">
+              + Consonant (C)
+            </button>
+            <button type="button" id="host-btn-vowel" class="btn btn--primary">
+              + Vowel (V)
+            </button>
+            <button type="button" id="host-btn-random-letters" class="btn btn--secondary">
+              Random Fill (R)
+            </button>
+            <button type="button" id="host-btn-reshuffle-letters" class="btn btn--secondary btn--sm">
+              Reshuffle Stacks
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. Numbers Controls -->
+        <div id="host-controls-numbers" class="panel--subtle" hidden>
+          <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+            Numbers Tile Draw &amp; Target Roll
+          </div>
+          <div class="host-controls-row">
+            <button type="button" class="btn btn--secondary btn--sm" data-host-large="0">0 Large</button>
+            <button type="button" class="btn btn--secondary btn--sm" data-host-large="1">1 Large</button>
+            <button type="button" class="btn btn--primary btn--sm" data-host-large="2">2 Large</button>
+            <button type="button" class="btn btn--secondary btn--sm" data-host-large="3">3 Large</button>
+            <button type="button" class="btn btn--secondary btn--sm" data-host-large="4">4 Large</button>
+            <button type="button" class="btn btn--royal btn--sm" data-host-large="random">Random</button>
+            <button type="button" id="host-btn-show-num-solution" class="btn btn--secondary btn--sm">
+              Toggle Solution on Stage Display
+            </button>
+          </div>
+        </div>
+
+        <!-- 3. Conundrum Controls -->
+        <div id="host-controls-conundrum" class="panel--subtle" hidden>
+          <div id="host-conundrum-secret" class="font-mono"
+            style="color: var(--accent-primary); margin-bottom: 0.5rem; font-weight: 700;">
+            Host Secret Answer: —
+          </div>
+          <div class="host-controls-row" style="margin-bottom: 0.5rem;">
+            <button type="button" id="host-btn-buzz-p1" class="btn btn--secondary btn--sm">
+              Simulate P1 Buzz (Q / L-Shift)
+            </button>
+            <button type="button" id="host-btn-buzz-p2" class="btn btn--secondary btn--sm">
+              Simulate P2 Buzz (P / R-Shift)
+            </button>
+            <button type="button" id="host-btn-reveal-conundrum" class="btn btn--royal btn--sm">
+              Reveal Answer Tiles on Stage
+            </button>
+          </div>
+          <div id="host-buzzer-adjudication" class="panel" style="border-color: var(--status-valid);" hidden>
+            <div id="host-buzzed-player-name" style="font-weight: 700; margin-bottom: 0.5rem;">
+              Contestant buzzed!
+            </div>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+              <button type="button" id="host-btn-buzz-correct" class="btn btn--primary btn--sm">
+                ✓ Mark CORRECT (+10 pts)
               </button>
-              <button type="button" id="host-btn-clock-reset" class="btn btn--secondary">
-                Reset Clock
-              </button>
-              <button type="button" id="host-btn-next-round" class="btn btn--royal">
-                Next Round (N) →
+              <button type="button" id="host-btn-buzz-wrong" class="btn btn--danger btn--sm">
+                ✗ Mark WRONG (Lock Out &amp; Resume)
               </button>
             </div>
           </div>
+        </div>
+      </section>
 
-          <!-- Sudden-Death Tie-Break Alert -->
-          <div
-            id="host-tiebreak-banner"
-            class="panel--subtle"
-            style="border-color: var(--accent-primary); margin-bottom: var(--space-4);"
-            hidden
-          >
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
-              <strong>Tie-Break Required! Contestants are tied at the end of regulation.</strong>
-              <button type="button" id="host-btn-tiebreak" class="btn btn--primary btn--sm">
-                Launch Sudden-Death Conundrum
-              </button>
-            </div>
-          </div>
+      <!-- Contestant Declarations & Scoring Panel (Hotkey D) -->
+      <section class="panel">
+        <div class="adjudication-header">
+          <h2 style="font-size: 1.15rem; margin: 0; display: flex; align-items: center; gap: 0.45rem;">
+            Contestant Declarations &amp; Adjudication (Hotkey D)
+          </h2>
+          <span class="meta-inline font-mono"
+            style="font-size: 0.75rem; background: rgba(255,255,255,0.06); padding: 0.15rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+            Hotkey: <strong>D</strong>
+          </span>
+        </div>
 
-          <!-- Round-Specific Picking Controls -->
-          <!-- 1. Letters Controls -->
-          <div id="host-controls-letters" class="panel--subtle">
-            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">
-              Letters Selection Controls (Hotkeys: <strong>C</strong> Consonant, <strong>V</strong> Vowel, <strong>R</strong> Random 9)
-            </div>
-            <div class="host-controls-row">
-              <button type="button" id="host-btn-consonant" class="btn btn--royal">
-                + Consonant (C)
-              </button>
-              <button type="button" id="host-btn-vowel" class="btn btn--primary">
-                + Vowel (V)
-              </button>
-              <button type="button" id="host-btn-random-letters" class="btn btn--secondary">
-                Random Fill (R)
-              </button>
-              <button type="button" id="host-btn-reshuffle-letters" class="btn btn--secondary btn--sm">
-                Reshuffle Stacks
-              </button>
-            </div>
-          </div>
-
-          <!-- 2. Numbers Controls -->
-          <div id="host-controls-numbers" class="panel--subtle" hidden>
-            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">
-              Numbers Tile Draw &amp; Target Roll
-            </div>
-            <div class="host-controls-row">
-              <button type="button" class="btn btn--secondary btn--sm" data-host-large="0">0 Large</button>
-              <button type="button" class="btn btn--secondary btn--sm" data-host-large="1">1 Large</button>
-              <button type="button" class="btn btn--primary btn--sm" data-host-large="2">2 Large</button>
-              <button type="button" class="btn btn--secondary btn--sm" data-host-large="3">3 Large</button>
-              <button type="button" class="btn btn--secondary btn--sm" data-host-large="4">4 Large</button>
-              <button type="button" class="btn btn--royal btn--sm" data-host-large="random">Random</button>
-              <button type="button" id="host-btn-show-num-solution" class="btn btn--secondary btn--sm">
-                Toggle Solution on Stage Display
-              </button>
-            </div>
-          </div>
-
-          <!-- 3. Conundrum Controls -->
-          <div id="host-controls-conundrum" class="panel--subtle" hidden>
-            <div id="host-conundrum-secret" class="font-mono" style="color: var(--accent-primary); margin-bottom: 0.5rem; font-weight: 700;">
-              Host Secret Answer: —
-            </div>
-            <div class="host-controls-row" style="margin-bottom: 0.5rem;">
-              <button type="button" id="host-btn-buzz-p1" class="btn btn--secondary btn--sm">
-                Simulate P1 Buzz (Q / L-Shift)
-              </button>
-              <button type="button" id="host-btn-buzz-p2" class="btn btn--secondary btn--sm">
-                Simulate P2 Buzz (P / R-Shift)
-              </button>
-              <button type="button" id="host-btn-reveal-conundrum" class="btn btn--royal btn--sm">
-                Reveal Answer Tiles on Stage
-              </button>
-            </div>
-            <div id="host-buzzer-adjudication" class="panel" style="border-color: var(--status-valid);" hidden>
-              <div id="host-buzzed-player-name" style="font-weight: 700; margin-bottom: 0.5rem;">
-                Contestant buzzed!
-              </div>
-              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                <button type="button" id="host-btn-buzz-correct" class="btn btn--primary btn--sm">
-                  ✓ Mark CORRECT (+10 pts)
-                </button>
-                <button type="button" id="host-btn-buzz-wrong" class="btn btn--danger btn--sm">
-                  ✗ Mark WRONG (Lock Out &amp; Resume)
-                </button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- Contestant Declarations & Scoring Panel (Hotkey D) -->
-        <section class="panel">
-          <div class="adjudication-header">
-            <h2 style="font-size: 1.15rem; margin: 0; display: flex; align-items: center; gap: 0.45rem;">
-              Contestant Declarations &amp; Adjudication (Hotkey D)
-            </h2>
-            <span class="meta-inline font-mono" style="font-size: 0.75rem; background: rgba(255,255,255,0.06); padding: 0.15rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
-              Hotkey: <strong>D</strong>
-            </span>
-          </div>
-
-          <div class="adjudication-grid">
-            <!-- Contestant 1 Card -->
-            <div class="adjudication-card adjudication-card--p1">
-              <label id="label-p1-sub" for="host-p1-submission" style="display: block; font-size: 0.85rem; color: var(--accent-secondary); margin-bottom: 0.15rem; font-weight: 600;">
-                Contestant 1 Declaration
+        <div class="adjudication-grid">
+          <!-- Contestant 1 Card -->
+          <div class="adjudication-card adjudication-card--p1">
+            <label id="label-p1-sub" for="host-p1-submission"
+              style="display: block; font-size: 0.85rem; color: var(--accent-secondary); margin-bottom: 0.15rem; font-weight: 600;">
+              Contestant 1 Declaration
+            </label>
+            <input type="text" id="host-p1-submission" placeholder="Word or Number result…"
+              class="input-field font-mono" style="text-transform: uppercase;" />
+            <div class="host-declaration-meta">
+              <label class="host-verified-label">
+                <input type="checkbox" id="host-p1-valid-toggle" checked />
+                Working verified (Numbers)
               </label>
-              <input
-                type="text"
-                id="host-p1-submission"
-                placeholder="Word or Number result…"
-                class="input-field font-mono"
-                style="text-transform: uppercase;"
-              />
-              <div class="host-declaration-meta">
-                <label class="host-verified-label">
-                  <input type="checkbox" id="host-p1-valid-toggle" checked />
-                  Working verified (Numbers)
-                </label>
-                <div class="host-score-adj-bar">
-                  <span class="host-score-adj-label">Adj:</span>
-                  <div class="host-score-adj-list">
-                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="-1" title="Deduct 1 point">-1</button>
-                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="2" title="Award 2 points">+2</button>
-                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="3" title="Award 3 points">+3</button>
-                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="4" title="Award 4 points">+4</button>
-                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="5" title="Award 5 points">+5</button>
-                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="6" title="Award 6 points">+6</button>
-                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="7" title="Award 7 points">+7</button>
-                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="8" title="Award 8 points">+8</button>
-                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="9" title="Award 9 points">+9</button>
-                    <button type="button" class="btn btn-score-adj btn--primary" data-player="1" data-score-adj="10" title="Award 10 points (+10)">+10</button>
-                    <button type="button" class="btn btn-score-adj btn--royal" data-player="1" data-score-adj="18" title="Award 18 points (Double 9-Letter Word)">+18</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Contestant 2 Card -->
-            <div class="adjudication-card adjudication-card--p2">
-              <label id="label-p2-sub" for="host-p2-submission" style="display: block; font-size: 0.85rem; color: var(--accent-primary); margin-bottom: 0.15rem; font-weight: 600;">
-                Contestant 2 Declaration
-              </label>
-              <input
-                type="text"
-                id="host-p2-submission"
-                placeholder="Word or Number result…"
-                class="input-field font-mono"
-                style="text-transform: uppercase;"
-              />
-              <div class="host-declaration-meta">
-                <label class="host-verified-label">
-                  <input type="checkbox" id="host-p2-valid-toggle" checked />
-                  Working verified (Numbers)
-                </label>
-                <div class="host-score-adj-bar">
-                  <span class="host-score-adj-label">Adj:</span>
-                  <div class="host-score-adj-list">
-                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="-1" title="Deduct 1 point">-1</button>
-                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="2" title="Award 2 points">+2</button>
-                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="3" title="Award 3 points">+3</button>
-                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="4" title="Award 4 points">+4</button>
-                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="5" title="Award 5 points">+5</button>
-                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="6" title="Award 6 points">+6</button>
-                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="7" title="Award 7 points">+7</button>
-                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="8" title="Award 8 points">+8</button>
-                    <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="9" title="Award 9 points">+9</button>
-                    <button type="button" class="btn btn-score-adj btn--primary" data-player="2" data-score-adj="10" title="Award 10 points (+10)">+10</button>
-                    <button type="button" class="btn btn-score-adj btn--royal" data-player="2" data-score-adj="18" title="Award 18 points (Double 9-Letter Word)">+18</button>
-                  </div>
+              <div class="host-score-adj-bar">
+                <span class="host-score-adj-label">Adj:</span>
+                <div class="host-score-adj-list">
+                  <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="-1"
+                    title="Deduct 1 point">-1</button>
+                  <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="2"
+                    title="Award 2 points">+2</button>
+                  <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="3"
+                    title="Award 3 points">+3</button>
+                  <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="4"
+                    title="Award 4 points">+4</button>
+                  <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="5"
+                    title="Award 5 points">+5</button>
+                  <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="6"
+                    title="Award 6 points">+6</button>
+                  <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="7"
+                    title="Award 7 points">+7</button>
+                  <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="8"
+                    title="Award 8 points">+8</button>
+                  <button type="button" class="btn btn-score-adj btn--secondary" data-player="1" data-score-adj="9"
+                    title="Award 9 points">+9</button>
+                  <button type="button" class="btn btn-score-adj btn--primary" data-player="1" data-score-adj="10"
+                    title="Award 10 points (+10)">+10</button>
+                  <button type="button" class="btn btn-score-adj btn--royal" data-player="1" data-score-adj="18"
+                    title="Award 18 points (Double 9-Letter Word)">+18</button>
                 </div>
               </div>
             </div>
           </div>
 
-          <div class="adjudication-actions">
-            <button type="button" id="host-btn-score-round" class="btn btn--primary btn-award">
-              Validate &amp; Award Round Points
+          <!-- Contestant 2 Card -->
+          <div class="adjudication-card adjudication-card--p2">
+            <label id="label-p2-sub" for="host-p2-submission"
+              style="display: block; font-size: 0.85rem; color: var(--accent-primary); margin-bottom: 0.15rem; font-weight: 600;">
+              Contestant 2 Declaration
+            </label>
+            <input type="text" id="host-p2-submission" placeholder="Word or Number result…"
+              class="input-field font-mono" style="text-transform: uppercase;" />
+            <div class="host-declaration-meta">
+              <label class="host-verified-label">
+                <input type="checkbox" id="host-p2-valid-toggle" checked />
+                Working verified (Numbers)
+              </label>
+              <div class="host-score-adj-bar">
+                <span class="host-score-adj-label">Adj:</span>
+                <div class="host-score-adj-list">
+                  <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="-1"
+                    title="Deduct 1 point">-1</button>
+                  <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="2"
+                    title="Award 2 points">+2</button>
+                  <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="3"
+                    title="Award 3 points">+3</button>
+                  <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="4"
+                    title="Award 4 points">+4</button>
+                  <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="5"
+                    title="Award 5 points">+5</button>
+                  <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="6"
+                    title="Award 6 points">+6</button>
+                  <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="7"
+                    title="Award 7 points">+7</button>
+                  <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="8"
+                    title="Award 8 points">+8</button>
+                  <button type="button" class="btn btn-score-adj btn--secondary" data-player="2" data-score-adj="9"
+                    title="Award 9 points">+9</button>
+                  <button type="button" class="btn btn-score-adj btn--primary" data-player="2" data-score-adj="10"
+                    title="Award 10 points (+10)">+10</button>
+                  <button type="button" class="btn btn-score-adj btn--royal" data-player="2" data-score-adj="18"
+                    title="Award 18 points (Double 9-Letter Word)">+18</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="adjudication-actions">
+          <button type="button" id="host-btn-score-round" class="btn btn--primary btn-award">
+            Validate &amp; Award Round Points
+          </button>
+          <div class="adjudication-secondary-actions">
+            <button type="button" id="host-btn-undo" class="btn btn--secondary btn--sm">Undo</button>
+            <button type="button" id="host-btn-replay-round" class="btn btn--secondary btn--sm">Replay Round</button>
+            <button type="button" id="host-btn-skip-round" class="btn btn--secondary btn--sm">Skip Round</button>
+            <button type="button" id="host-btn-panic" class="btn btn--danger btn--sm">Panic (Blank Screen)</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Host Solver & Live Dictionary Challenge -->
+      <section class="panel">
+        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: var(--space-4);">
+          <input type="text" id="host-challenge-input" placeholder="Challenge any word in Dictionary Corner…"
+            class="input-field font-mono" style="flex: 1 1 200px; min-width: 0; text-transform: uppercase;" />
+          <button type="button" id="host-btn-challenge-word" class="btn btn--secondary" style="flex-shrink: 0;">
+            Challenge Word
+          </button>
+        </div>
+        <div id="host-challenge-result" class="font-mono" style="font-size: 0.875rem; margin-bottom: var(--space-3);">
+        </div>
+        <div id="host-solver-output"></div>
+      </section>
+
+      <!-- Archived match history (organization/admin only) -->
+      <section class="panel" aria-labelledby="host-history-title">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+          <div>
+            <h2 id="host-history-title" style="font-size: 1.1rem; margin: 0;">Archived Match History</h2>
+            <div id="host-history-status" class="meta-inline" style="margin-top: 0.25rem;">Loading…</div>
+          </div>
+          <button type="button" id="host-btn-refresh-history" class="btn btn--secondary btn--sm">Refresh</button>
+        </div>
+        <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; margin-top: var(--space-3);">
+          <input type="text" id="host-history-filter-room" class="input-field font-mono" placeholder="Room code"
+            style="max-width: 140px; text-transform: uppercase;" aria-label="Filter archived matches by room code" />
+          <input type="date" id="host-history-filter-from" class="input-field font-mono" style="max-width: 150px;"
+            aria-label="Filter archived matches from this date" />
+          <input type="date" id="host-history-filter-to" class="input-field font-mono" style="max-width: 150px;"
+            aria-label="Filter archived matches until this date" />
+          <button type="button" id="host-btn-apply-history-filters" class="btn btn--secondary btn--sm">Apply</button>
+          <button type="button" id="host-btn-clear-history-filters" class="btn btn--secondary btn--sm">Clear</button>
+        </div>
+        <div id="host-history-list" class="host-history-list" style="margin-top: var(--space-3);"></div>
+        <button type="button" id="host-btn-more-history" class="btn btn--secondary btn--sm" style="margin-top: 0.65rem;"
+          hidden>Load older matches</button>
+        <button type="button" id="host-btn-download-history" class="btn btn--secondary btn--sm"
+          style="margin-top: 0.65rem;" disabled>Download selected JSON</button>
+        <pre id="host-history-detail" class="host-history-detail"
+          aria-live="polite">Select an archived match to inspect its snapshot.</pre>
+      </section>
+    </div>
+
+    <!-- RIGHT COLUMN: Live 16:9 Stage Preview, Clock & Operator Log -->
+    <div class="host-col host-col--right">
+      <section class="panel">
+        <div class="stage-monitor-header">
+          <h2 class="stage-monitor-title">Live 16:9 Stage Monitor</h2>
+          <div class="stage-monitor-toolbar">
+            <input type="file" id="host-bg-file-input" accept="image/*" hidden />
+            <button type="button" id="host-btn-upload-bg" class="btn btn--secondary btn--sm"
+              title="Upload a custom background image for the 16:9 Stage Display">
+              Upload Background
             </button>
-            <div class="adjudication-secondary-actions">
-              <button type="button" id="host-btn-undo" class="btn btn--secondary btn--sm">Undo</button>
-              <button type="button" id="host-btn-replay-round" class="btn btn--secondary btn--sm">Replay Round</button>
-              <button type="button" id="host-btn-skip-round" class="btn btn--secondary btn--sm">Skip Round</button>
-              <button type="button" id="host-btn-panic" class="btn btn--danger btn--sm">Panic (Blank Screen)</button>
-            </div>
-          </div>
-        </section>
-
-        <!-- Host Solver & Live Dictionary Challenge -->
-        <section class="panel">
-          <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: var(--space-4);">
-            <input
-              type="text"
-              id="host-challenge-input"
-              placeholder="Challenge any word in Dictionary Corner…"
-              class="input-field font-mono"
-              style="flex: 1 1 200px; min-width: 0; text-transform: uppercase;"
-            />
-            <button type="button" id="host-btn-challenge-word" class="btn btn--secondary" style="flex-shrink: 0;">
-              Challenge Word
+            <button type="button" id="btn-test-display" class="btn btn--secondary btn--sm">
+              Test Display &amp; Audio
             </button>
+            <button type="button" id="host-btn-modal-stage" class="btn btn--primary btn--sm"
+              title="View Full 16:9 Stage Display in full-screen modal">
+              📺 Stage Modal
+            </button>
+            <button type="button" id="host-btn-toggle-display-controls" class="btn btn--secondary btn--sm"
+              title="Toggle control buttons on the Stage Display screen (Key C on Display)">
+              👁 Display Controls
+            </button>
+            <a href="./versus-display.html" target="_blank" rel="noopener" class="btn btn--royal btn--sm"
+              title="Open Stage Display in a separate browser window/tab" data-auth-permission="stage:display">
+              Pop Out Window ↗
+            </a>
           </div>
-          <div id="host-challenge-result" class="font-mono" style="font-size: 0.875rem; margin-bottom: var(--space-3);"></div>
-          <div id="host-solver-output"></div>
-        </section>
+        </div>
 
-        <!-- Archived match history (organization/admin only) -->
-        <section class="panel" aria-labelledby="host-history-title">
-          <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-            <div>
-              <h2 id="host-history-title" style="font-size: 1.1rem; margin: 0;">Archived Match History</h2>
-              <div id="host-history-status" class="meta-inline" style="margin-top: 0.25rem;">Loading…</div>
-            </div>
-            <button type="button" id="host-btn-refresh-history" class="btn btn--secondary btn--sm">Refresh</button>
-          </div>
-          <div style="display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; margin-top: var(--space-3);">
-            <input
-              type="text"
-              id="host-history-filter-room"
-              class="input-field font-mono"
-              placeholder="Room code"
-              style="max-width: 140px; text-transform: uppercase;"
-              aria-label="Filter archived matches by room code"
-            />
-            <input
-              type="date"
-              id="host-history-filter-from"
-              class="input-field font-mono"
-              style="max-width: 150px;"
-              aria-label="Filter archived matches from this date"
-            />
-            <input
-              type="date"
-              id="host-history-filter-to"
-              class="input-field font-mono"
-              style="max-width: 150px;"
-              aria-label="Filter archived matches until this date"
-            />
-            <button type="button" id="host-btn-apply-history-filters" class="btn btn--secondary btn--sm">Apply</button>
-            <button type="button" id="host-btn-clear-history-filters" class="btn btn--secondary btn--sm">Clear</button>
-          </div>
-          <div id="host-history-list" class="host-history-list" style="margin-top: var(--space-3);"></div>
-          <button type="button" id="host-btn-more-history" class="btn btn--secondary btn--sm" style="margin-top: 0.65rem;" hidden>Load older matches</button>
-          <button type="button" id="host-btn-download-history" class="btn btn--secondary btn--sm" style="margin-top: 0.65rem;" disabled>Download selected JSON</button>
-          <pre id="host-history-detail" class="host-history-detail" aria-live="polite">Select an archived match to inspect its snapshot.</pre>
-        </section>
-      </div>
-
-      <!-- RIGHT COLUMN: Live 16:9 Stage Preview, Clock & Operator Log -->
-      <div class="host-col host-col--right">
-        <section class="panel">
-          <div class="stage-monitor-header">
-            <h2 class="stage-monitor-title">Live 16:9 Stage Monitor</h2>
-            <div class="stage-monitor-toolbar">
-              <input type="file" id="host-bg-file-input" accept="image/*" hidden />
-              <button type="button" id="host-btn-upload-bg" class="btn btn--secondary btn--sm" title="Upload a custom background image for the 16:9 Stage Display">
-                Upload Background
-              </button>
-              <button type="button" id="btn-test-display" class="btn btn--secondary btn--sm">
-                Test Display &amp; Audio
-              </button>
-              <button type="button" id="host-btn-modal-stage" class="btn btn--primary btn--sm" title="View Full 16:9 Stage Display in full-screen modal">
-                📺 Stage Modal
-              </button>
-              <button type="button" id="host-btn-toggle-display-controls" class="btn btn--secondary btn--sm" title="Toggle control buttons on the Stage Display screen (Key C on Display)">
-                👁 Display Controls
-              </button>
-              <a href="./versus-display.html" target="_blank" rel="noopener" class="btn btn--royal btn--sm" title="Open Stage Display in a separate browser window/tab" data-auth-permission="stage:display">
-                Pop Out Window ↗
-              </a>
-            </div>
-          </div>
-
-          <div id="host-stage-preview" class="host-stage-preview">
-            <!-- Use the canonical Stage Display renderer so this monitor stays
+        <div id="host-stage-preview" class="host-stage-preview">
+          <!-- Use the canonical Stage Display renderer so this monitor stays
                  identical to the full-screen display at every state. -->
-            <iframe
-              id="host-stage-preview-iframe"
-              src="./versus-display.html"
-              title="Live 16:9 Stage Display Preview"
-              class="host-stage-preview__frame"
-            ></iframe>
-            <div class="host-stage-preview__legacy-content">
+          <iframe id="host-stage-preview-iframe" src="./versus-display.html" title="Live 16:9 Stage Display Preview"
+            class="host-stage-preview__frame"></iframe>
+          <div class="host-stage-preview__legacy-content">
             <div class="stage-header" style="padding: 0.45% 1.4%;">
-              <span id="preview-round-title" class="stage-round-indicator" style="font-size: clamp(0.65rem, 1.8cqw, 1rem);">
+              <span id="preview-round-title" class="stage-round-indicator"
+                style="font-size: clamp(0.65rem, 1.8cqw, 1rem);">
                 Round 1 of 15
               </span>
-              <span id="preview-picker-label" class="stage-picker-indicator" style="font-size: clamp(0.6rem, 1.5cqw, 0.9rem);">
+              <span id="preview-picker-label" class="stage-picker-indicator"
+                style="font-size: clamp(0.6rem, 1.5cqw, 0.9rem);">
                 Picker: Contestant 1
               </span>
             </div>
@@ -409,12 +413,9 @@
 
             <!-- Central Board in the Preview -->
             <div class="stage-positioned-item stage-board-zone">
-              <div
-                id="preview-target-label"
-                class="font-mono"
+              <div id="preview-target-label" class="font-mono"
                 style="text-align: center; font-size: clamp(0.65rem, 1.8cqw, 1rem); color: var(--accent-primary); font-weight: 800;"
-                hidden
-              >
+                hidden>
                 Target: 000
               </div>
               <div id="preview-board-container" class="tile-row"></div>
@@ -437,9 +438,7 @@
             </div>
 
             <!-- Panic Blank Indicator Overlay on Preview -->
-            <div
-              id="preview-panic-banner"
-              style="
+            <div id="preview-panic-banner" style="
                 position: absolute;
                 inset: 0;
                 background: rgba(2, 6, 23, 0.88);
@@ -452,33 +451,30 @@
                 z-index: 40;
                 text-align: center;
                 padding: 1rem;
-              "
-              hidden
-            >
-              <span style="font-family: var(--font-display); font-size: clamp(0.85rem, 2cqw, 1.35rem); font-weight: 800; color: #F87171;">
+              " hidden>
+              <span
+                style="font-family: var(--font-display); font-size: clamp(0.85rem, 2cqw, 1.35rem); font-weight: 800; color: #F87171;">
                 STAGE BLANKED BY OPERATOR
               </span>
               <span style="font-family: var(--font-sans); font-size: clamp(0.6rem, 1.2cqw, 0.85rem); color: #CBD5E1;">
                 Click "🚨 CLEAR PANIC BLANK" below to restore the live Stage Display.
               </span>
             </div>
-            </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <!-- Operator Action Log & Match Export -->
-        <section class="panel">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3); flex-wrap: wrap; gap: 0.5rem;">
-            <h2 style="font-size: 1.1rem; margin: 0;">Operator Audit Log</h2>
-            <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
-              <button type="button" id="host-btn-copy-log" class="btn btn--secondary btn--sm">Copy Log</button>
-              <button type="button" id="host-btn-export-png" class="btn btn--secondary btn--sm">Export PNG Card</button>
-            </div>
+      <!-- Operator Action Log & Match Export -->
+      <section class="panel">
+        <div
+          style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3); flex-wrap: wrap; gap: 0.5rem;">
+          <h2 style="font-size: 1.1rem; margin: 0;">Operator Audit Log</h2>
+          <div style="display: flex; gap: 0.4rem; flex-wrap: wrap;">
+            <button type="button" id="host-btn-copy-log" class="btn btn--secondary btn--sm">Copy Log</button>
+            <button type="button" id="host-btn-export-png" class="btn btn--secondary btn--sm">Export PNG Card</button>
           </div>
-          <div
-            id="host-action-log"
-            class="font-mono"
-            style="
+        </div>
+        <div id="host-action-log" class="font-mono" style="
               max-height: 220px;
               overflow-y: auto;
               overflow-x: hidden;
@@ -488,225 +484,220 @@
               background: rgba(5, 11, 28, 0.55);
               padding: var(--space-3);
               border-radius: var(--radius-md);
-            "
-          ></div>
-        </section>
+            "></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- MODAL: PRE-MATCH SETUP -->
+  <div id="modal-prematch-setup" class="modal-backdrop" role="dialog" aria-modal="true"
+    aria-labelledby="setup-modal-title" hidden>
+    <div class="modal-card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
+        <h2 id="setup-modal-title" style="font-size: 1.4rem;">New Versus Match Setup</h2>
+        <button type="button" class="btn btn--sm btn--secondary" data-modal-close="modal-prematch-setup">Close</button>
       </div>
-    </main>
 
-    <!-- MODAL: PRE-MATCH SETUP -->
-    <div id="modal-prematch-setup" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="setup-modal-title" hidden>
-      <div class="modal-card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-4);">
-          <h2 id="setup-modal-title" style="font-size: 1.4rem;">New Versus Match Setup</h2>
-          <button type="button" class="btn btn--sm btn--secondary" data-modal-close="modal-prematch-setup">Close</button>
-        </div>
-
-        <div style="display: grid; gap: var(--space-4);">
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: var(--space-3);">
-            <label>
-              <span style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Contestant 1 Name</span>
-              <input type="text" id="setup-p1-name" value="Contestant 1" class="input-field" />
-            </label>
-            <label>
-              <span style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Contestant 2 Name</span>
-              <input type="text" id="setup-p2-name" value="Contestant 2" class="input-field" />
-            </label>
-          </div>
-
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: var(--space-3);">
-            <label>
-              <span style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Match Schedule</span>
-              <select id="setup-schedule" class="input-field">
-                <option value="tv-15">TV Format (15 Rounds)</option>
-                <option value="quick-5">Quick Match (5 Rounds)</option>
-                <option value="letters-only">Letters Only (6 Rounds)</option>
-                <option value="numbers-only">Numbers Only (6 Rounds)</option>
-                <option value="conundrum-only">Conundrum Sprint (5 Rounds)</option>
-                <option value="custom">Custom Schedule</option>
-              </select>
-            </label>
-            <label>
-              <span style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">First Picker</span>
-              <select id="setup-starter" class="input-field">
-                <option value="1">Contestant 1 starts (Odd rounds)</option>
-                <option value="2">Contestant 2 starts (Odd rounds)</option>
-              </select>
-            </label>
-          </div>
-
-          <div id="host-custom-schedule-editor" hidden style="padding: 0.85rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: rgba(5, 11, 28, 0.35);">
-            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 0.65rem;">
-              <span style="font-size: 0.85rem; color: var(--text-secondary);">Custom round order</span>
-              <select id="host-add-round-type" class="input-field" style="width: auto; min-width: 110px;">
-                <option value="L">+ Letters</option>
-                <option value="N">+ Numbers</option>
-                <option value="C">+ Conundrum</option>
-              </select>
-              <button type="button" id="host-add-round-btn" class="btn btn--secondary btn--sm">Add round</button>
-            </div>
-            <div id="host-custom-schedule-list" style="display: flex; flex-wrap: wrap; gap: 0.4rem;"></div>
-            <small style="display: block; margin-top: 0.65rem; color: var(--text-muted);">Drag rounds to reorder. You can use 1–25 rounds.</small>
-          </div>
-
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: var(--space-3);">
-            <label>
-              <span style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Clock Duration</span>
-              <select id="setup-clock" class="input-field">
-                <option value="30">30 Seconds (TV Standard)</option>
-                <option value="60">60 Seconds (Classroom)</option>
-              </select>
-            </label>
-            <label>
-              <span style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Stage Theme</span>
-              <select id="setup-theme" class="input-field">
-                <option value="classic-blue">Classic Blue</option>
-                <option value="dark-studio">Dark Studio</option>
-                <option value="high-contrast">High Contrast</option>
-              </select>
-            </label>
-          </div>
-
-          <label style="display: flex; align-items: center; gap: 0.6rem;">
-            <input type="checkbox" id="setup-sound" checked />
-            <span>Enable studio think music &amp; buzzer audio</span>
+      <div style="display: grid; gap: var(--space-4);">
+        <div
+          style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: var(--space-3);">
+          <label>
+            <span
+              style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Contestant
+              1 Name</span>
+            <input type="text" id="setup-p1-name" value="Contestant 1" class="input-field" />
           </label>
+          <label>
+            <span
+              style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Contestant
+              2 Name</span>
+            <input type="text" id="setup-p2-name" value="Contestant 2" class="input-field" />
+          </label>
+        </div>
 
-          <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: var(--space-2);">
-            <button type="button" class="btn btn--secondary" data-modal-close="modal-prematch-setup">Cancel</button>
-            <button
-              type="button"
-              id="btn-start-match"
-              class="btn btn--primary"
-              data-modal-close="modal-prematch-setup"
-            >
-              Start Live Match
-            </button>
+        <div
+          style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: var(--space-3);">
+          <label>
+            <span
+              style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Match
+              Schedule</span>
+            <select id="setup-schedule" class="input-field">
+              <option value="tv-15">TV Format (15 Rounds)</option>
+              <option value="quick-5">Quick Match (5 Rounds)</option>
+              <option value="letters-only">Letters Only (6 Rounds)</option>
+              <option value="numbers-only">Numbers Only (6 Rounds)</option>
+              <option value="conundrum-only">Conundrum Sprint (5 Rounds)</option>
+              <option value="custom">Custom Schedule</option>
+            </select>
+          </label>
+          <label>
+            <span
+              style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">First
+              Picker</span>
+            <select id="setup-starter" class="input-field">
+              <option value="1">Contestant 1 starts (Odd rounds)</option>
+              <option value="2">Contestant 2 starts (Odd rounds)</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="host-custom-schedule-editor" hidden
+          style="padding: 0.85rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: rgba(5, 11, 28, 0.35);">
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 0.65rem;">
+            <span style="font-size: 0.85rem; color: var(--text-secondary);">Custom round order</span>
+            <select id="host-add-round-type" class="input-field" style="width: auto; min-width: 110px;">
+              <option value="L">+ Letters</option>
+              <option value="N">+ Numbers</option>
+              <option value="C">+ Conundrum</option>
+            </select>
+            <button type="button" id="host-add-round-btn" class="btn btn--secondary btn--sm">Add round</button>
           </div>
+          <div id="host-custom-schedule-list" style="display: flex; flex-wrap: wrap; gap: 0.4rem;"></div>
+          <small style="display: block; margin-top: 0.65rem; color: var(--text-muted);">Drag rounds to reorder. You can
+            use 1–25 rounds.</small>
+        </div>
+
+        <div
+          style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: var(--space-3);">
+          <label>
+            <span
+              style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Clock
+              Duration</span>
+            <select id="setup-clock" class="input-field">
+              <option value="30">30 Seconds (TV Standard)</option>
+              <option value="60">60 Seconds (Classroom)</option>
+            </select>
+          </label>
+          <label>
+            <span
+              style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.25rem;">Stage
+              Theme</span>
+            <select id="setup-theme" class="input-field">
+              <option value="classic-blue">Classic Blue</option>
+              <option value="dark-studio">Dark Studio</option>
+              <option value="high-contrast">High Contrast</option>
+            </select>
+          </label>
+        </div>
+
+        <label style="display: flex; align-items: center; gap: 0.6rem;">
+          <input type="checkbox" id="setup-sound" checked />
+          <span>Enable studio think music &amp; buzzer audio</span>
+        </label>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: var(--space-2);">
+          <button type="button" class="btn btn--secondary" data-modal-close="modal-prematch-setup">Cancel</button>
+          <button type="button" id="btn-start-match" class="btn btn--primary" data-modal-close="modal-prematch-setup">
+            Start Live Match
+          </button>
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- REMOTE MULTI-DEVICE STAGE SYNC MODAL -->
-    <div
-      id="modal-host-remote-room"
-      class="modal-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Online Match Room (Remote Stage)"
-      hidden
-    >
-      <div class="modal-card" style="max-width: 540px;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--space-4);">
-          <div>
-            <h2 style="font-size: 1.25rem;">🌐 Online Match Room</h2>
-            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem;">
-              Connect Host console with stage screen (Projector/Smart TV) on another device over the internet
-            </p>
-          </div>
-          <button type="button" id="host-btn-close-remote-modal" class="btn btn--sm btn--secondary">✕</button>
-        </div>
-
-        <div style="display: grid; gap: var(--space-4);">
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: var(--space-3);">
-            <div>
-              <label for="host-input-room-code" style="font-size: 0.82rem; font-weight: 600; display: block; margin-bottom: 0.25rem;">Room Code</label>
-              <div style="display: flex; gap: 0.35rem;">
-                <input
-                  type="text"
-                  id="host-input-room-code"
-                  class="input font-mono"
-                  style="font-size: 1rem; font-weight: 700; text-transform: uppercase;"
-                  maxlength="10"
-                  placeholder="CD-8842"
-                />
-                <button type="button" id="host-btn-gen-room" class="btn btn--secondary btn--sm" title="Generate random code">🎲</button>
-              </div>
-            </div>
-
-            <div>
-              <label for="host-input-pin" style="font-size: 0.82rem; font-weight: 600; display: block; margin-bottom: 0.25rem;">Host Password (PIN)</label>
-              <input
-                type="text"
-                id="host-input-pin"
-                class="input font-mono"
-                style="font-size: 1rem; font-weight: 700;"
-                  inputmode="numeric"
-                  pattern="[0-9]{4,8}"
-                maxlength="8"
-                value="0000"
-                placeholder="0000"
-              />
-            </div>
-          </div>
-
-          <!-- QR Code Card -->
-          <div class="remote-qr-card">
-            <canvas id="host-qr-canvas" width="200" height="200"></canvas>
-            <div id="host-qr-room-text" class="remote-code-display">CD-8842</div>
-            <div style="font-size: 0.78rem; color: #475569; text-align: center;">
-              Scan code with mobile device or projector to open the stage display
-            </div>
-          </div>
-
-          <!-- Display Direct URL Link -->
-          <div style="background: var(--bg-surface-elevated); padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
-              <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary);">Display screen URL:</span>
-              <button type="button" id="host-btn-copy-room-link" class="btn btn--sm btn--secondary" style="padding: 0.25rem 0.5rem; font-size: 0.78rem;">
-                📋 Copy link
-              </button>
-            </div>
-            <div id="host-display-url-preview" class="font-mono text-xs" style="word-break: break-all; color: var(--accent-primary);">
-              https://.../versus-display.html?room=CD-8842
-            </div>
-          </div>
-
-          <!-- Connection Status Summary -->
-          <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.65rem 0.85rem; background: rgba(5, 11, 28, 0.4); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
-            <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem;">
-              <span class="status-dot status-dot--offline" id="host-modal-dot"></span>
-              <span id="host-modal-status-text">Not broadcasting</span>
-            </div>
-            <div id="host-display-count-badge" class="meta-inline font-mono" style="font-size: 0.8rem;">
-              0 Connected Displays
-            </div>
-          </div>
-
-          <div class="remote-room-actions">
-            <button type="button" id="host-btn-disconnect-remote" class="btn btn--secondary btn--sm" hidden>
-              Disconnect broadcast
-            </button>
-            <button type="button" id="host-btn-start-broadcast" class="btn btn--primary btn--sm">
-              🚀 Start Broadcast
-            </button>
-          </div>
-
-          <div id="host-close-room-panel" class="remote-room-close-panel" hidden>
-            <div class="remote-room-close-panel__copy">
-              <strong>⚠️ Close Room</strong>
-              <span>Disconnect all connected display screens and permanently revoke this room code.</span>
-            </div>
-            <button type="button" id="host-btn-close-remote-room" class="btn btn--danger remote-room-close-button" aria-label="Close and terminate online room">
-              🔒 CLOSE ROOM
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- EMBEDDED STAGE DISPLAY MODAL OVERLAY -->
-    <div
-      id="modal-host-stage-display"
-      class="modal-backdrop"
-      style="padding: 1.5vh 1.5vw; z-index: var(--z-modal);"
-      role="dialog"
-      aria-modal="true"
-      aria-label="16:9 Stage Display Window"
-      hidden
-    >
+  <!-- REMOTE MULTI-DEVICE STAGE SYNC MODAL -->
+  <div id="modal-host-remote-room" class="modal-backdrop" role="dialog" aria-modal="true"
+    aria-label="Online Match Room (Remote Stage)" hidden>
+    <div class="modal-card" style="max-width: 540px;">
       <div
-        style="
+        style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--space-4);">
+        <div>
+          <h2 style="font-size: 1.25rem;">🌐 Online Match Room</h2>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem;">
+            Connect Host console with stage screen (Projector/Smart TV) on another device over the internet
+          </p>
+        </div>
+        <button type="button" id="host-btn-close-remote-modal" class="btn btn--sm btn--secondary">✕</button>
+      </div>
+
+      <div style="display: grid; gap: var(--space-4);">
+        <div
+          style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: var(--space-3);">
+          <div>
+            <label for="host-input-room-code"
+              style="font-size: 0.82rem; font-weight: 600; display: block; margin-bottom: 0.25rem;">Room Code</label>
+            <div style="display: flex; gap: 0.35rem;">
+              <input type="text" id="host-input-room-code" class="input font-mono"
+                style="font-size: 1rem; font-weight: 700; text-transform: uppercase;" maxlength="10"
+                placeholder="CD-8842" />
+              <button type="button" id="host-btn-gen-room" class="btn btn--secondary btn--sm"
+                title="Generate random code">🎲</button>
+            </div>
+          </div>
+
+          <div>
+            <label for="host-input-pin"
+              style="font-size: 0.82rem; font-weight: 600; display: block; margin-bottom: 0.25rem;">Host Password
+              (PIN)</label>
+            <input type="text" id="host-input-pin" class="input font-mono" style="font-size: 1rem; font-weight: 700;"
+              inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" value="0000" placeholder="0000" />
+          </div>
+        </div>
+
+        <!-- QR Code Card -->
+        <div class="remote-qr-card">
+          <canvas id="host-qr-canvas" width="200" height="200"></canvas>
+          <div id="host-qr-room-text" class="remote-code-display">CD-8842</div>
+          <div style="font-size: 0.78rem; color: #475569; text-align: center;">
+            Scan code with mobile device or projector to open the stage display
+          </div>
+        </div>
+
+        <!-- Display Direct URL Link -->
+        <div
+          style="background: var(--bg-surface-elevated); padding: 0.75rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+            <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary);">Display screen URL:</span>
+            <button type="button" id="host-btn-copy-room-link" class="btn btn--sm btn--secondary"
+              style="padding: 0.25rem 0.5rem; font-size: 0.78rem;">
+              📋 Copy link
+            </button>
+          </div>
+          <div id="host-display-url-preview" class="font-mono text-xs"
+            style="word-break: break-all; color: var(--accent-primary);">
+            https://.../versus-display.html?room=CD-8842
+          </div>
+        </div>
+
+        <!-- Connection Status Summary -->
+        <div
+          style="display: flex; align-items: center; justify-content: space-between; padding: 0.65rem 0.85rem; background: rgba(5, 11, 28, 0.4); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+          <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem;">
+            <span class="status-dot status-dot--offline" id="host-modal-dot"></span>
+            <span id="host-modal-status-text">Not broadcasting</span>
+          </div>
+          <div id="host-display-count-badge" class="meta-inline font-mono" style="font-size: 0.8rem;">
+            0 Connected Displays
+          </div>
+        </div>
+
+        <div class="remote-room-actions">
+          <button type="button" id="host-btn-disconnect-remote" class="btn btn--secondary btn--sm" hidden>
+            Disconnect broadcast
+          </button>
+          <button type="button" id="host-btn-start-broadcast" class="btn btn--primary btn--sm">
+            🚀 Start Broadcast
+          </button>
+        </div>
+
+        <div id="host-close-room-panel" class="remote-room-close-panel" hidden>
+          <div class="remote-room-close-panel__copy">
+            <strong>⚠️ Close Room</strong>
+            <span>Disconnect all connected display screens and permanently revoke this room code.</span>
+          </div>
+          <button type="button" id="host-btn-close-remote-room" class="btn btn--danger remote-room-close-button"
+            aria-label="Close and terminate online room">
+            🔒 CLOSE ROOM
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EMBEDDED STAGE DISPLAY MODAL OVERLAY -->
+  <div id="modal-host-stage-display" class="modal-backdrop" style="padding: 1.5vh 1.5vw; z-index: var(--z-modal);"
+    role="dialog" aria-modal="true" aria-label="16:9 Stage Display Window" hidden>
+    <div style="
           position: relative;
           width: min(96vw, calc(94vh * 16 / 9));
           height: min(94vh, calc(96vw * 9 / 16));
@@ -717,10 +708,8 @@
           background: #000;
           display: flex;
           flex-direction: column;
-        "
-      >
-        <div
-          style="
+        ">
+      <div style="
             position: absolute;
             top: 0.75rem;
             right: 0.75rem;
@@ -731,25 +720,22 @@
             padding: 0.35rem 0.65rem;
             border-radius: var(--radius-md);
             border: 1px solid var(--border-subtle);
-          "
-        >
-          <a href="./versus-display.html" target="_blank" rel="noopener" class="btn btn--sm btn--secondary" data-auth-permission="stage:display">
-            Pop Out New Window ↗
-          </a>
-          <button type="button" id="btn-close-stage-modal" class="btn btn--sm btn--primary">
-            ✕ Close
-          </button>
-        </div>
-        <iframe
-          id="host-stage-iframe"
-          src="./versus-display.html"
-          title="Countdown 16:9 Stage Display"
-          style="width: 100%; height: 100%; border: 0;"
-        ></iframe>
+          ">
+        <a href="./versus-display.html" target="_blank" rel="noopener" class="btn btn--sm btn--secondary"
+          data-auth-permission="stage:display">
+          Pop Out New Window ↗
+        </a>
+        <button type="button" id="btn-close-stage-modal" class="btn btn--sm btn--primary">
+          ✕ Close
+        </button>
       </div>
+      <iframe id="host-stage-iframe" src="./versus-display.html" title="Countdown 16:9 Stage Display"
+        style="width: 100%; height: 100%; border: 0;"></iframe>
     </div>
+  </div>
 
-    <script type="module" src="./js/auth.js"></script>
-    <script type="module" src="./js/app-host.js"></script>
-  </body>
+  <script type="module" src="./js/auth.js"></script>
+  <script type="module" src="./js/app-host.js"></script>
+</body>
+
 </html>
