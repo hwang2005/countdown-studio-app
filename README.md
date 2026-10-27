@@ -102,6 +102,27 @@ the OAuth client's Authorized JavaScript origins in Google Cloud Console.
 - **Projector Calibration Grid (`B` / `L`):** Toggle an on-screen alignment pattern and safe-zone margin guides to adjust projector zoom and keystone.
 - **Panic Blank Screen:** One-click blackout for the stage display during breaks or confidential setup, dismissed via screen button or `Escape`.
 - **Single-Screen Host Drawer (`H`):** Toggle an embedded Host Control drawer directly on top of the stage view when running on a single screen without a secondary monitor.
+- **Technician Sync HUD (`D`):** Compact corner telemetry showing the connected room, measured WebSocket round-trip latency (RTT), and how stale the latest host broadcast is — plus a `?` hotkey cheat sheet for the operator standing behind the console.
+
+#### Two-machine operation (1 projection screen + 1 operator console)
+
+Countdown Studio is designed for the classic event setup where one machine drives the show and a
+second machine only renders the audience-facing 16:9 stage:
+
+1. **Operator machine:** open `/versus-host.html`, log in with an Organization account, then press
+   **Start Broadcast** to open the room (e.g. `CD-8842`).
+2. **Projection machine:** open `/versus-display.html?room=CD-8842` — the display authenticates
+   automatically and shows a **STANDBY screen** until the host broadcasts the first match state.
+   Press **🔗 Copy Screen Link** on the display utility bar to copy the exact `?room=` URL and
+   bookmark it on the projection machine for every future show.
+   Alternatively tick **"Remember this screen"** in the join modal so the display auto-rejoins the
+   same room every time the machine boots.
+3. **Show time:** the operator console broadcasts every phase change. The projection screen renders
+   the state, can still run its own projector calibration (`B`/`L`) locally without disturbing the
+   other displays, and the hidden utility buttons stay one `C` away.
+4. **Monitor connection quality** with the `D` sync HUD (RTT + broadcast age). If the display loses
+   the server or host mid-show, it reconnects automatically for up to 12 attempts; fatal errors
+   surface a retry dialog instead of hiding behind a stale stage.
 
 ---
 

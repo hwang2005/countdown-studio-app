@@ -13,6 +13,7 @@ const CHANNEL_NAME = 'countdown_studio_stage_sync_v1';
 const STORAGE_SIGNAL_KEY = 'countdown_studio_stage_signal_v1';
 const REMOTE_CONNECT_TIMEOUT_MS = 5000;
 const REMOTE_RECONNECT_DELAY_MS = 1000;
+const REMOTE_HEARTBEAT_INTERVAL_MS = 10000;
 // A long reconnect budget keeps displays attached through short server
 // restarts and network blips. Persistent rooms are hydrated server-side, so a
 // display that outlives a temporary outage automatically re-attaches without
@@ -129,6 +130,12 @@ export class StageSyncChannel {
     this.remoteConnectionFailed = false;
     this.lastRemoteError = null;
     this.heartbeatTimer = null;
+    // Connection quality telemetry for Stage Display operator HUDs. Ping and
+    // pong bookkeeping is per-socket; a null lastPingSentAt means the pong did
+    // not pair with a pending heartbeat ping (e.g. server-initiated keepalive)
+    // and its RTT should not be reported.
+    this.lastPingSentAt = null;
+    this.lastRttMs = null;
     this.onStatusChangeCallbacks = new Set();
     this.displayCount = 0;
     this.roomClosed = false;
@@ -243,6 +250,8 @@ export class StageSyncChannel {
     this.remoteConnectionFailed = false;
     this.lastRemoteError = null;
     this.remoteConnectAttempts = 0;
+    this.lastPingSentAt = null;
+    this.lastRttMs = null;
 
     if (this.remoteReconnectTimer) {
       clearTimeout(this.remoteReconnectTimer);
@@ -305,20 +314,32 @@ export class StageSyncChannel {
           }));
         }
 
-        // Start heartbeat ping every 25s
+        // Start heartbeat ping (measured end-to-end so the Stage Display can
+        // show the live server round-trip latency in its operator HUD).
         clearInterval(this.heartbeatTimer);
         this.heartbeatTimer = setInterval(() => {
           if (isCurrentSocket() && socket.readyState === WebSocket.OPEN) {
+            this.lastPingSentAt = Date.now();
             socket.send(JSON.stringify({ type: 'ping' }));
           }
-        }, 25000);
+        }, REMOTE_HEARTBEAT_INTERVAL_MS);
+        this.lastPingSentAt = Date.now();
+        socket.send(JSON.stringify({ type: 'ping' }));
       };
 
       socket.onmessage = (event) => {
         if (!isCurrentSocket()) return;
         try {
           const msg = JSON.parse(event.data);
-          if (msg.type === 'pong') return;
+          if (msg.type === 'pong') {
+            if (this.lastPingSentAt !== null) {
+              const rtt = Math.max(0, Date.now() - this.lastPingSentAt);
+              this.lastPingSentAt = null;
+              this.lastRttMs = rtt;
+              this.notifyStatus({ pingMs: rtt });
+            }
+            return;
+          }
 
           if (msg.type === 'host:auth_success') {
             clearTimeout(this.remoteConnectTimeoutTimer);
@@ -513,6 +534,8 @@ export class StageSyncChannel {
     clearTimeout(this.remoteConnectTimeoutTimer);
     this.remoteConnectTimeoutTimer = null;
     clearInterval(this.heartbeatTimer);
+    this.lastPingSentAt = null;
+    this.lastRttMs = null;
     if (this.ws) {
       try {
         this.ws.close();

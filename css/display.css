@@ -906,6 +906,51 @@
   opacity: 1;
 }
 
+/* Technical Sync Telemetry HUD (Hotkey D on the Stage Display) */
+.stage-sync-hud {
+  position: absolute;
+  bottom: 1.25%;
+  right: 1.5%;
+  z-index: 40;
+  max-width: 40%;
+  padding: 0.3rem 0.7rem;
+  background: rgba(5, 11, 28, 0.8);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill, 9999px);
+  font-family: var(--font-mono);
+  font-size: clamp(0.62rem, 0.9cqw, 0.85rem);
+  font-weight: 600;
+  color: var(--text-secondary);
+  backdrop-filter: blur(8px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: opacity 0.3s ease;
+}
+
+.stage-canvas.is-controls-hidden .stage-sync-hud {
+  opacity: 0.28;
+}
+.stage-canvas.is-controls-hidden .stage-sync-hud:hover {
+  opacity: 1;
+}
+
+/* Standby Screen shown after display:join until the first stage:sync */
+.stage-standby {
+  position: fixed;
+  inset: 0;
+  z-index: 90; /* below .panic-screen (--z-panic: 100) so Host blanking wins */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 11, 28, 0.96);
+  color: #F8FAFC;
+}
+
+.stage-standby[hidden] {
+  display: none !important;
+}
+
 .status-dot {
   width: 8px;
   height: 8px;

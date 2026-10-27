@@ -1695,15 +1695,14 @@ async function startServer() {
 
         // Only the authenticated Host may publish stage configuration.
         if (type === 'host:stage_config') {
-          if (clientRole !== 'host' || !clientRoomId || !clientHostToken) {
+          if (clientRole !== 'host' || !clientRoomId || (!clientHostToken && !String(msg.token || ''))) {
             sendError(ws, 'UNAUTHORIZED', 'Only the authenticated Host may publish stage configuration.');
             return;
           }
           // The socket-bound token is authoritative; the per-message token is
           // accepted as an alternative so a client that sends its stored
           // secret without a live socket token is not silently rejected.
-          const suppliedToken = String(msg.token || '') || clientHostToken;
-          if (!clientHostToken && suppliedToken) clientHostToken = suppliedToken;
+          if (!clientHostToken && String(msg.token || '')) clientHostToken = String(msg.token);
           if (String(msg.roomId || '').toUpperCase().trim() !== clientRoomId) {
             sendError(ws, 'UNAUTHORIZED', 'Room identifier does not match the authenticated Host session.');
             return;
@@ -1738,7 +1737,7 @@ async function startServer() {
         // Host closes the room permanently. Displays are notified and removed
         // so an old QR/link cannot keep accessing the room afterwards.
         if (type === 'host:close_room') {
-          if (clientRole !== 'host' || !clientRoomId || !clientHostToken) {
+          if (clientRole !== 'host' || !clientRoomId || (!clientHostToken && !String(msg.token || ''))) {
             ws.send(JSON.stringify({ type: 'error', code: 'UNAUTHORIZED', message: 'You do not have Host permissions' }));
             return;
           }
@@ -1766,7 +1765,7 @@ async function startServer() {
 
         // Host broadcasts state to displays (One-way sync)
         if (type === 'host:broadcast') {
-          if (clientRole !== 'host' || !clientRoomId || !clientHostToken) {
+          if (clientRole !== 'host' || !clientRoomId || (!clientHostToken && !String(msg.token || ''))) {
             ws.send(JSON.stringify({ type: 'error', code: 'UNAUTHORIZED', message: 'You do not have Host permissions' }));
             return;
           }

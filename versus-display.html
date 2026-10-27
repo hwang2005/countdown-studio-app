@@ -97,6 +97,11 @@
           <span id="stage-room-text">Local Sync</span>
         </div>
 
+        <!-- Technical Sync Telemetry HUD (toggle with Hotkey D) -->
+        <div id="stage-sync-hud" class="stage-sync-hud" title="Technician sync telemetry (toggle with Hotkey D)">
+          <span id="stage-sync-hud-detail">Local Sync</span>
+        </div>
+
         <!-- 1. GIANT 30-SECOND STUDIO CLOCK RUNNING RIGHT IN THE BACKGROUND -->
         <div
           id="stage-clock-zone"
@@ -271,6 +276,14 @@
           </button>
           <button
             type="button"
+            id="btn-copy-display-link"
+            class="btn btn--sm btn--secondary"
+            title="Copy the direct link to this Stage Display with the current Room Code (?room=...). Bookmark it on the projection machine."
+          >
+            🔗 Copy Screen Link
+          </button>
+          <button
+            type="button"
             id="btn-hide-stage-controls"
             class="btn btn--sm btn--secondary"
             title="Hide control buttons from display (Key C)"
@@ -339,6 +352,13 @@
             placeholder="CD-8842"
             maxlength="10"
           />
+          <label
+            for="display-checkbox-autojoin"
+            style="display: flex; align-items: center; gap: 0.4rem; margin-top: 0.75rem; font-size: 0.8rem; color: var(--text-secondary); cursor: pointer;"
+          >
+            <input type="checkbox" id="display-checkbox-autojoin" />
+            Remember this screen: auto-rejoin the same room every time this display machine opens
+          </label>
         </div>
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <button type="button" id="btn-display-disconnect-room" class="btn btn--secondary btn--sm" hidden>
@@ -349,6 +369,21 @@
             <button type="button" id="btn-submit-display-join" class="btn btn--primary btn--sm">Connect</button>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Standby Screen: connected to the room but the Host has not broadcast yet -->
+    <div
+      id="stage-standby"
+      class="stage-standby"
+      hidden
+    >
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 0.9rem; text-align: center;">
+        <span class="status-dot status-dot--connecting" style="width: 14px; height: 14px;"></span>
+        <strong style="font-size: clamp(1.2rem, 3vw, 2.4rem); letter-spacing: 0.35em; color: var(--accent-primary);">STANDBY</strong>
+        <span style="font-size: clamp(0.8rem, 1.6cqw, 1.25rem); color: #94A3B8;">
+          Waiting for the first broadcast from the Host Console…
+        </span>
       </div>
     </div>
 

@@ -10,6 +10,9 @@
  * - Drag-and-drop custom background image & interactive drag/resize layout calibration (Hotkey 'B')
  * - Single-window quick host overlay toggle via hotkey 'H' & Fullscreen via hotkey 'F'
  * - Contestant buzzer hotkeys (Left Shift / Q for Player 1, Right Shift / P for Player 2)
+ * - Two-machine operation support: technician sync HUD with RTT & broadcast age (Hotkey 'D'),
+ *   STANDBY screen until the first host broadcast, auto-rejoin remembered room, and a
+ *   copyable ?room= bookmark link for the projection machine.
  */
 
 import {
@@ -44,6 +47,63 @@ let stageAudioWasRunning = false;
 let stageQuestionSnapshot = null;
 let lastStageBuzzerPlayer = null;
 let lastRenderedBoardKey = null;
+// Two-machine operation telemetry (projection screen + operator console)
+let hudPingMs = null;
+let lastRemoteStateAt = Date.now();
+let remoteFirstStateReceived = false;
+let hudVisible = localStorage.getItem('countdown_studio_stage_hud_v1') !== 'hidden';
+
+const DISPLAY_AUTOJOIN_KEY = 'countdown_studio_stage_autojoin_v1';
+
+/**
+ * Builds the direct link to this Stage Display for a room. Projection
+ * machines can keep the returned URL as a bookmark so the next show starts
+ * without retyping a room code.
+ * @param {string} roomId
+ * @returns {string}
+ */
+function buildDisplayRoomLink(roomId) {
+  const url = new URL('./versus-display.html', window.location.href);
+  if (roomId) url.searchParams.set('room', String(roomId).toUpperCase().trim());
+  return url.toString();
+}
+
+/**
+ * Shows or hides the STANDBY screen used between an authenticated
+ * display:join and the Host's first stage broadcast.
+ * @param {boolean} visible
+ */
+function setStandbyVisible(visible) {
+  const standby = document.getElementById('stage-standby');
+  if (!standby) return;
+  standby.hidden = !visible;
+  standby.style.display = visible ? 'flex' : 'none';
+}
+
+/**
+ * Updates the technician sync telemetry HUD: room, measured server round
+ * trip time (RTT heartbeat), and how stale the latest broadcast is.
+ */
+function refreshSyncHud() {
+  const hud = document.getElementById('stage-sync-hud');
+  const detail = document.getElementById('stage-sync-hud-detail');
+  if (!hud || !detail) return;
+  hud.style.display = hudVisible ? '' : 'none';
+  const roomId = syncChannel?.roomId || '';
+  if (!roomId) {
+    // Local BroadcastChannel/localStorage mode (same-machine fallback).
+    detail.textContent = 'Local Sync · same-machine transport';
+  } else if (syncChannel.isRemoteConnected) {
+    const ageSeconds = Math.max(0, Math.round((Date.now() - lastRemoteStateAt) / 1000));
+    const rttLabel = hudPingMs !== null ? `${hudPingMs}ms` : 'measuring…';
+    const stateLabel = remoteFirstStateReceived ? `last broadcast ${ageSeconds}s ago` : 'awaiting first broadcast';
+    detail.textContent = `Room ${roomId} · ${rttLabel} · ${stateLabel}`;
+  } else if (syncChannel.roomClosed) {
+    detail.textContent = `Room ${roomId} · closed`;
+  } else {
+    detail.textContent = `Connecting: ${roomId}…`;
+  }
+}
 
 function setRemoteDisplayGate(blocked, message = 'Authenticating display room...') {
   const canvas = document.getElementById('stage-canvas');
@@ -761,6 +821,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   syncChannel = new StageSyncChannel('display', (msg) => {
     if (msg.type === 'STATE_SYNC' && msg.payload) {
+      remoteFirstStateReceived = true;
+      lastRemoteStateAt = Date.now();
+      setStandbyVisible(false);
       renderStage(msg.payload);
     } else if (msg.type === 'STAGE_LAYOUT_SYNC' && msg.payload) {
       const next = saveStageLayout(msg.payload);
@@ -804,7 +867,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // A remote display must not reveal a locally cached match while its room is
   // being checked. This also prevents an old QR/link from showing stale data
   // when the room no longer exists.
-  if (requestedRoom) setRemoteDisplayGate(true);
+  const autoJoinRoom = !roomFromUrl
+    ? (localStorage.getItem(DISPLAY_AUTOJOIN_KEY) || '').toUpperCase().trim()
+    : '';
+  if (requestedRoom || autoJoinRoom) setRemoteDisplayGate(true);
 
   const persisted = syncChannel.recoverPersistedState();
   if (persisted && !requestedRoom) {
@@ -850,6 +916,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Listen to remote connection status changes
   syncChannel.onStatusChange((status) => {
+    if (typeof status.pingMs === 'number') hudPingMs = status.pingMs;
     if (status.roomClosed) {
       setRemoteDisplayGate(true, status.error || 'Room does not exist or was closed by Host.');
       localStorage.removeItem('countdown_studio_last_room');
@@ -893,12 +960,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // Technician telemetry loop: keeps the sync HUD and the STANDBY screen in
+  // step with connection state, RTT, and broadcast staleness.
+  const standbyGuard = () => {
+    const standbyShouldShow = Boolean(syncChannel?.roomId)
+      && syncChannel.isRemoteConnected
+      && !remoteFirstStateReceived
+      && !syncChannel.roomClosed;
+    setStandbyVisible(standbyShouldShow);
+  };
+  refreshSyncHud();
+  standbyGuard();
+  setInterval(() => {
+    refreshSyncHud();
+    standbyGuard();
+  }, 2000);
+
+  const autoJoinCheckbox = document.getElementById('display-checkbox-autojoin');
+
   const openJoinModal = () => {
     if (!joinModal) return;
     joinModal.hidden = false;
     joinModal.style.display = 'flex';
     if (inputRoomCode && !inputRoomCode.value) {
-      inputRoomCode.value = syncChannel.roomId || localStorage.getItem('countdown_studio_last_room') || '';
+      inputRoomCode.value = syncChannel.roomId
+        || localStorage.getItem(DISPLAY_AUTOJOIN_KEY)
+        || localStorage.getItem('countdown_studio_last_room')
+        || '';
+    }
+    if (autoJoinCheckbox) {
+      autoJoinCheckbox.checked = Boolean(localStorage.getItem(DISPLAY_AUTOJOIN_KEY));
     }
     inputRoomCode?.focus();
   };
@@ -924,6 +1015,14 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     localStorage.setItem('countdown_studio_last_room', raw);
+    if (autoJoinCheckbox?.checked) {
+      localStorage.setItem(DISPLAY_AUTOJOIN_KEY, raw);
+      showToast(`This display will auto-rejoin room ${raw}.`, 'info');
+    } else {
+      localStorage.removeItem(DISPLAY_AUTOJOIN_KEY);
+    }
+    remoteFirstStateReceived = false;
+    lastRemoteStateAt = Date.now();
     syncChannel.connectRemote(raw, 'display');
     closeJoinModal();
     showToast(`Connecting display to room ${raw}...`, 'info');
@@ -933,20 +1032,31 @@ document.addEventListener('DOMContentLoaded', () => {
     syncChannel.disconnectRemote();
     setRemoteDisplayGate(false);
     localStorage.removeItem('countdown_studio_last_room');
+    localStorage.removeItem(DISPLAY_AUTOJOIN_KEY);
+    remoteFirstStateReceived = false;
+    setStandbyVisible(false);
     closeJoinModal();
     showToast('Left online room. Switched to Local Sync mode.', 'info');
   });
 
-  // Check URL param ?room=CODE (e.g. from QR code or shared link). A saved
-  // room is intentionally not auto-connected here: static deployments do not
-  // have a /ws endpoint, and a stale room in localStorage would otherwise
-  // block the normal local Stage Display every time it is opened.
+  // Check URL param ?room=CODE (e.g. from QR code or shared link). Failing
+  // that, a display machine that ticked "remember this screen" auto-rejoins
+  // its saved room so a projection rig boots straight into show readiness.
+  // A plain saved room in localStorage is intentionally NOT auto-connected:
+  // static deployments do not have a /ws endpoint, and a stale room would
+  // otherwise block the normal local Stage Display every time it is opened.
   if (roomFromUrl) {
     const cleanRoom = roomFromUrl.toUpperCase().trim();
     localStorage.setItem('countdown_studio_last_room', cleanRoom);
     if (inputRoomCode) inputRoomCode.value = cleanRoom;
+    remoteFirstStateReceived = false;
     syncChannel.connectRemote(cleanRoom, 'display');
     showToast(`Auto-connecting to match room: ${cleanRoom}`, 'success');
+  } else if (autoJoinRoom) {
+    if (inputRoomCode) inputRoomCode.value = autoJoinRoom;
+    remoteFirstStateReceived = false;
+    syncChannel.connectRemote(autoJoinRoom, 'display');
+    showToast(`Auto-rejoining saved room: ${autoJoinRoom}`, 'success');
   } else if (inputRoomCode) {
     inputRoomCode.value = localStorage.getItem('countdown_studio_last_room') || '';
   }
@@ -991,10 +1101,42 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   document.getElementById('btn-dismiss-panic')?.addEventListener('click', dismissPanic);
 
+  // Copy Screen Link (for bookmarking the projection machine's stage URL)
+  document.getElementById('btn-copy-display-link')?.addEventListener('click', async () => {
+    const roomId = syncChannel?.roomId || (document.getElementById('display-input-room-code')?.value || '').toUpperCase().trim();
+    if (!roomId) {
+      showToast('Connect to a room first to copy its display link.', 'error');
+      return;
+    }
+    const link = buildDisplayRoomLink(roomId);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(link);
+      showToast(`Stage display link copied (${roomId}).`, 'success');
+    } else {
+      window.prompt('Copy this stage display link:', link);
+    }
+  });
+
   document.addEventListener('keydown', (e) => {
     const key = e.key.toLowerCase();
     if (e.key === 'Escape') {
       dismissPanic();
+      return;
+    }
+    if (key === '?') {
+      e.preventDefault();
+      showToast(
+        'Hotkeys — H: Host Console · B/L: Calibration · C: Controls · F: Fullscreen · D: Sync HUD · Q/P or Shift: Buzzers · Esc: Dismiss Blank',
+        'info'
+      );
+      return;
+    }
+    if (key === 'd') {
+      e.preventDefault();
+      hudVisible = !hudVisible;
+      localStorage.setItem('countdown_studio_stage_hud_v1', hudVisible ? 'visible' : 'hidden');
+      refreshSyncHud();
+      showToast(hudVisible ? 'Technician sync HUD shown.' : 'Technician sync HUD hidden.', 'info');
       return;
     }
     if (key === 'c') {

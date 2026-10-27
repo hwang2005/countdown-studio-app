@@ -11,6 +11,7 @@ const sync = read('js/net/sync.js');
 const host = read('js/app-host.js');
 const display = read('js/app-display.js');
 const displayCss = read('css/display.css');
+const displayHtml = read('versus-display.html');
 const roomMigration = read('database/versus-room-history.sql');
 const packageJson = read('package.json');
 const seedAccounts = read('scripts/seed-test-accounts.ts');
@@ -49,6 +50,13 @@ const checks = [
   ['Display avoids requesting state before the room socket exists', display.includes('if (!syncChannel.roomId)')],
   ['Host never persists the plaintext room PIN', !host.includes('countdown_studio_host_pin_v1')],
   ['history list rejects invalid date filters', server.includes('INVALID_HISTORY_FILTER')],
+  ['heartbeat measures server round trip time', sync.includes('REMOTE_HEARTBEAT_INTERVAL_MS') && sync.includes("msg.type === 'pong'") && sync.includes('this.lastRttMs')],
+  ['Display exposes a technician sync HUD', display.includes('stage-sync-hud') && display.includes('refreshSyncHud') && displayCss.includes('.stage-sync-hud')],
+  ['Display HUD shows measured RTT and broadcast staleness', display.includes('hudPingMs') && display.includes('last broadcast')],
+  ['Display shows a STANDBY screen until the first broadcast', displayHtml.includes('id="stage-standby"') && display.includes('setStandbyVisible')],
+  ['Projection machine can auto-rejoin its saved room', display.includes('DISPLAY_AUTOJOIN_KEY') && display.includes('Auto-rejoining saved room')],
+  ['Display can copy a ?room= bookmark link', display.includes('btn-copy-display-link') && display.includes('buildDisplayRoomLink')],
+  ['Technician hotkeys D and ? are wired on the display', display.includes("key === 'd'") && display.includes("key === '?'")],
 ];
 
 for (const [label, condition] of checks) {
