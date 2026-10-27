@@ -9,6 +9,15 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # WebSocket endpoint baked into the frontend at build time. The Render
+      # service URL is trusted by js/net/sync.js (*.onrender.com allowlist).
+      # Change this if the backend runs on a different hostname.
+      - key: VITE_STAGE_WS_URL
+        value: "wss://countdown-studio-app.onrender.com/ws"
+      # Browser origins allowed for HTTP/WebSocket access. Add extra frontend
+      # domains here (comma-separated) when hosting the frontend elsewhere.
+      - key: CORS_ORIGINS
+        value: "https://countdown-studio.id.vn,https://www.countdown-studio.id.vn"
       - key: MAX_DISPLAYS_PER_ROOM
         value: "20"
       - key: DATABASE_URL

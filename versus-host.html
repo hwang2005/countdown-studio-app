@@ -48,6 +48,18 @@
     })();
   </script>
 
+  <!-- === CẤU HÌNH WEBSocket BACKEND (Bước 3) ===
+    -->
+  <script>
+    (function () {
+      var host = window.location.hostname || '';
+      var prodDomains = ['countdown-studio.id.vn', 'www.countdown-studio.id.vn'];
+
+      if (prodDomains.includes(host)) {
+        window.__COUNTDOWN_STAGE_WS_URL__ = "wss://countdown-studio-app.onrender.com/ws";
+      }
+    })();
+  </script>
   <title>Versus Host Operator Console — Countdown Studio</title>
   <meta name="description"
     content="Operator control panel for Live Versus Stage Mode with BroadcastChannel projector sync, hotkeys, and live solvers." />

@@ -37,8 +37,15 @@ function isTrustedWsEndpoint(urlString, pageUrl) {
     if (hostname === pageUrl.hostname.toLowerCase()) return true;
     if (hostname === 'localhost' || hostname === '127.0.0.1') return true;
     if (hostname === 'countdown-studio.id.vn' || hostname === 'www.countdown-studio.id.vn') return true;
-    if (hostname === 'countdown-studio.onrender.com') return true;
-    if (hostname === 'countdown-studio-app.onrender.com') return true;
+    // Any Render service subdomain serves valid HTTPS, so trust *.onrender.com
+    // instead of hard-coding individual service names.
+    if (hostname === 'onrender.com' || hostname.endsWith('.onrender.com')) return true;
+    // Deployments may extend the allowlist at build time without editing source.
+    const trustedHosts = typeof import.meta !== 'undefined' && import.meta.env?.VITE_TRUSTED_WS_HOSTS;
+    if (typeof trustedHosts === 'string' &&
+      trustedHosts.split(',').map((h) => h.trim().toLowerCase()).filter(Boolean).includes(hostname)) {
+      return true;
+    }
     return false;
   } catch {
     return false;
