@@ -32,7 +32,9 @@ export function renderWordTray(container, pickedSlots = [], onRemoveSlot = null)
 
 /**
  * Renders the Dictionary Corner best-words panel after a Letters round,
- * with on-demand or automatic definition lookup from Free Dictionary API.
+ * showing the 10 longest words that can be formed from the drawn letters
+ * (all of them when fewer than 10 exist), with on-demand or automatic
+ * definition lookup from Free Dictionary API.
  *
  * @param {HTMLElement} container
  * @param {{ topWords: string[], maxLength: number, byLength: Record<number, string[]>, totalFound: number }} solverResult
@@ -54,7 +56,10 @@ export async function renderDictionaryCorner(container, solverResult, playerWord
 
   const title = document.createElement('h3');
   title.style.fontSize = '1.125rem';
-  title.textContent = 'Dictionary Corner — Best Available Words';
+  title.textContent =
+    candidateWords.length > 0
+      ? `Dictionary Corner — ${candidateWords.length} Longest Word${candidateWords.length === 1 ? '' : 's'}`
+      : 'Dictionary Corner — Best Available Words';
 
   const meta = document.createElement('div');
   meta.className = 'meta-inline';

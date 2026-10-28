@@ -343,7 +343,7 @@ function submitLettersRound() {
   );
   const points = scoreSingleWord(candidateWord, validation.valid);
   const solverResult = dictData
-    ? solveLettersRound(session.letters, dictData.trie, 12)
+    ? solveLettersRound(session.letters, dictData.trie, 10)
     : { topWords: [], maxLength: 0, byLength: {}, totalFound: 0 };
 
   const maxRoundPts = solverResult.maxLength === 9 ? 18 : solverResult.maxLength;

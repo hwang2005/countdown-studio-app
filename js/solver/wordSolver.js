@@ -8,7 +8,7 @@
  * - Populates an O(1) `Set<string>` for instant word validation and a `WordTrie` for solving
  * - Supports "standard" (full offline lexicon) and "strict-uk" (filters US-only "-ize"/"-or" variants
  *   where UK equivalents apply) dictionary modes
- * - Returns top words grouped by length for Dictionary Corner
+ * - Returns the 10 longest playable words for Dictionary Corner
  */
 
 import { WordTrie } from './trie.js';
@@ -31,16 +31,16 @@ const FALLBACK_WORDS = [
   'arise','around','arrive','art','artist','aside','astronomy','atlas','atom','attach','attack',
   'attempt','attention','audio','author','authority','automatic','autumn','available','avenue',
   'avoid','award','aware','awareness','balance','band','bank','base','basic','basin','basis',
-  'basket','bath','battle','beach','beam','bean','bear','Javelin','beard','beast','beat','beautiful',
+  'basket','bath','battle','beach','beam','bean','bear','javelin','beard','beast','beat','beautiful',
   'beauty','become','before','begin','beginning','behaviour','behind','belief','believe','belong',
-  'below','bench','benefit','Wait','berry','beside','best','better','between','beyond','bicycle',
+  'below','bench','benefit','wait','berry','beside','best','better','between','beyond','bicycle',
   'biography','bird','birth','birthday','black','blackbird','blade','blame','blank','blanket',
   'blast','blaze','blend','blind','block','blood','bloom','blue','blueprint','board','boardroom',
   'boat','body','bodyguard','boil','bold','bolt','bomb','bond','bone','book','bookstore','boost',
   'boot','border','born','borrow','boss','both','bother','bottle','bottom','boulevard','bound',
-  'bowl','box','boy','boyfriend','brain','els','branch','brand','brass','brave','bread','break',
+  'bowl','box','boy','boyfriend','brain','branch','brand','brass','brave','bread','break',
   'breakdown','breakfast','breath','breathing','breeze','brick','bride','bridge','brief','bright',
-  'brilliant','bring','broad','broadcast','Conundrum','broken','bronze','brook','broom','brother',
+  'brilliant','bring','broad','broadcast','conundrum','broken','bronze','brook','broom','brother',
   'brown','brush','bubble','bucket','budget','build','building','buildings','bulb','bulk','bull',
   'bullet','bunch','bundle','burden','burn','burst','bury','bush','business','busy','butter',
   'butterfly','button','cabin','cabinet','cable','cafe','cage','cake','calculate','calendar',
@@ -84,13 +84,13 @@ const FALLBACK_WORDS = [
   'decision','decisions','deck','declare','decline','decorate','decorated','decrease','dedicate',
   'dedicated','deep','deer','defeat','defend','defendant','defense','define','degree','delay',
   'delegate','delete','delicate','delicious','delight','delighted','deliver','delivered','delivery',
-  'demand','democracy','dense','Kite','dental','deny','depart','departure','depend','dependent',
-  'Smart','deposit','depth','deputy','derive','describe','described','desert','deserve','design',
+  'demand','democracy','dense','kite','dental','deny','depart','departure','depend','dependent',
+  'deposit','depth','deputy','derive','describe','described','desert','deserve','design',
   'designer','designers','desire','desk','despair','desperate','despite','destroy','destroyed',
   'detail','detect','detective','determine','develop','developed','developer','device','devil',
-  'devote','diagnosis','diagram','dial','End','diamond','diary','dictate','diet','differ',
+  'devote','diagnosis','diagram','dial','diamond','diary','dictate','diet','differ',
   'different','difficult','dig','dignity','dilemma','dimension','dine','dinner','direct',
-  'direction','director','directors','directory','dirt','dirty','disappear','disaster','Simon',
+  'direction','director','directors','directory','dirt','dirty','disappear','disaster',
   'discharge','disclose','discount','discover','discovery','discuss','discussed','disease','dish',
   'disk','dismiss','disorder','display','displayed','dispute','distance','distances','distant',
   'distinct','district','disturb','dive','diverse','diversity','divide','divine','division',
@@ -98,7 +98,7 @@ const FALLBACK_WORDS = [
   'dominated','donate','donkey','door','dose','double','doubt','dough','dove','down','dozen',
   'draft','drag','dragon','dragonfly','drain','drama','dramatic','draw','drawer','dream','dress',
   'drift','drill','drink','drive','driver','drop','drought','drum','dry','duck','due','dull',
-  'duplicate','Pre','during','dusk','dust','duty','Pre','dwarf','dwell','dynamic','dynamite',
+  'duplicate','during','dusk','dust','duty','dwarf','dwell','dynamic','dynamite',
   'each','eager','eagle','ear','early','earn','earphones','earth','earthworm','ease','east','easy',
   'eat','echo','eclipse','economic','economics','economist','economy','ecosystem','edge','edit',
   'edition','editor','editorial','educate','education','effect','effective','efficient','effort',
@@ -142,7 +142,7 @@ const FALLBACK_WORDS = [
   'garment','gas','gasp','gate','gather','gathering','gauge','gaze','gear','gem','gene','general',
   'generally','generate','generated','generator','generous','genius','genre','gentle','gentleman',
   'genuine','geography','geometric','geometry','germ','gesture','ghost','giant','gift','giggle',
-  'girl','give','glad','Chew','glamour','glamorous','glance','glare','glass','gleam','glide',
+  'girl','give','glad','chew','glamour','glamorous','glance','glare','glass','gleam','glide',
   'glimpse','globe','gloom','glory','glove','glow','glue','goal','goat','godfather','gold','golden',
   'golf','good','goose','gorgeous','gospel','gossip','govern','governor','gown','grab','grace',
   'grade','gradual','graduate','graduated','grain','grammar','grand','grant','grape','graph',
@@ -157,7 +157,7 @@ const FALLBACK_WORDS = [
   'haven','hawk','hazard','haze','head','headache','headaches','headline','headlines','heal',
   'health','healthy','heap','hear','heart','heartbeat','heat','heaven','heavy','hedge','heel',
   'height','heir','held','hell','hello','helmet','help','helpful','hem','hen','hence','herb',
-  'herd','here','heritage','hero','hesitate','hide','high','highlight','highway','ike','hike',
+  'herd','here','heritage','hero','hesitate','hide','high','highlight','highway','hike',
   'hill','hint','hip','hire','historian','historic','histories','history','hit','hive','hobby',
   'hockey','hold','hole','holiday','hollow','holy','home','honest','honey','honeymoon','honor',
   'honour','hood','hook','hope','hopeful','horizon','horn','horoscope','horror','horse','hospital',
@@ -211,26 +211,26 @@ const FALLBACK_WORDS = [
   'math','matrix','matter','mature','maximum','may','maybe','mayor','meadow','meal','mean',
   'meaning','meanwhile','measure','measuring','meat','mechanic','mechanics','mechanism','medal',
   'media','medical','medicine','medicines','medium','meet','meeting','melody','melon','melt',
-  'member','membrane','memoir','memorable','orial','memory','menace','mend','mental','mention',
+  'member','membrane','memoir','memorable','memory','menace','mend','mental','mention',
   'mentioned','mentor','menu','merchant','merchants','mercury','mercy','mere','merely','merge',
   'merit','merry','mesh','mess','message','messenger','metal','metabolic','metaphor','metaphors',
   'meteor','meter','method','metric','microfilm','microwave','mid','middle','midnight','midst',
   'might','mighty','migrate','mild','mile','milestone','military','milk','mill','millennia',
   'million','mind','mine','mineral','minimal','miniature','minimum','minister','ministers','minor',
   'minority','mint','minus','minute','miracle','miracles','mirror','misery','miserable','miss',
-  'missile','mission','mist','mistake','mix','mixture','moan','Moat','mobile','mock','mode',
+  'missile','mission','mist','mistake','mix','mixture','moan','moat','mobile','mock','mode',
   'model','moderate','modern','modest','modify','modular','moist','moisture','molecular','molecule',
   'molecules','mom','moment','momentary','momentum','monarch','monastery','monday','money','monitor',
   'monitored','monk','monkey','monster','month','monument','monuments','mood','moon','moonlight',
   'moral','more','moreover','morning','mortal','mortgage','mosque','mosquito','moss','most',
   'mostly','motel','mother','motion','motive','motor','mount','mountain','mountains','urn','mouse',
-  'mouth','move','movement','movements','movie','much','mud','uffin','mug','multiple','multiply',
+  'mouth','move','movement','movements','movie','much','mud','muffin','mug','multiple','multiply',
   'mum','municipal','murder','muscle','museum','mushroom','mushrooms','music','musical','musician',
-  'musicians','must','mustard','ut','mute','mutual','mystery','mysteries','myth','mythology',
+  'musicians','must','mustard','mute','mutual','mystery','mysteries','myth','mythology',
   'nail','naive','naked','name','nap','napkin','narrative','narrow','nasty','nation','national',
   'native','natural','nature','naughty','naval','navigate','navigator','navy','near','nearby',
   'nearly','neat','necessary','neck','necklace','need','needle','negative','neglect','negotiate',
-  'Sim','neighbour','neither','nephew','nerve','nervous','nest','net','network','networked',
+  'neighbour','neither','nephew','nerve','nervous','nest','net','network','networked',
   'neutral','never','new','newly','news','newspaper','next','nice','niche','nick','niece','night',
   'nightmare','nine','ninety','noble','nobody','nod','noise','noisy','nominate','nominated',
   'none','noon','nor','norm','normal','north','northeast','northern','northwest','nose','nostalgia',
@@ -247,14 +247,14 @@ const FALLBACK_WORDS = [
   'optical','optimism','option','optional','oral','orange','orbit','orchard','orchestra','order',
   'ordinary','organ','organic','organise','organised','organiser','organism','origin','original',
   'originals','ornament','orphan','other','otherwise','ought','ounce','our','ourselves','out',
-  'outburst','outbursts','outcome','outdoor','outdoors','outer','outfit','outing','Woven','auti',
+  'outburst','outbursts','outcome','outdoor','outdoors','outer','outfit','outing','woven',
   'outlet','outline','outlook','output','outrage','outside','outskirts','oval','oven','over',
   'overall','overcome','overlook','overnight','overseas','overtake','overthrow','overtime',
   'overview','overwhelm','owe','owl','own','owner','ownership','ox','oxygen','oyster','ozone',
   'pace','pack','package','packaging','packet','pad','paddle','page','pain','painful','paint',
   'painter','painting','paintings','pair','palace','pale','palm','pamphlet','pamphlets','pan',
   'pancake','panda','panel','panic','panorama','panoramic','pant','panther','pants','paper',
-  'paperback','paperwork','parachute','parade','paradise','adox','paragraph','parallel','parameter',
+  'paperback','paperwork','parachute','parade','paradise','paradox','paragraph','parallel','parameter',
   'parcel','pardon','parent','parenting','parish','park','part','partial','particle','particles',
   'partly','partner','partition','party','pass','passage','passenger','passion','passive','passport',
   'password','passwords','past','pasta','paste','pastor','pastry','pasture','pat','patch','patent',
@@ -278,7 +278,7 @@ const FALLBACK_WORDS = [
   'pollution','polo','polyester','pond','pony','pool','poor','pop','popular','populate','populated',
   'porch','pork','port','portable','portal','portfolio','portion','portrait','portraits','portray',
   'pose','position','positions','positive','possess','possessed','possible','possibly','post',
-  'postage','One','poster','postpone','pot','potato','potential','pottery','pouch','poultry',
+  'postage','one','poster','postpone','pot','potato','potential','pottery','pouch','poultry',
   'pound','pour','poverty','powder','power','powerful','practical','practice','practices','praise',
   'pray','prayer','preach','precede','precedent','precious','precise','precision','predator',
   'predict','predicted','prefer','pregnancy','pregnant','prejudice','premier','premiered','premise',
@@ -305,7 +305,7 @@ const FALLBACK_WORDS = [
   'railway','rain','rainbow','rainfall','rainy','raise','rake','rally','ram','ranch','random',
   'range','rank','rapid','rapidly','rare','rarely','rash','rat','rate','rather','ratio','ration',
   'rational','rattle','raw','ray','razor','reach','react','reaction','reactions','read','reader',
-  'readily','reading','ready','real','ise','realistic','reality','realize','really','realm','reap',
+  'readily','reading','ready','real','realise','realistic','reality','realize','really','realm','reap',
   'rear','reason','reasoning','rebel','rebellion','rebuild','recall','receipt','receive','receiving',
   'recent','recently','reception','recess','recession','recipe','recipient','reckon','recognise',
   'recognize','recommend','record','recording','recover','recovered','recruit','recruited',
@@ -343,7 +343,7 @@ const FALLBACK_WORDS = [
   'say','scale','scalp','scan','scandal','scar','scarce','scare','scarf','scarlet','scatter',
   'scattered','scenario','scenarios','scene','scenery','scent','schedule','scheduled','schedules',
   'scheme','scholar','scholarly','school','science','scientist','scissors','scold','scooter',
-  'scope','scorch','score','scorn','scorpion','scout','ow','scramble','scrap','scrape','scratch',
+  'scope','scorch','score','scorn','scorpion','scout','scramble','scrap','scrape','scratch',
   'scream','screen','screw','script','scroll','scrub','sculpture','sea','seal','seam','search',
   'searching','seaside','season','seasoning','seat','second','secondary','secret','secretary',
   'secretion','section','sections','sector','secure','security','sedan','sediment','see','seed',
@@ -367,7 +367,7 @@ const FALLBACK_WORDS = [
   'skip','skirt','skull','sky','slab','slack','slam','slander','slang','slap','slash','slate',
   'slave','slavery','slay','sled','sleek','sleep','sleepy','sleeve','sleigh','slender','slice',
   'slide','slight','slightly','slim','slime','sling','slip','slipper','slippery','slit','slogan',
-  'slope','slot','slow','slowly','slum','slumber','slump','ack','small','smart','smash','smell',
+  'slope','slot','slow','slowly','slum','slumber','slump','small','smart','smash','smell',
   'smile','smoke','smooth','smuggle','snack','snail','snake','snap','snatch','sneak','sneaker',
   'sneeze','sniff','snore','snow','soak','soap','soar','sob','sober','soccer','social','socialism',
   'socialist','societies','society','sock','socket','soda','sofa','soft','soften','software',
@@ -458,7 +458,7 @@ const FALLBACK_WORDS = [
   'violation','violence','violent','violently','violet','violin','virtual','virtually','virtue',
   'virus','visa','visible','vision','visionary','visit','visitor','visual','visualise','vital',
   'vitamin','vivid','vocal','vocation','voice','void','volcano','volcanoes','volley','voltage',
-  'volume','volunteer','vomit','vote','voter','Pouch','vouch','vowel','voyage','vulgar','wad',
+  'volume','volunteer','vomit','vote','voter','pouch','vouch','vowel','voyage','vulgar','wad',
   'wade','wafer','wag','wage','wagon','waist','wait','waiter','wake','walk','wall','wallet',
   'walnut','wander','want','war','ward','wardrobe','ware','warehouse','warfare','warm','warmth',
   'warn','warning','warrant','warrior','wash','wasp','waste','watch','water','waterfall','watershed',
@@ -577,12 +577,14 @@ export function buildCustomDictionary(words) {
 }
 
 /**
- * Finds the best (longest) words constructible from `letters` using the provided `trie`.
- * Returns only words at the maximum available length, plus a grouped breakdown.
+ * Finds the longest words constructible from `letters` using the provided `trie`.
+ * Returns up to `limit` words sorted by length descending (longest first), so
+ * Dictionary Corner always shows the 10 longest playable words for the draw.
+ * When fewer than `limit` words exist, all of them are returned.
  *
  * @param {string[]} letters 9 letter tiles
  * @param {WordTrie} trie
- * @param {number} [limit=12] Maximum number of longest words to return
+ * @param {number} [limit=10] Maximum number of longest words to return
  * @returns {{
  *   topWords: string[],
  *   maxLength: number,
@@ -590,16 +592,17 @@ export function buildCustomDictionary(words) {
  *   totalFound: number
  * }}
  */
-export function solveLettersRound(letters, trie, limit = 12) {
+export function solveLettersRound(letters, trie, limit = 10) {
   if (!trie || !Array.isArray(letters) || letters.length === 0) {
     return { topWords: [], maxLength: 0, byLength: {}, totalFound: 0 };
   }
 
   const allWords = trie.findAllSubwords(letters, 3);
   const maxLength = allWords.length > 0 ? allWords[0].length : 0;
-  // The Dictionary Corner is about the best available words: do not show
-  // shorter valid words when a longer valid word can be made.
-  const topWords = allWords.filter((word) => word.length === maxLength).slice(0, limit);
+  // Dictionary Corner shows the `limit` longest playable words. findAllSubwords
+  // already sorts by length descending (then alphabetically), so the top words
+  // are simply the first `limit` entries. If fewer exist, all are returned.
+  const topWords = allWords.slice(0, limit);
 
   /** @type {Record<number, string[]>} */
   const byLength = {};

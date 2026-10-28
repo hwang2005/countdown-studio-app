@@ -6985,6 +6985,7 @@ baric
 barilla
 barillas
 baring
+barista
 barite
 barites
 baritonal
@@ -9472,6 +9473,7 @@ bitchiest
 bitchily
 bitching
 bitchy
+bitcoin
 bite
 biteable
 biter
@@ -20198,6 +20200,7 @@ cosmology
 cosmonaut
 cosmos
 cosmoses
+cosplay
 cosponsor
 coss
 cossack
@@ -27562,6 +27565,7 @@ drizzling
 drizzly
 drogue
 drogues
+droid
 droit
 droits
 droll
@@ -29498,6 +29502,8 @@ emmet
 emmets
 emodin
 emodins
+emoji
+emojis
 emollient
 emolument
 emote
@@ -29505,6 +29511,7 @@ emoted
 emoter
 emoters
 emotes
+emoticon
 emoting
 emotion
 emotional
@@ -31038,6 +31045,7 @@ espies
 espionage
 esplanade
 espn
+esports
 espousal
 espousals
 espouse
@@ -37405,6 +37413,7 @@ gamelans
 gamelike
 gamely
 gameness
+gameplay
 gamer
 gamers
 games
@@ -42058,6 +42067,7 @@ hashheads
 hashing
 hashish
 hashishes
+hashtag
 haslet
 haslets
 hasp
@@ -44315,6 +44325,7 @@ hotrods
 hots
 hotshot
 hotshots
+hotspot
 hotspur
 hotspurs
 hotted
@@ -56054,9 +56065,11 @@ members
 membrane
 membraned
 membranes
+meme
 memento
 mementoes
 mementos
+memes
 memo
 memoir
 memoirist
@@ -56158,6 +56171,7 @@ mentalist
 mentality
 mentally
 mentation
+mentee
 menthene
 menthenes
 menthol
@@ -56879,6 +56893,7 @@ milkmaids
 milkman
 milkmen
 milks
+milkshake
 milkshed
 milksheds
 milksop
@@ -60517,6 +60532,7 @@ nestor
 nestors
 nests
 net
+netball
 nether
 netless
 netlike
@@ -65540,6 +65556,7 @@ paleface
 palefaces
 palely
 paleness
+paleo
 paleosol
 paleosols
 paler
@@ -67999,6 +68016,7 @@ phimoses
 phimosis
 phimotic
 phis
+phishing
 phiz
 phizes
 phlebitis
@@ -68083,6 +68101,7 @@ phot
 photic
 photics
 photo
+photobomb
 photocell
 photocopy
 photoed
@@ -68479,6 +68498,7 @@ pilafs
 pilar
 pilaster
 pilasters
+pilates
 pilau
 pilaus
 pilaw
@@ -69327,6 +69347,7 @@ playgirl
 playgirls
 playgoer
 playgoers
+playgroup
 playhouse
 playing
 playland
@@ -74178,6 +74199,7 @@ ramee
 ramees
 ramekin
 ramekins
+ramen
 ramenta
 ramentum
 ramequin
@@ -78922,6 +78944,7 @@ roadies
 roadkill
 roadkills
 roadless
+roadmap
 roads
 roadshow
 roadshows
@@ -79161,6 +79184,7 @@ romantic
 romantics
 romaunt
 romaunts
+romcom
 rome
 romeldale
 romeo
@@ -82216,6 +82240,7 @@ seagirt
 seagoing
 seagull
 seagulls
+seahorse
 seal
 sealable
 sealant
@@ -82674,6 +82699,8 @@ selfheal
 selfheals
 selfhood
 selfhoods
+selfie
+selfies
 selfing
 selfish
 selfishly
@@ -91053,6 +91080,7 @@ sudden
 suddenly
 suddens
 sudds
+sudoku
 sudor
 sudoral
 sudorific
@@ -92645,6 +92673,7 @@ tadpole
 tadpoles
 tads
 tae
+taekwondo
 tael
 taels
 taenia
@@ -102590,6 +102619,9 @@ vizoring
 vizors
 vizsla
 vizslas
+vlog
+vlogger
+vlogging
 vocable
 vocables
 vocably
@@ -103555,6 +103587,7 @@ watermen
 waters
 watershed
 waterside
+waterski
 waterway
 waterways
 waterweed
@@ -103786,6 +103819,7 @@ webers
 webfed
 webfeet
 webfoot
+webinar
 webless
 weblike
 weblog

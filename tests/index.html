@@ -285,7 +285,33 @@
 
         const solved = solveLettersRound(board, trie, 10);
         assert('WordTrie solver finds 9-letter word COUNTDOWN first', solved.topWords[0] === 'COUNTDOWN' && solved.maxLength === 9);
-        assert('Dictionary Corner only returns words at the maximum length', solved.topWords.every((word) => word.length === solved.maxLength));
+        assert(
+          'Dictionary Corner returns every word when fewer than 10 are available',
+          solved.topWords.length === 3 && solved.topWords.join(',') === 'COUNTDOWN,COUNT,NOT'
+        );
+        assert(
+          'Dictionary Corner sorts words longest-first across mixed lengths',
+          solved.topWords.every((word, i) => i === 0 || solved.topWords[i - 1].length >= word.length)
+        );
+
+        // More than 10 formable words -> capped at exactly the 10 longest
+        const richTrie = buildCustomDictionary([
+          'act', 'acts', 'cat', 'cats', 'cast', 'casts', 'scat', 'scats',
+          'tact', 'tacts', 'stat', 'stats', 'taste', 'tastes', 'state', 'states',
+          'set', 'sets', 'sea', 'seas', 'seat', 'seats', 'east', 'easts',
+          'teat', 'teats', 'test', 'tests'
+        ]).trie;
+        const richBoard = ['A', 'C', 'T', 'S', 'A', 'C', 'T', 'S', 'E'];
+        const capped = solveLettersRound(richBoard, richTrie, 10);
+        assert(
+          'Dictionary Corner caps the list at the 10 longest words',
+          capped.topWords.length === 10 && capped.totalFound > 10
+        );
+        assert(
+          'Dictionary Corner longest-first ordering holds when capped',
+          capped.topWords[0] === 'STATES' &&
+            capped.topWords.every((word, i) => i === 0 || capped.topWords[i - 1].length >= word.length)
+        );
       }
 
       // 3. Numbers round validation & edge cases
