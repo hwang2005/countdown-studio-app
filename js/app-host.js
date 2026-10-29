@@ -84,6 +84,9 @@ let dictData = null;
 const rng = createRNG();
 let letterStacks = createLetterStacks(rng);
 
+/** Tracks conundrum answers already used in the current match to avoid repeats. */
+let usedConundrumAnswers = new Set();
+
 const store = new GameStore(createInitialMatchState({ theme: settings.theme }));
 let syncChannel = null;
 let clock = null;
@@ -376,6 +379,7 @@ function startNewMatchFromSetup() {
   requestWakeLock();
 
   letterStacks = createLetterStacks(rng);
+  usedConundrumAnswers = new Set();
   const selectedSchedule = preset === 'custom' ? hostCustomSchedule : SCHEDULE_PRESETS[preset]?.rounds;
   const schedule = getScheduleRounds(preset, selectedSchedule);
   if (schedule.length < 1 || schedule.length > 25) {
@@ -404,7 +408,7 @@ function startNewMatchFromSetup() {
   });
 
   if (firstType === 'C') {
-    const con = pickConundrum(dictData ? dictData.conundrums : [], rng, dictData?.wordSet);
+    const con = pickConundrum(dictData ? dictData.conundrums : [], rng, dictData?.wordSet, usedConundrumAnswers);
     fresh.conundrumAnswer = con.answer;
     fresh.conundrumAnswers = con.answers;
     fresh.conundrumScrambled = con.scrambled;
@@ -470,7 +474,7 @@ function configureRoundAtIndex(roundIdx, logText) {
   };
 
   if (rType === 'C') {
-    const con = pickConundrum(dictData ? dictData.conundrums : [], rng, dictData?.wordSet);
+    const con = pickConundrum(dictData ? dictData.conundrums : [], rng, dictData?.wordSet, usedConundrumAnswers);
     patch.conundrumAnswer = con.answer;
     patch.conundrumAnswers = con.answers;
     patch.conundrumScrambled = con.scrambled;

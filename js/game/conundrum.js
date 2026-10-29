@@ -10,7 +10,7 @@
  * - Handles dual-contestant buzzer lockouts and high-resolution timestamp adjudication.
  */
 
-import { shuffle, randomInt } from '../core/rng.js';
+import { shuffle } from '../core/rng.js';
 
 export const CONUNDRUM_POINTS = 10;
 export const HINT_PENALTY_POINTS = 3;
@@ -162,19 +162,57 @@ export function scrambleConundrum(word, rng = Math.random) {
 
 /**
  * Picks a random conundrum from the curated array and returns the answer + scramble.
+ * Guarantees that the chosen answer is not already in `usedAnswers` (if provided),
+ * so consecutive Conundrum rounds within a single match/session never repeat.
+ *
  * @param {(string|object)[]} conundrumList
  * @param {() => number} [rng=Math.random]
  * @param {Iterable<string>|null} [wordList=null] Dictionary used to build the source phrase
+ * @param {Set<string>|null} [usedAnswers=null] Set of answer strings already used this match/session
  * @returns {{ answer: string, answers: string[], scrambled: string, sourceWords: string[]|null }}
  */
-export function pickConundrum(conundrumList, rng = Math.random, wordList = null) {
+export function pickConundrum(conundrumList, rng = Math.random, wordList = null, usedAnswers = null) {
   const pool =
     Array.isArray(conundrumList) && conundrumList.length > 0
       ? conundrumList
       : ['COUNTDOWN', 'BROADCAST', 'CHALLENGE', 'ARCHITECT', 'EDUCATION'];
-  const idx = randomInt(0, pool.length - 1, rng);
-  const entry = normalizeConundrumEntry(pool[idx]) || normalizeConundrumEntry('COUNTDOWN');
+
+  // Build a shuffled index order so we can walk through candidates without
+  // repeating a previously-used answer. Fall back to any entry if all are used.
+  const indices = Array.from({ length: pool.length }, (_, i) => i);
+  // Fisher-Yates shuffle via rng for a fair pick order
+  for (let i = indices.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
+
+  let chosenEntry = null;
+  for (const idx of indices) {
+    const candidate = normalizeConundrumEntry(pool[idx]);
+    if (!candidate) continue;
+    // Accept this candidate if no used-set is supplied, or if none of its
+    // accepted answers have been played already this match/session.
+    if (!usedAnswers || !candidate.answers.some((a) => usedAnswers.has(a))) {
+      chosenEntry = candidate;
+      break;
+    }
+  }
+
+  // Fallback: all pool entries have been used – just pick the first valid one.
+  if (!chosenEntry) {
+    for (const idx of indices) {
+      const candidate = normalizeConundrumEntry(pool[idx]);
+      if (candidate) { chosenEntry = candidate; break; }
+    }
+  }
+
+  const entry = chosenEntry || normalizeConundrumEntry('COUNTDOWN');
   const answer = entry.answer;
+  // Mark this answer (and all its aliases) as used for the current match/session.
+  if (usedAnswers) {
+    for (const a of entry.answers) usedAnswers.add(a);
+  }
+
   const sourceWords = entry.sourceWords || findConundrumSourceWords(answer, wordList, rng);
   const scrambled = sourceWords ? sourceWords.join('') : scrambleConundrum(answer, rng);
   return { answer, answers: entry.answers, scrambled, sourceWords };

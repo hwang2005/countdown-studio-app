@@ -97,6 +97,7 @@ let session = {
   conundrumTiles: [],
   revealedHintIndices: new Set(),
   hintsUsed: 0,
+  usedConundrumAnswers: new Set(), // tracks answers used this session to avoid repeats
 
   // Stats accumulators for session summary
   stats: {
@@ -164,6 +165,7 @@ function startDrillSession(drillMode) {
   session.totalScore = 0;
   session.maxPossibleScore = 0;
   session.stacks = createLetterStacks(rng);
+  session.usedConundrumAnswers = new Set();
   session.stats = {
     bestWord: '',
     wordsSubmitted: 0,
@@ -651,7 +653,7 @@ async function submitNumbersRound() {
  * ========================================================================== */
 function initConundrumRound() {
   const { answer, answers, scrambled } = pickConundrum(
-    dictData ? dictData.conundrums : [], rng, dictData?.wordSet
+    dictData ? dictData.conundrums : [], rng, dictData?.wordSet, session.usedConundrumAnswers
   );
   session.conundrumAnswer = answer;
   session.conundrumAnswers = answers;
