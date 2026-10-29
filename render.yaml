@@ -42,8 +42,10 @@ services:
       # address on the Resend-verified domain. Set values in the dashboard.
       - key: SMTP_HOST
         value: "smtp.resend.com"
+      # 2465 = Resend SSL alternate port. Free-tier Render web services block
+      # outbound SMTP ports 25/465/587; 2465 and 2587 are unaffected.
       - key: SMTP_PORT
-        value: "465"
+        value: "2465"
       - key: SMTP_SECURE
         value: "true"
       - key: SMTP_USER
@@ -56,3 +58,6 @@ services:
         value: "Countdown Studio Support"
       - key: APP_URL
         value: "https://www.countdown-studio.id.vn"
+      # Validity window of a password reset link, in minutes (default 30).
+      - key: RESET_LINK_TTL_MINUTES
+        value: "30"

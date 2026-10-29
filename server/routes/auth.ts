@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import type { Express, Request, Response } from 'express';
 import type { PoolClient } from 'pg';
 import { getDbPool } from '../db.js';
+import { readPositiveInteger } from '../env.js';
 import { isMailConfigured, sendMail } from '../../mailer.js';
 import { checkRateLimit, getClientIp, DUMMY_HASH, hashPassword, verifyPassword } from '../security.js';
 import {
@@ -173,7 +174,10 @@ export function registerAuthRoutes(app: Express) {
         // Single-use opaque token; only its SHA-256 hash is stored.
         const token = crypto.randomBytes(32).toString('base64url');
         const tokenHash = crypto.createHash('sha256').update(token).digest();
-        const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+        // Validity window is configurable via RESET_LINK_TTL_MINUTES (minutes,
+        // default 30, capped at 1440 = 1 day as a safety net).
+        const ttlMinutes = Math.min(readPositiveInteger(process.env.RESET_LINK_TTL_MINUTES, 30), 1440);
+        const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
 
         const connection = await getDbPool().connect();
         try {
@@ -204,12 +208,12 @@ export function registerAuthRoutes(app: Express) {
           subject: 'Reset your Countdown Studio password',
           text:
             'We received a request to reset the password for your Countdown Studio account.\n\n' +
-            `Open this link within 30 minutes to choose a new password:\n${resetLink}\n\n` +
+            `Open this link within ${ttlMinutes} ${ttlMinutes === 1 ? 'minute' : 'minutes'} to choose a new password:\n${resetLink}\n\n` +
             'If you did not request this, you can safely ignore this email — your current password keeps working.\n',
           html:
             '<p>We received a request to reset the password for your <strong>Countdown Studio</strong> account.</p>' +
             `<p><a href="${resetLink}" style="display:inline-block;padding:12px 22px;border-radius:10px;background:#2563eb;color:#ffffff;text-decoration:none;font-weight:600">Choose a new password</a></p>` +
-            '<p style="color:#6b7280">This link is single-use and expires in 30 minutes.</p>' +
+            `<p style="color:#6b7280">This link is single-use and expires in ${ttlMinutes} minutes.</p>` +
             '<p style="color:#6b7280">If you did not request it, ignore this email — your current password keeps working.</p>',
         });
       }
