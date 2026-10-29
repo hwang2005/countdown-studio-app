@@ -210,7 +210,7 @@
               <div class="auth-field">
                 <div class="auth-label">
                   <label for="login-password">Password</label>
-                  <a href="#help" id="link-forgot-pass" class="auth-label-help">Forgot credentials?</a>
+                  <a href="./forgot-password.html" id="link-forgot-pass" class="auth-label-help">Forgot credentials?</a>
                 </div>
                 <div class="auth-input-wrapper">
                   <input
@@ -781,9 +781,13 @@
         setMode('login');
       });
 
-      linkForgotPass.addEventListener('click', (e) => {
-        e.preventDefault();
-        showAlert('Password recovery is handled locally or via server administrator. If testing locally, you can register a new username instantly.', 'info');
+      linkForgotPass.addEventListener('click', () => {
+        // Carry over a typed email so the recovery form can prefill it.
+        const identifier = (document.getElementById('login-identifier')?.value || '').trim();
+        if (/^\S+@\S+\.\S+$/.test(identifier)) {
+          linkForgotPass.href = `./forgot-password.html?email=${encodeURIComponent(identifier)}`;
+        }
+        // Otherwise the plain ./forgot-password.html href navigates as-is.
       });
 
       // Show / Hide password toggles

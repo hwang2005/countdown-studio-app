@@ -1275,12 +1275,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   let currentRoomId = localStorage.getItem('countdown_studio_host_room_v1') || generateRandomRoomCode();
-  // Never persist the plaintext PIN. The server default ('0000') matches the
-  // value a host gets when the PIN field is left empty.
-  let currentPin = '0000';
+  // Never persist the plaintext PIN. A PIN is mandatory: a room cannot be
+  // opened without one, so there is no default fallback PIN value.
+  let currentPin = '';
 
   if (inputRoomCode) inputRoomCode.value = currentRoomId;
-  if (inputPin) inputPin.value = currentPin;
+  if (inputPin) inputPin.value = '';
 
   function renderRemoteQR(roomId) {
     const cleanRoom = (roomId || currentRoomId).toUpperCase().trim();
@@ -1405,7 +1405,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       showToast('Please enter a Room Code.', 'error');
       return;
     }
-    if (pin && !/^\d{4,8}$/.test(pin)) {
+    if (!pin) {
+      showToast('Host PIN is required (4 to 8 digits).', 'error');
+      inputPin?.focus();
+      return;
+    }
+    if (!/^\d{4,8}$/.test(pin)) {
       showToast('Host PIN must contain 4 to 8 digits.', 'error');
       inputPin?.focus();
       return;

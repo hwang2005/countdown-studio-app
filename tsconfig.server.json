@@ -10,5 +10,5 @@
     "rootDir": ".",
     "sourceMap": true
   },
-  "include": ["server.ts"]
+  "include": ["server.ts", "mailer.ts", "server/**/*.ts"]
 }

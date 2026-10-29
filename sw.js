@@ -5,7 +5,7 @@
  * while full offline capability is preserved when disconnected.
  */
 
-const CACHE_NAME = 'countdown-studio-v2.2.8';
+const CACHE_NAME = 'countdown-studio-v2.2.9';
 
 const CORE_ASSETS = [
   './',
@@ -13,6 +13,7 @@ const CORE_ASSETS = [
   './solo.html',
   './versus-display.html',
   './versus-host.html',
+  './admin.html',
   './tests/index.html',
   './manifest.webmanifest',
   './assets/icon.svg',
@@ -50,6 +51,12 @@ const CORE_ASSETS = [
   './js/app-solo.js',
   './js/app-display.js',
   './js/app-host.js',
+  './js/app-admin.js',
+  './js/admin/api.js',
+  './js/admin/dashboard.js',
+  './js/admin/users.js',
+  './js/admin/archives.js',
+  './js/admin/roles.js',
   './data/letterDistribution.json',
   './data/conundrums.json',
   './data/words.txt',

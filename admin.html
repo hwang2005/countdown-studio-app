@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en" data-theme="classic-blue">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Console — Countdown Studio</title>
+  <meta name="description"
+    content="Restricted administration console for Countdown Studio: user provisioning, account lifecycle, dashboard statistics, archived match inspection, and role/permission management." />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" type="image/svg+xml" href="./assets/icon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Fraunces:opsz,wght@9..144,700;9..144,800&family=JetBrains+Mono:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="./css/theme.css" />
+  <link rel="stylesheet" href="./css/base.css" />
+  <link rel="stylesheet" href="./css/components.css" />
+  <link rel="stylesheet" href="./css/admin.css" />
+</head>
+
+<body>
+  <a href="#admin-main" class="skip-link">Skip to admin console</a>
+
+  <header class="top-bar">
+    <a href="./index.html" class="top-bar__brand">Countdown Studio</a>
+    <nav class="top-bar__nav" aria-label="Primary navigation">
+      <a href="./index.html" class="top-bar__link">Studio Hub</a>
+    </nav>
+    <div class="top-bar__action">
+      <button type="button" id="admin-btn-refresh-all" class="btn btn--secondary btn--sm" title="Reload every admin module">
+        Refresh All
+      </button>
+    </div>
+  </header>
+
+  <main id="admin-main" class="admin-layout">
+
+    <!-- ── Sidebar navigation ──────────────────────────────────────────── -->
+    <aside class="admin-sidebar" aria-label="Admin modules">
+      <div class="panel">
+        <div class="admin-nav-title">Admin Console</div>
+        <button type="button" id="admin-nav-dashboard" class="admin-nav-link is-active" data-admin-tab="dashboard"
+          aria-current="page">
+          <span class="admin-nav-icon" aria-hidden="true">📊</span> Dashboard
+        </button>
+        <button type="button" id="admin-nav-users" class="admin-nav-link" data-admin-tab="users">
+          <span class="admin-nav-icon" aria-hidden="true">👥</span> Users
+        </button>
+        <button type="button" id="admin-nav-archives" class="admin-nav-link" data-admin-tab="archives">
+          <span class="admin-nav-icon" aria-hidden="true">🗄️</span> Match Archives
+        </button>
+        <button type="button" id="admin-nav-roles" class="admin-nav-link" data-admin-tab="roles">
+          <span class="admin-nav-icon" aria-hidden="true">🛡️</span> Roles &amp; Permissions
+        </button>
+        <p class="admin-nav-hint">
+          Restricted to <strong>Administrator</strong> accounts. All actions run
+          against the live authentication database.
+        </p>
+      </div>
+    </aside>
+
+    <div class="admin-content">
+
+      <!-- ── Module: Dashboard ─────────────────────────────────────────── -->
+      <section id="admin-panel-dashboard" class="panel" data-admin-panel="dashboard" aria-labelledby="admin-dashboard-title">
+        <div class="admin-panel-header">
+          <div>
+            <h2 id="admin-dashboard-title">Statistics Dashboard</h2>
+            <p id="admin-dashboard-status" class="meta-inline">Loading platform statistics…</p>
+          </div>
+          <button type="button" id="admin-btn-reload-stats" class="btn btn--secondary btn--sm">Reload Statistics</button>
+        </div>
+
+        <div id="admin-stats-grid" class="admin-stats-grid" aria-live="polite"></div>
+
+        <div id="admin-stats-detail" class="admin-breach" aria-live="polite"></div>
+      </section>
+
+      <!-- ── Module: Users ────────────────────────────────────────────── -->
+      <section id="admin-panel-users" class="panel" data-admin-panel="users" aria-labelledby="admin-users-title" hidden>
+        <div class="admin-panel-header">
+          <div>
+            <h2 id="admin-users-title">User Management</h2>
+            <p id="admin-users-status" class="meta-inline">Loading accounts…</p>
+          </div>
+          <button type="button" id="admin-btn-provision" class="btn btn--primary btn--sm"
+            data-modal-open="modal-provision-user" title="Create a new individual or organization account">
+            ＋ Provision Account
+          </button>
+        </div>
+
+        <div class="admin-filter-row" style="margin-bottom: var(--space-3)">
+          <label class="sr-only" for="admin-users-search">Search username, email, or display name</label>
+          <input type="search" id="admin-users-search" class="input-field" placeholder="Search username / email / name"
+            maxlength="64" />
+          <select id="admin-users-role-filter" class="input-field" aria-label="Filter by role">
+            <option value="">All roles</option>
+            <option value="individual">Individual</option>
+            <option value="organization">Organization</option>
+            <option value="admin">Admin</option>
+          </select>
+          <select id="admin-users-status-filter" class="input-field" aria-label="Filter by status">
+            <option value="">All statuses</option>
+            <option value="active">Active</option>
+            <option value="suspended">Suspended</option>
+            <option value="deleted">Deleted</option>
+            <option value="pending">Pending</option>
+            <option value="banned">Banned</option>
+          </select>
+          <button type="button" id="admin-btn-apply-user-filters" class="btn btn--secondary btn--sm">Apply Filters</button>
+          <button type="button" id="admin-btn-clear-user-filters" class="btn btn--secondary btn--sm">Clear</button>
+        </div>
+
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Account</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Last Login</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="admin-users-tbody"></tbody>
+          </table>
+        </div>
+        <p id="admin-users-error" class="admin-inline-error" aria-live="polite"></p>
+        <div class="admin-pagination">
+          <span id="admin-users-range">—</span>
+          <div style="display:flex; gap:.4rem">
+            <button type="button" id="admin-btn-users-prev" class="btn btn--secondary btn--sm" disabled>← Previous</button>
+            <button type="button" id="admin-btn-users-next" class="btn btn--secondary btn--sm" disabled>Next →</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Module: Match Archives ───────────────────────────────────── -->
+      <section id="admin-panel-archives" class="panel" data-admin-panel="archives" aria-labelledby="admin-archives-title" hidden>
+        <div class="admin-panel-header">
+          <div>
+            <h2 id="admin-archives-title">Archived Match Inspector</h2>
+            <p id="admin-archives-status" class="meta-inline">Administrators can inspect every organization's archived matches.</p>
+          </div>
+          <button type="button" id="admin-btn-reload-archives" class="btn btn--secondary btn--sm">Reload Archives</button>
+        </div>
+
+        <div class="admin-filter-row" style="margin-bottom: var(--space-3)">
+          <input type="text" id="admin-archives-room" class="input-field font-mono" placeholder="Room code"
+            maxlength="32" style="max-width: 140px; text-transform: uppercase" aria-label="Filter archived matches by room code" />
+          <input type="date" id="admin-archives-from" class="input-field font-mono" style="max-width: 150px"
+            aria-label="Filter archived matches from this date" />
+          <input type="date" id="admin-archives-to" class="input-field font-mono" style="max-width: 150px"
+            aria-label="Filter archived matches until this date" />
+          <button type="button" id="admin-btn-apply-archive-filters" class="btn btn--secondary btn--sm">Apply</button>
+          <button type="button" id="admin-btn-clear-archive-filters" class="btn btn--secondary btn--sm">Clear</button>
+        </div>
+
+        <div id="admin-archives-list" class="admin-archive-list" aria-live="polite"></div>
+        <button type="button" id="admin-btn-more-archives" class="btn btn--secondary btn--sm"
+          style="margin-top: 0.65rem" hidden>Load older matches</button>
+        <div style="display:flex; justify-content: space-between; gap: .6rem; flex-wrap: wrap; margin-top: var(--space-3)">
+          <pre id="admin-archives-detail" class="host-history-detail" style="flex:1; min-height: 8rem"
+            aria-live="polite">Select an archived match to inspect its full snapshot (includes round secrets — do not share).</pre>
+        </div>
+        <p id="admin-archives-error" class="admin-inline-error" aria-live="polite"></p>
+      </section>
+
+      <!-- ── Module: Roles & Permissions ──────────────────────────────── -->
+      <section id="admin-panel-roles" class="panel" data-admin-panel="roles" aria-labelledby="admin-roles-title" hidden>
+        <div class="admin-panel-header">
+          <div>
+            <h2 id="admin-roles-title">Roles &amp; Permissions Matrix</h2>
+            <p id="admin-roles-status" class="meta-inline">Changes take effect the next time an affected user signs in.</p>
+          </div>
+          <div style="display:flex; gap:.45rem">
+            <button type="button" id="admin-btn-save-roles" class="btn btn--primary btn--sm" hidden>Save Changes</button>
+            <button type="button" id="admin-btn-reload-roles" class="btn btn--secondary btn--sm">Reload Matrix</button>
+          </div>
+        </div>
+        <p style="font-size: .85rem; color: var(--text-muted); margin-bottom: var(--space-3)">
+          Permissions are seeded by <code>database/auth-rbac.sql</code> and evaluated server-side on every API call.
+          The <strong>admin</strong> role is intentionally locked to protect administrator access.
+        </p>
+        <div id="admin-roles-matrix" class="admin-perm-matrix" aria-live="polite"></div>
+        <p id="admin-roles-error" class="admin-inline-error" aria-live="polite"></p>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ── Modal: provision account ──────────────────────────────────────── -->
+  <div id="modal-provision-user" class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Provision a new account" hidden>
+    <form id="admin-form-provision" class="modal-card" style="max-width:460px">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:var(--space-3)">
+        <h2 style="font-size:1.25rem; margin:0">Provision Account</h2>
+        <button type="button" class="btn btn--sm btn--secondary" data-modal-close="modal-provision-user">Close</button>
+      </div>
+      <div class="admin-form-grid">
+        <label>Role
+          <select id="admin-provision-role" class="input-field">
+            <option value="organization" selected>Organization (Host Console + Stage Display)</option>
+            <option value="individual">Individual (Solo Practice)</option>
+          </select>
+        </label>
+        <label>Username
+          <input id="admin-provision-username" class="input-field" required pattern="[a-zA-Z0-9_.\-]{3,32}"
+            title="3-32 characters: letters, digits, _ . -" autocomplete="off" />
+        </label>
+        <label>Email
+          <input id="admin-provision-email" class="input-field" type="email" required autocomplete="off" />
+        </label>
+        <label>Display Name
+          <input id="admin-provision-display" class="input-field" required maxlength="64" autocomplete="off" />
+        </label>
+        <label>Initial Password (8-128 characters)
+          <input id="admin-provision-password" class="input-field" type="password" required minlength="8" maxlength="128"
+            autocomplete="new-password" />
+        </label>
+      </div>
+      <p id="admin-provision-error" class="admin-inline-error" aria-live="polite"></p>
+      <p style="font-size:.78rem; color:var(--text-muted)">
+        No session is issued for the new account — the account owner signs in themselves. Admin accounts cannot be
+        provisioned here (use the registration bootstrap code).
+      </p>
+      <button type="submit" class="btn btn--primary">Create Account</button>
+    </form>
+  </div>
+
+  <!-- ── Modal: edit account ───────────────────────────────────────────── -->
+  <div id="modal-edit-user" class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Edit account" hidden>
+    <form id="admin-form-edit" class="modal-card" style="max-width:520px">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:var(--space-3)">
+        <h2 style="font-size:1.25rem; margin:0">Edit Account</h2>
+        <button type="button" class="btn btn--sm btn--secondary" data-modal-close="modal-edit-user">Close</button>
+      </div>
+      <div id="admin-edit-detail" class="admin-detail-grid"></div>
+      <div class="admin-form-grid">
+        <label>Status
+          <select id="admin-edit-status" class="input-field">
+            <option value="active">Active</option>
+            <option value="suspended">Suspended (blocks sign-in immediately)</option>
+          </select>
+        </label>
+        <label>Role
+          <select id="admin-edit-role" class="input-field">
+            <option value="individual">Individual</option>
+            <option value="organization">Organization</option>
+            <option value="admin">Admin</option>
+          </select>
+        </label>
+        <label>Display Name
+          <input id="admin-edit-display" class="input-field" required maxlength="64" />
+        </label>
+      </div>
+      <p id="admin-edit-error" class="admin-inline-error" aria-live="polite"></p>
+      <div style="display:flex; gap:.5rem; flex-wrap:wrap; justify-content:flex-end; margin-top:var(--space-3)">
+        <button type="button" id="admin-btn-open-reset" class="btn btn--secondary btn--sm">Reset Password…</button>
+        <button type="button" id="admin-btn-delete-user" class="btn btn--danger btn--sm">Delete Account</button>
+        <button type="submit" class="btn btn--primary btn--sm">Save Changes</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ── Modal: reset password ─────────────────────────────────────────── -->
+  <div id="modal-reset-password" class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Reset account password" hidden>
+    <form id="admin-form-reset" class="modal-card" style="max-width:440px">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:var(--space-3)">
+        <h2 style="font-size:1.25rem; margin:0">Reset Password</h2>
+        <button type="button" class="btn btn--sm btn--secondary" data-modal-close="modal-reset-password">Close</button>
+      </div>
+      <p id="admin-reset-target" style="font-size:.85rem; color:var(--text-secondary); margin-bottom:var(--space-3)"></p>
+      <label style="display:grid; gap:.3rem; font-size:.8rem; font-weight:600">New password (8-128 characters)
+        <input id="admin-reset-password" class="input-field" type="text" required minlength="8" maxlength="128"
+          autocomplete="off" spellcheck="false" />
+      </label>
+      <button type="button" id="admin-btn-generate-password" class="btn btn--secondary btn--sm"
+        style="margin-top:.5rem">Generate Strong Password</button>
+      <p style="font-size:.78rem; color:var(--text-muted); margin-top:var(--space-2)">
+        The password is visible so you can hand it over securely; the account owner should change it afterwards.
+        Failed attempts and lockouts are cleared automatically.
+      </p>
+      <p id="admin-reset-error" class="admin-inline-error" aria-live="polite"></p>
+      <button type="submit" class="btn btn--primary">Reset Password</button>
+    </form>
+  </div>
+
+  <script type="module" src="./js/app-admin.js"></script>
+</body>
+
+</html>

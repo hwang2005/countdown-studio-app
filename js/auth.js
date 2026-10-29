@@ -9,6 +9,13 @@ const TOKEN_KEY = 'countdown_studio_auth_token_v1';
 const USER_KEY = 'countdown_studio_auth_user_v1';
 const path = location.pathname.toLowerCase();
 
+/** Escapes text for safe interpolation into innerHTML templates. */
+function esc(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[ch]));
+}
+
 export const ROUTE_PERMISSIONS = {
   'solo.html': 'solo:practice',
   'versus-host.html': 'host:operations',
@@ -21,6 +28,8 @@ const requiredPermission = path.endsWith('/solo.html')
   ? 'host:operations'
   : path.endsWith('/versus-display.html')
   ? 'stage:display'
+  : path.endsWith('/admin.html')
+  ? 'user:manage'
   : null;
 
 export const token = () => localStorage.getItem(TOKEN_KEY);
@@ -83,6 +92,9 @@ export function getRequiredPermissionForHref(href) {
   if (cleanHref.endsWith('versus-display.html') || cleanHref.endsWith('/versus-display')) {
     return 'stage:display';
   }
+  if (cleanHref.endsWith('admin.html') || cleanHref.endsWith('/admin')) {
+    return 'user:manage';
+  }
   return null;
 }
 
@@ -105,6 +117,13 @@ export function getPermissionMetadata(permission) {
         roleName: 'Tournament Organiser (Organization) or Admin',
         featureName: '16:9 Stage Display',
         badgeText: 'Organization',
+      };
+    case 'user:manage':
+    case 'role:manage':
+      return {
+        roleName: 'Administrator (user:manage / role:manage)',
+        featureName: 'Admin Console',
+        badgeText: 'Admin',
       };
     default:
       return {
@@ -134,8 +153,8 @@ export function showAccessDeniedToast(meta) {
     <div style="flex:1">
       <div style="font-weight:700; color:#fecaca; margin-bottom:2px;">Access Restricted</div>
       <div style="font-size:0.8125rem; color:#cbd5e1; line-height:1.45;">
-        The feature <strong>${meta.featureName}</strong> is restricted to <strong>${meta.roleName}</strong>.
-        Your current account (${currentRoleName}) does not have permission.
+        The feature <strong>${esc(meta.featureName)}</strong> is restricted to <strong>${esc(meta.roleName)}</strong>.
+        Your current account (${esc(currentRoleName)}) does not have permission.
       </div>
       ${!user ? `
         <div style="margin-top:0.5rem">
@@ -398,9 +417,9 @@ function addAuthUi() {
     const container = document.createElement('div');
     container.className = 'auth-user-container';
     container.innerHTML = `
-      <div class="auth-user-chip" title="Account: ${user.username} [${roleBadge}]">
-        <span class="auth-user-chip__role">${roleBadge}</span>
-        <span class="auth-user-chip__name">${user.displayName || user.username}</span>
+      <div class="auth-user-chip" title="Account: ${esc(user.username)} [${esc(roleBadge)}]">
+        <span class="auth-user-chip__role">${esc(roleBadge)}</span>
+        <span class="auth-user-chip__name">${esc(user.displayName || user.username)}</span>
       </div>
       <button type="button" class="btn btn--secondary btn--sm auth-signout-btn" title="Sign out of Countdown Studio">
         Sign Out

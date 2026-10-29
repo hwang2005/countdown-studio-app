@@ -51,6 +51,7 @@ Once running, navigate to:
 - **Server Health Endpoint:** `http://localhost:3000/api/health`
 - **Room Inspection Endpoint:** `http://localhost:3000/api/room/:roomId`
 - **Versus History API:** `GET /api/versus/history` and `GET /api/versus/history/:archiveId`
+- **Admin Console:** `http://localhost:3000/admin.html` (requires `user:manage`)
 - **Admin User Provisioning API:** `POST /api/admin/users` and `GET /api/admin/users` (admin only)
 
 ### Authentication & roles
@@ -319,6 +320,7 @@ countdown-studio-app/
 │   ├── base.css                # CSS resets, typography, and container layout
 │   ├── components.css          # Buttons, forms, panels, badges, modal dialogs
 │   ├── display.css             # 16:9 stage layout, tiles, clock, and calibration
+│   ├── admin.css               # Admin console layout, tables, and permission matrix
 │   └── animations.css          # Clock hand animations, tile flips, and transitions
 │
 ├── js/                         # ES2022+ Application Logic
@@ -327,6 +329,14 @@ countdown-studio-app/
 │   ├── app-host.js             # Host Console match orchestration and controls
 │   ├── app-display.js          # Stage Display receiver, calibration, and audio splash
 │   ├── i18n.js                 # English and Vietnamese UI localisation
+│   ├── app-admin.js            # Admin console orchestrator and tab guard
+│   │
+│   ├── admin/                  # Admin Console feature modules
+│   │   ├── api.js              # Authenticated admin request helpers
+│   │   ├── dashboard.js        # Statistics dashboard module
+│   │   ├── users.js            # User provisioning & lifecycle module
+│   │   ├── archives.js         # Archived match inspector module
+│   │   └── roles.js            # Role/permission matrix module
 │   │
 │   ├── core/                   # Platform & Infrastructure
 │   │   ├── audio.js            # Web Audio API sound synthesizer
@@ -412,6 +422,25 @@ supports room-code and date-range filters plus incremental "Load older matches" 
 When role permissions are loaded, the database tables seeded by `database/auth-rbac.sql`
 (`permissions` and `role_permissions`) are authoritative; the static fallback in `server.ts`
 (`ROLE_PERMISSIONS`) is only used when those tables have not been seeded.
+
+### Admin Console (`admin.html`)
+
+Administrators sign in at `/admin.html` to operate the full Admin Console (a
+`user:manage` account is required; individual players and organizations are
+redirected home). The console bundles four modules built with vanilla ES
+modules, sharing the existing design system (`css/admin.css`) and auth client:
+
+| Module | Highlights | Main API |
+| :--- | :--- | :--- |
+| 📊 **Dashboard** | Account totals by role/status, 7/30-day growth, live rooms with connected displays, archived match counts | `GET /api/admin/stats` |
+| 👥 **Users** | Searchable & paginated account table, provisioning of Individual/Organization accounts, suspend/activate, role changes, password resets, soft delete | `GET/POST /api/admin/users`, `GET/PATCH/DELETE /api/admin/users/:publicId`, `POST /api/admin/users/:publicId/reset-password` |
+| 🗄️ **Match Archives** | Inspector for every organization's archived matches with room-code + date filters, snapshot JSON view and download | `GET /api/versus/history`, `GET /api/versus/history/:archiveId` |
+| 🛡️ **Roles & Permissions** | Matrix of roles × permissions with member counts, editable per role (the `admin` role is locked), static fallback shown when RBAC tables are unseeded | `GET /api/admin/rbac`, `PUT /api/admin/rbac/roles/:roleCode/permissions` |
+
+Safety rails applied server-side on every call: suspension takes effect
+immediately (only `active` users authenticate), administrators cannot change
+their own role/status or delete themselves, `admin` role permissions cannot be
+edited via the matrix, and rate limits protect provisioning and password resets.
 
 ### Admin provisioning of Organization accounts
 

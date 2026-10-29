@@ -20,6 +20,11 @@ services:
         value: "https://countdown-studio.id.vn,https://www.countdown-studio.id.vn"
       - key: MAX_DISPLAYS_PER_ROOM
         value: "20"
+      # Content-Security-Policy ships in Report-Only mode by default so the
+      # production page keeps working while violations are reviewed. Flip this
+      # to "enforce" once the browser console shows no CSP reports anymore.
+      - key: CSP_MODE
+        value: "report-only"
       - key: DATABASE_URL
         sync: false
       - key: DB_SSL
@@ -32,3 +37,22 @@ services:
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
+      # Resend SMTP relay for transactional email (Forgot credentials). The
+      # password is a Resend API key (re_...); SMTP_FROM_EMAIL must be an
+      # address on the Resend-verified domain. Set values in the dashboard.
+      - key: SMTP_HOST
+        value: "smtp.resend.com"
+      - key: SMTP_PORT
+        value: "465"
+      - key: SMTP_SECURE
+        value: "true"
+      - key: SMTP_USER
+        value: "resend"
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM_EMAIL
+        value: "no-reply@countdown-studio.id.vn"
+      - key: SMTP_SENDER_NAME
+        value: "Countdown Studio Support"
+      - key: APP_URL
+        value: "https://www.countdown-studio.id.vn"
