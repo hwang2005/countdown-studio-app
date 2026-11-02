@@ -1,0 +1,62 @@
+# Semi-automatic Cloudflare failover.
+#
+# Every 2 minutes (and on demand) checks the production health endpoint.
+# If Cloudflare's proxy is down (5xx/timeout) it flips the "@" and "www" DNS
+# records to DNS Only so traffic goes straight to the Render origin; once the
+# site is healthy again for 3 consecutive checks it re-enables the proxy.
+#
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   CF_ZONE_ID, CF_API_TOKEN, CF_RECORD_ID_APEX, CF_RECORD_ID_WWW
+#
+# To stop automatic failover (back to manual mode): disable this workflow or
+# remove the schedule trigger. To test a run: Actions -> Cloudflare Failover
+# -> Run workflow.
+
+name: Cloudflare Failover
+
+on:
+  schedule:
+    - cron: '*/2 * * * *'
+  workflow_dispatch: {}
+
+permissions: {}
+
+concurrency:
+  group: cloudflare-failover
+  cancel-in-progress: false
+
+jobs:
+  failover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      # Restore the most recent state file (.cf-failover-state.json) so the
+      # consecutive fail/success counters survive between runs.
+      - name: Restore state
+        uses: actions/cache/restore@v4
+        with:
+          path: .cf-failover-state.json
+          key: cf-failover-state-${{ github.run_number }}
+          restore-keys: |
+            cf-failover-state-
+
+      - name: Check health and failover if needed
+        env:
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_RECORD_ID_APEX: ${{ secrets.CF_RECORD_ID_APEX }}
+          CF_RECORD_ID_WWW: ${{ secrets.CF_RECORD_ID_WWW }}
+          HEALTH_URL: https://countdown-studio.id.vn/api/health
+          STATE_FILE: .cf-failover-state.json
+        run: node scripts/cloudflare-failover.mjs
+
+      # The state file was updated in place; actions/cache@v4 (post step) saves
+      # it under this run's key, and future runs restore it via restore-keys.
+      - name: Save state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .cf-failover-state.json
+          key: cf-failover-state-${{ github.run_number }}

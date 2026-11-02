@@ -19,6 +19,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 async function startServer() {
   const app = express();
   app.disable('x-powered-by');
+  // Behind Cloudflare (reverse proxy): trust the first hop so req.ip resolves
+  // to the real client IP from CF-Connecting-IP / X-Forwarded-For instead of
+  // Cloudflare's edge IP (keeps logs, rate-limiting and secure cookies correct).
+  app.set('trust proxy', 1);
 
   applySecurityHeaders(app);
   applyCors(app);

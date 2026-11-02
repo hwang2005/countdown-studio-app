@@ -14,3 +14,4 @@ database/*
 !database/auth-rbac.sql
 !database/versus-room-history.sql
 .playwright-cli/
+docs/
