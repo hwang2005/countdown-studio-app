@@ -98,17 +98,22 @@ export function registerAuthRoutes(app: Express) {
         return res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Invalid credentials.' });
       }
 
+      const MAX_LOGIN_ATTEMPTS = 5;
+
       const isValid = await verifyPassword(password, record.password_hash);
       if (!isValid) {
         const nextAttempts = (record.failed_attempts || 0) + 1;
-        if (nextAttempts >= 5) {
+        // Chỉ khoá tài khoản sau MAX_LOGIN_ATTEMPTS lần sai LIÊN TIẾP.
+        // failed_attempts sẽ được reset về 0 khi đăng nhập thành công (xem bên dưới),
+        // nên các lần sai xen kẽ với lần đăng nhập thành công sẽ không được tính chung.
+        if (nextAttempts >= MAX_LOGIN_ATTEMPTS) {
           await getDbPool().query(
             `UPDATE user_credentials SET failed_attempts=$1, locked_until=NOW() + INTERVAL '15 minutes' WHERE user_id=$2`,
             [nextAttempts, record.id]
           );
           return res.status(423).json({
             error: 'ACCOUNT_LOCKED',
-            message: 'Account has been temporarily locked for 15 minutes due to 5 consecutive failed login attempts.',
+            message: `Tài khoản đã bị tạm khoá trong 15 phút do đăng nhập sai ${MAX_LOGIN_ATTEMPTS} lần liên tiếp.`,
           });
         } else {
           await getDbPool().query(
@@ -117,7 +122,7 @@ export function registerAuthRoutes(app: Express) {
           );
           return res.status(401).json({
             error: 'INVALID_CREDENTIALS',
-            message: `Invalid credentials. ${5 - nextAttempts} attempt(s) remaining.`,
+            message: `Sai thông tin đăng nhập. Còn lại ${MAX_LOGIN_ATTEMPTS - nextAttempts} lần thử trước khi tài khoản bị khoá.`,
           });
         }
       }
