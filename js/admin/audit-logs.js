@@ -27,6 +27,7 @@ const EVENT_TONE = {
   password_reset_requested: 'is-warn',
   password_reset_completed: 'is-valid',
   account_locked: 'is-invalid',
+  account_unlocked: 'is-valid',
   role_granted: 'is-admin',
   role_revoked: 'is-admin',
   email_verified: 'is-valid',

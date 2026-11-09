@@ -84,6 +84,10 @@ function renderTable() {
             ` : `
               <button type="button" class="btn btn--secondary btn--sm" data-user-action="edit" data-user-id="${esc(item.public_id)}"
                 ${self ? 'disabled title="Administrators cannot modify their own account"' : ''}>Edit</button>
+              ${(item.status === 'suspended' || Number(item.failed_attempts || 0) > 0 || item.locked_until) ? `
+                <button type="button" class="btn btn--secondary btn--sm" data-user-action="unlock" data-user-id="${esc(item.public_id)}"
+                  ${self ? 'disabled title="Administrators cannot unlock their own account"' : ''}>Unlock &amp; Activate</button>
+              ` : ''}
               <button type="button" class="btn btn--secondary btn--sm" data-user-action="reset" data-user-id="${esc(item.public_id)}" data-user-name="${esc(item.username)}"
                 ${self ? 'disabled title="Sign out and use your own password change flow"' : ''}>Password</button>
             `}
@@ -242,6 +246,25 @@ async function restoreUser(publicId) {
   }
 }
 
+async function unlockUser(publicId) {
+  if (isSelf(publicId)) return;
+  const item = state.items.find((candidate) => String(candidate.public_id) === String(publicId));
+  const username = item?.username || item?.display_name || 'this account';
+  const confirmed = await confirmDialog(
+    `Clear the login lockout for @${username} and activate the account if it is suspended?`,
+    'Unlock Account',
+    false,
+  );
+  if (!confirmed) return;
+  try {
+    const data = await adminRequest(`/api/admin/users/${encodeURIComponent(publicId)}/unlock`, { method: 'POST' });
+    showToast(data.message || 'Account unlocked.', 'success');
+    loadUsers();
+  } catch (error) {
+    document.getElementById('admin-users-error').textContent = error.message;
+  }
+}
+
 /* ── Reset password ───────────────────────────────────────────────────────── */
 
 function openResetModalFromRow(publicId, username) {
@@ -319,6 +342,7 @@ export function initUsers() {
       if (userAction === 'edit') openEditModal(userId);
       if (userAction === 'reset') openResetModalFromRow(userId, userName);
       if (userAction === 'restore') restoreUser(userId);
+      if (userAction === 'unlock') unlockUser(userId);
     }
   });
   document.getElementById('admin-btn-open-reset')?.addEventListener('click', () => {

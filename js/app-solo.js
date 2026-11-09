@@ -17,7 +17,8 @@
 import {
   loadSettings,
   applySettingsToDOM,
-  recordSoloSession
+  recordSoloSession,
+  saveGameLog
 } from './core/storage.js';
 import { createRNG, getTodaySeed, shuffle, randomInt } from './core/rng.js';
 import { audio } from './core/audio.js';
@@ -875,6 +876,28 @@ async function finishSession() {
     conundrumsPlayed: session.stats.conundrumsPlayed,
     conundrumsSolved: session.stats.conundrumsSolved
   });
+
+  await saveGameLog(
+    {
+      score: session.totalScore,
+      maxPossible: session.maxPossibleScore
+    },
+    {
+      mode: session.drillMode.toUpperCase(),
+      roundsCount: session.schedule.length,
+      sessionData: {
+        bestWord: session.stats.bestWord,
+        wordsSubmitted: session.stats.wordsSubmitted,
+        validWords: session.stats.validWords,
+        totalWordLength: session.stats.totalWordLength,
+        numbersPlayed: session.stats.numbersPlayed,
+        numbersExact: session.stats.numbersExact,
+        conundrumsPlayed: session.stats.conundrumsPlayed,
+        conundrumsSolved: session.stats.conundrumsSolved,
+        roundLog: session.stats.roundLog
+      }
+    }
+  );
 
   const scoreEl = document.getElementById('summary-final-score');
   if (scoreEl) {

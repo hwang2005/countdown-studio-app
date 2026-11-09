@@ -11,6 +11,7 @@ import { registerAdminRoutes } from './server/routes/admin.js';
 import { registerAuthRoutes } from './server/routes/auth.js';
 import { registerCareerRoutes } from './server/routes/career.js';
 import { registerVersusRoutes } from './server/routes/versus.js';
+import { registerGameLogsRoutes } from './server/routes/game-logs.js';
 import { createWebSocketGateway } from './server/ws.js';
 import { hydratePersistentRooms, startRoomMaintenance } from './server/rooms.js';
 
@@ -37,6 +38,7 @@ async function startServer() {
   registerAuthRoutes(app);
   registerCareerRoutes(app);
   registerVersusRoutes(app);
+  registerGameLogsRoutes(app);
 
   const server = http.createServer(app);
   createWebSocketGateway(server);

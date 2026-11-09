@@ -95,9 +95,9 @@ export function registerAdminRoutes(app: Express) {
       );
       const listValues = [...values, limit, offset];
       const { rows } = await getDbPool().query<any>(
-        `SELECT u.public_id, u.created_at, u.updated_at, e.email, p.display_name,
+        `SELECT u.public_id, u.username, u.created_at, u.updated_at, e.email, p.display_name,
                 r.code role, s.code status,
-                c.last_login_at, c.locked_until
+                c.last_login_at, c.locked_until, c.failed_attempts
            FROM users u
            JOIN user_emails e ON e.user_id=u.id AND e.is_primary=TRUE
            JOIN user_profiles p ON p.user_id=u.id
@@ -141,6 +141,89 @@ export function registerAdminRoutes(app: Express) {
       console.error('[Admin users] Detail failed:', error);
       return res.status(503).json({ error: 'ADMIN_DATABASE_UNAVAILABLE' });
     }
+  });
+
+  // Clear login lockout and restore a suspended account. Other terminal or
+  // onboarding statuses are intentionally never changed by this operation.
+  app.post('/api/admin/users/:publicId/unlock', requirePermission('user:manage'), async (req: Request, res: Response) => {
+    const actor = (req as any).user as AuthUser;
+    const publicId = String(req.params.publicId || '').trim();
+    if (!/^[0-9a-fA-F-]{32,36}$/.test(publicId)) {
+      return res.status(400).json({ error: 'INVALID_USER_ID', message: 'The user identifier must be a UUID.' });
+    }
+    if (publicId === actor.publicId) {
+      return res.status(400).json({ error: 'SELF_MODIFICATION', message: 'Administrators cannot unlock their own account through user management.' });
+    }
+
+    let connection: PoolClient | undefined;
+    try {
+      connection = await getDbPool().connect();
+      await connection.query('BEGIN');
+      const target = await connection.query<any>(
+        `SELECT u.id, s.code AS status, c.user_id AS credential_user_id,
+                c.failed_attempts, c.locked_until
+           FROM users u
+           JOIN user_statuses s ON s.id=u.status_id
+           LEFT JOIN user_credentials c ON c.user_id=u.id
+          WHERE u.public_id=$1
+          FOR UPDATE OF u`,
+        [publicId]
+      );
+      const row = target.rows[0];
+      if (!row) {
+        await connection.query('ROLLBACK');
+        return res.status(404).json({ error: 'USER_NOT_FOUND' });
+      }
+      if (row.status !== 'active' && row.status !== 'suspended') {
+        await connection.query('ROLLBACK');
+        return res.status(409).json({ error: 'ACCOUNT_STATUS_NOT_UNLOCKABLE', message: 'Banned, deleted, and pending accounts cannot be unlocked by this operation.' });
+      }
+      if (!row.failed_attempts && !row.locked_until && row.status !== 'suspended') {
+        await connection.query('ROLLBACK');
+        return res.status(409).json({ error: 'ACCOUNT_NOT_LOCKED', message: 'This account is not locked or suspended.' });
+      }
+      const nextStatus = row.status === 'suspended' ? 'active' : row.status;
+      if (row.credential_user_id) {
+        await connection.query(
+          `UPDATE user_credentials SET failed_attempts=0, locked_until=NULL WHERE user_id=$1`,
+          [row.id]
+        );
+      }
+      if (row.status === 'suspended') {
+        await connection.query(
+          `UPDATE users SET status_id=(SELECT id FROM user_statuses WHERE code='active'), updated_at=NOW()
+            WHERE id=$1`,
+          [row.id]
+        );
+      }
+      await connection.query(
+        `INSERT INTO auth_events (event_type_id, user_id, ip_address, user_agent, details)
+         SELECT id, $2, $3::inet, $4, $5::jsonb
+           FROM auth_event_types WHERE code='account_unlocked'`,
+        [row.id, getClientIp(req), String(req.get('user-agent') || '').slice(0, 255), JSON.stringify({
+          actor_user_id: actor.id,
+          actor_public_id: actor.publicId,
+          target_public_id: publicId,
+          previous_status: row.status,
+          next_status: nextStatus,
+          previous_failed_attempts: row.failed_attempts || 0,
+          previous_locked_until: row.locked_until || null,
+        })]
+      );
+      await connection.query('COMMIT');
+      return res.json({
+        message: row.status === 'suspended' ? 'Account unlocked and activated.' : 'Account login lockout cleared.',
+        userId: publicId,
+        previousStatus: row.status,
+        status: nextStatus,
+        failedAttempts: 0,
+        lockedUntil: null,
+      });
+    } catch (error) {
+      if (connection) await connection.query('ROLLBACK');
+      console.error('[Admin users] Unlock failed:', error);
+      return res.status(503).json({ error: 'ADMIN_DATABASE_UNAVAILABLE' });
+    } finally { connection?.release(); }
   });
 
   // Administrative lifecycle changes: account status, role, and display name.

@@ -398,6 +398,40 @@ export async function importStatsJSON(jsonStr) {
 }
 
 /**
+ * Records a completed game session to the database for the authenticated user.
+ * Works for all roles (individual, organization, admin). Best-effort: never
+ * throws to the caller so game flow is not interrupted by DB issues.
+ * @param {object} sessionResult - numeric score summary
+ * @param {object} meta - { mode, matchId?, roomCode?, roundsCount?, sessionData? }
+ * @returns {Promise<boolean>}
+ */
+export async function saveGameLog(sessionResult = {}, meta = {}) {
+  const user = currentUser();
+  if (!user) return false;
+  const mode = String(meta.mode || '').trim();
+  if (!mode) return false;
+  try {
+    const response = await apiFetch('/api/game/logs', {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mode,
+        matchId: meta.matchId || null,
+        roomCode: meta.roomCode || null,
+        score: Number(sessionResult.score || 0),
+        maxPossible: Number(sessionResult.maxPossible || 0),
+        roundsCount: Number(meta.roundsCount || sessionResult.roundsCount || 0),
+        sessionData: meta.sessionData || {}
+      })
+    });
+    return response.ok;
+  } catch (err) {
+    console.warn('[Storage] Failed to save game log:', err);
+    return false;
+  }
+}
+
+/**
  * Saves Versus match state keyed by match ID so display refreshes recover seamlessly.
  * @param {object} state
  */
