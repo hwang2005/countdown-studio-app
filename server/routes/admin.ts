@@ -5,6 +5,7 @@ import type { AppRole, AuthUser } from '../types.js';
 import { checkRateLimit, getClientIp, hashPassword } from '../security.js';
 import { insertUserAccount, loadUser, publicUser, requirePermission, ROLE_PERMISSIONS } from '../users.js';
 import { rooms } from '../rooms.js';
+import { isMailConfigured, sendMail } from '../../mailer.js';
 
 // Authentication and RBAC API. Organization accounts are provisioned by an
 // administrator; public registration intentionally exposes only Individual
@@ -409,5 +410,109 @@ export function registerAdminRoutes(app: Express) {
       console.error('[Admin RBAC] Update failed:', error);
       return res.status(503).json({ error: 'ADMIN_DATABASE_UNAVAILABLE' });
     } finally { connection?.release(); }
+  });
+
+  // ── Audit log viewer ────────────────────────────────────────────────────────
+  // Read-only inspection of auth_events (logins, password resets, role changes,
+  // account suspensions, etc.). Degrades gracefully if the table is missing.
+  app.get('/api/admin/audit-logs', requirePermission('user:manage'), async (req: Request, res: Response) => {
+    const limit = Math.min(100, Math.max(1, Number.parseInt(String(req.query.limit || '50'), 10) || 50));
+    const offset = Math.max(0, Number.parseInt(String(req.query.offset || '0'), 10) || 0);
+    const eventFilter = String(req.query.event || '').trim();
+    const userFilter = String(req.query.user || '').trim();
+    const from = String(req.query.from || '').trim();
+    const to = String(req.query.to || '').trim();
+
+    const filters: string[] = [];
+    const values: unknown[] = [];
+    if (eventFilter) { values.push(eventFilter); filters.push(`et.code=$${values.length}`); }
+    if (userFilter) { values.push(`%${userFilter}%`); filters.push(`(u.username ILIKE $${values.length} OR u.email ILIKE $${values.length})`); }
+    if (from) { values.push(from); filters.push(`ae.created_at >= $${values.length}::timestamptz`); }
+    if (to) { values.push(to); filters.push(`ae.created_at < ($${values.length}::date + INTERVAL '1 day')`); }
+    const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+
+    try {
+      const countResult = await getDbPool().query<{ count: string }>(
+        `SELECT COUNT(*)::text AS count
+           FROM auth_events ae
+           LEFT JOIN users u ON u.id = ae.user_id
+           LEFT JOIN auth_event_types et ON et.id = ae.event_type_id
+          ${where}`, values
+      );
+      const listValues = [...values, limit, offset];
+      const { rows } = await getDbPool().query<any>(
+        `SELECT ae.id, ae.created_at, et.code AS event_type, u.username, u.email,
+                ae.ip_address, ae.user_agent, ae.details
+           FROM auth_events ae
+           LEFT JOIN users u ON u.id = ae.user_id
+           LEFT JOIN auth_event_types et ON et.id = ae.event_type_id
+          ${where} ORDER BY ae.created_at DESC LIMIT $${listValues.length - 1} OFFSET $${listValues.length}`,
+        listValues
+      );
+      return res.json({
+        items: rows.map((row) => ({
+          id: row.id,
+          created_at: row.created_at,
+          event_type: row.event_type || 'unknown',
+          username: row.username || '—',
+          email: row.email || '—',
+          ip_address: row.ip_address,
+          user_agent: row.user_agent,
+          details: row.details || {},
+        })),
+        total: Number(countResult.rows[0]?.count || 0),
+        limit,
+        offset,
+      });
+    } catch (error) {
+      console.error('[Admin audit-logs] List failed:', error);
+      return res.status(503).json({ error: 'ADMIN_AUDIT_LOGS_UNAVAILABLE' });
+    }
+  });
+
+  // ── System configuration (read-only safe flags) ─────────────────────────────
+  app.get('/api/admin/config', requirePermission('user:manage'), async (_req: Request, res: Response) => {
+    return res.json({
+      config: {
+        adminRegistrationEnabled: Boolean(process.env.ADMIN_REGISTRATION_CODE),
+        googleAuthEnabled: true,
+        googleClientIdConfigured: Boolean(process.env.GOOGLE_CLIENT_ID),
+        mailConfigured: isMailConfigured(),
+        cspMode: process.env.CSP_MODE || 'report-only',
+        nodeEnv: process.env.NODE_ENV || 'development',
+        tokenTtlSeconds: Number(process.env.AUTH_TOKEN_TTL_SECONDS) || 60 * 60 * 24 * 7,
+        resetLinkTtlMinutes: Math.min(Number(process.env.RESET_LINK_TTL_MINUTES) || 30, 1440),
+        pinLockMaxAttempts: Number(process.env.PIN_LOCK_MAX_ATTEMPTS) || 5,
+        pinLockWindowMinutes: Math.round((Number(process.env.PIN_LOCK_WINDOW_MS) || 15 * 60 * 1000) / 60000),
+      },
+      generatedAt: new Date().toISOString(),
+    });
+  });
+
+  // ── SMTP test connection ───────────────────────────────────────────────────
+  app.post('/api/admin/test-smtp', requirePermission('user:manage'), async (req: Request, res: Response) => {
+    const clientIp = getClientIp(req);
+    if (!checkRateLimit(clientIp, 'admin_smtp_test', 10, 10 * 60 * 1000)) {
+      return res.status(429).json({ error: 'TOO_MANY_REQUESTS', message: 'Too many SMTP test requests. Please try again after 10 minutes.' });
+    }
+    if (!isMailConfigured()) {
+      return res.status(503).json({ error: 'MAIL_NOT_CONFIGURED', message: 'SMTP is not configured on the server.' });
+    }
+    const to = String((req.body || {}).to || '').trim();
+    if (!to || !/^\S+@\S+\.\S+$/.test(to)) {
+      return res.status(400).json({ error: 'INVALID_EMAIL', message: 'A valid recipient email is required.' });
+    }
+    try {
+      const info = await sendMail({
+        to,
+        subject: 'Countdown Studio — SMTP Test',
+        text: 'This is a test email from Countdown Studio to confirm your SMTP configuration is working.',
+        html: '<p>This is a test email from <strong>Countdown Studio</strong> to confirm your SMTP configuration is working.</p>',
+      });
+      return res.json({ message: 'Test email sent successfully.', messageId: info.messageId, accepted: info.accepted });
+    } catch (error) {
+      console.error('[Admin test-smtp] Failed:', error);
+      return res.status(503).json({ error: 'MAIL_SEND_FAILED', message: 'Could not send test email. Please check SMTP settings.' });
+    }
   });
 }

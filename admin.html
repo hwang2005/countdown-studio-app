@@ -54,6 +54,12 @@
         <button type="button" id="admin-nav-roles" class="admin-nav-link" data-admin-tab="roles">
           <span class="admin-nav-icon" aria-hidden="true">🛡️</span> Roles &amp; Permissions
         </button>
+        <button type="button" id="admin-nav-audit" class="admin-nav-link" data-admin-tab="audit">
+          <span class="admin-nav-icon" aria-hidden="true">📜</span> Audit Logs
+        </button>
+        <button type="button" id="admin-nav-system" class="admin-nav-link" data-admin-tab="system">
+          <span class="admin-nav-icon" aria-hidden="true">⚙️</span> System Settings
+        </button>
         <p class="admin-nav-hint">
           Restricted to <strong>Administrator</strong> accounts. All actions run
           against the live authentication database.
@@ -189,6 +195,73 @@
         <p id="admin-roles-error" class="admin-inline-error" aria-live="polite"></p>
       </section>
 
+      <!-- ── Module: Audit Logs ─────────────────────────────────────────── -->
+      <section id="admin-panel-audit" class="panel" data-admin-panel="audit" aria-labelledby="admin-audit-title" hidden>
+        <div class="admin-panel-header">
+          <div>
+            <h2 id="admin-audit-title">Audit Logs</h2>
+            <p id="admin-audit-status" class="meta-inline">Authentication events: logins, password resets, role changes, suspensions.</p>
+          </div>
+          <button type="button" id="admin-btn-reload-audit" class="btn btn--secondary btn--sm">Reload Logs</button>
+        </div>
+
+        <div class="admin-filter-row" style="margin-bottom: var(--space-3)">
+          <select id="admin-audit-event-filter" class="input-field" aria-label="Filter by event type" style="max-width: 170px">
+            <option value="">All event types</option>
+            <option value="register">Register</option>
+            <option value="login_success">Login Success</option>
+            <option value="login_failed">Login Failed</option>
+            <option value="logout">Logout</option>
+            <option value="password_changed">Password Changed</option>
+            <option value="password_reset_requested">Password Reset Requested</option>
+            <option value="account_locked">Account Locked</option>
+            <option value="role_granted">Role Granted</option>
+            <option value="role_revoked">Role Revoked</option>
+            <option value="email_verified">Email Verified</option>
+            <option value="token_reuse_detected">Token Reuse Detected</option>
+          </select>
+          <input type="text" id="admin-audit-user-filter" class="input-field" placeholder="Username or email" style="max-width: 170px" aria-label="Filter by user" />
+          <input type="date" id="admin-audit-from" class="input-field font-mono" style="max-width: 150px" aria-label="Filter from date" />
+          <input type="date" id="admin-audit-to" class="input-field font-mono" style="max-width: 150px" aria-label="Filter to date" />
+          <button type="button" id="admin-btn-apply-audit-filters" class="btn btn--secondary btn--sm">Apply</button>
+          <button type="button" id="admin-btn-clear-audit-filters" class="btn btn--secondary btn--sm">Clear</button>
+        </div>
+
+        <div id="admin-audit-logs-list" class="admin-archive-list" aria-live="polite"></div>
+        <button type="button" id="admin-btn-more-audit" class="btn btn--secondary btn--sm" style="margin-top: 0.65rem" hidden>Load older events</button>
+        <p id="admin-audit-error" class="admin-inline-error" aria-live="polite"></p>
+      </section>
+
+      <!-- ── Module: System Settings ───────────────────────────────────── -->
+      <section id="admin-panel-system" class="panel" data-admin-panel="system" aria-labelledby="admin-system-title" hidden>
+        <div class="admin-panel-header">
+          <div>
+            <h2 id="admin-system-title">System Settings</h2>
+            <p id="admin-system-status" class="meta-inline">Read-only configuration flags. Secrets are never exposed.</p>
+          </div>
+          <button type="button" id="admin-btn-reload-config" class="btn btn--secondary btn--sm">Reload Configuration</button>
+        </div>
+
+        <div id="admin-system-config-grid" class="admin-detail-grid" aria-live="polite"></div>
+        <p id="admin-system-error" class="admin-inline-error" aria-live="polite"></p>
+
+        <div style="margin-top: var(--space-5); border-top: 1px solid var(--border-subtle); padding-top: var(--space-3)">
+          <h3 style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: var(--space-3)">SMTP Test</h3>
+          <form id="admin-form-smtp-test" class="admin-form-grid">
+            <label>
+              Recipient email
+              <input id="admin-smtp-to" class="input-field" type="email" required placeholder="you@example.com" />
+            </label>
+            <p id="admin-smtp-error" class="admin-inline-error" aria-live="polite"></p>
+            <p id="admin-smtp-success" style="color: var(--status-valid, #22c55e); font-size: 0.8rem; min-height: 1.1rem"></p>
+            <button type="submit" class="btn btn--primary btn--sm">Send Test Email</button>
+          </form>
+          <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: var(--space-2)">
+            Requires SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, and SMTP_FROM_EMAIL to be configured on the server.
+          </p>
+        </div>
+      </section>
+
     </div>
   </main>
 
@@ -289,6 +362,8 @@
   </div>
 
   <script type="module" src="./js/app-admin.js"></script>
+  <script type="module" src="./js/admin/audit-logs.js"></script>
+  <script type="module" src="./js/admin/system.js"></script>
 </body>
 
 </html>

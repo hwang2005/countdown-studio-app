@@ -78,10 +78,15 @@ function renderTable() {
         <td><span class="admin-cell-muted">${esc(fmtDateTime(item.last_login_at))}</span></td>
         <td>
           <div class="admin-actions-cell">
-            <button type="button" class="btn btn--secondary btn--sm" data-user-action="edit" data-user-id="${esc(item.public_id)}"
-              ${self ? 'disabled title="Administrators cannot modify their own account"' : ''}>Edit</button>
-            <button type="button" class="btn btn--secondary btn--sm" data-user-action="reset" data-user-id="${esc(item.public_id)}" data-user-name="${esc(item.username)}"
-              ${self ? 'disabled title="Sign out and use your own password change flow"' : ''}>Password</button>
+            ${item.status === 'deleted' ? `
+              <button type="button" class="btn btn--secondary btn--sm" data-user-action="restore" data-user-id="${esc(item.public_id)}"
+                ${self ? 'disabled' : ''}>Restore</button>
+            ` : `
+              <button type="button" class="btn btn--secondary btn--sm" data-user-action="edit" data-user-id="${esc(item.public_id)}"
+                ${self ? 'disabled title="Administrators cannot modify their own account"' : ''}>Edit</button>
+              <button type="button" class="btn btn--secondary btn--sm" data-user-action="reset" data-user-id="${esc(item.public_id)}" data-user-name="${esc(item.username)}"
+                ${self ? 'disabled title="Sign out and use your own password change flow"' : ''}>Password</button>
+            `}
           </div>
         </td>
       </tr>`;
@@ -217,6 +222,26 @@ async function deleteEditingUser() {
   }
 }
 
+async function restoreUser(publicId) {
+  if (isSelf(publicId)) return;
+  const confirmed = await confirmDialog(
+    `Restore this account? It will be set back to active and the owner can sign in again.`,
+    'Restore Account',
+    false,
+  );
+  if (!confirmed) return;
+  try {
+    await adminRequest(`/api/admin/users/${encodeURIComponent(publicId)}`, {
+      method: 'PATCH',
+      body: { status: 'active' },
+    });
+    showToast('Account restored to active.', 'success');
+    loadUsers({ reset: true });
+  } catch (error) {
+    document.getElementById('admin-users-error').textContent = error.message;
+  }
+}
+
 /* ── Reset password ───────────────────────────────────────────────────────── */
 
 function openResetModalFromRow(publicId, username) {
@@ -293,6 +318,7 @@ export function initUsers() {
       const { userAction, userId, userName } = button.dataset;
       if (userAction === 'edit') openEditModal(userId);
       if (userAction === 'reset') openResetModalFromRow(userId, userName);
+      if (userAction === 'restore') restoreUser(userId);
     }
   });
   document.getElementById('admin-btn-open-reset')?.addEventListener('click', () => {

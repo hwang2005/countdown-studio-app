@@ -15,12 +15,14 @@ ON CONFLICT (code) DO NOTHING;
 INSERT INTO permissions (code, description) VALUES
   ('solo:practice', 'Use Solo Practice'),
   ('stage:display', 'Use Stage Display'),
-  ('host:operations', 'Use Host Operations')
+  ('host:operations', 'Use Host Operations'),
+  ('user:manage', 'User management'),
+  ('role:manage', 'Role management')
 ON CONFLICT (code) DO NOTHING;
 
 INSERT INTO role_permissions (role_id, permission_id)
 SELECT r.id, p.id FROM roles r CROSS JOIN permissions p
 WHERE (r.code = 'individual' AND p.code = 'solo:practice')
    OR (r.code = 'organization' AND p.code IN ('stage:display', 'host:operations'))
-   OR (r.code = 'admin' AND p.code IN ('solo:practice', 'stage:display', 'host:operations'))
+   OR (r.code = 'admin' AND p.code IN ('solo:practice', 'stage:display', 'host:operations', 'user:manage', 'role:manage'))
 ON CONFLICT (role_id, permission_id) DO NOTHING;

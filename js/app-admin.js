@@ -19,6 +19,8 @@ import { initDashboard, refreshDashboard } from './admin/dashboard.js';
 import { initUsers, refreshUsers } from './admin/users.js';
 import { initArchives, refreshArchives } from './admin/archives.js';
 import { initRoles, refreshRoles } from './admin/roles.js';
+import { initAuditLogs, refreshAuditLogs } from './admin/audit-logs.js';
+import { initSystem, refreshSystem } from './admin/system.js';
 
 const requiredPermission = 'user:manage';
 
@@ -59,6 +61,8 @@ const loaders = {
   users: refreshUsers,
   archives: refreshArchives,
   roles: refreshRoles,
+  audit: refreshAuditLogs,
+  system: refreshSystem,
 };
 const loaded = new Set();
 
@@ -119,6 +123,8 @@ function addSignOutShortcut() {
   initUsers();
   initArchives();
   initRoles();
+  initAuditLogs();
+  initSystem();
   addSignOutShortcut();
   const allowed = await guardAccess();
   if (!allowed) return;
