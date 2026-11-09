@@ -402,6 +402,9 @@ function addAuthUi() {
   const action = document.querySelector('.top-bar__action');
   if (!action) return;
 
+  const nav = document.querySelector('.top-bar__nav');
+  nav?.querySelector('[data-admin-nav-link]')?.remove();
+
   action.querySelectorAll('.auth-status-btn, .auth-user-container').forEach((el) => el.remove());
 
   const user = currentUser();
@@ -413,6 +416,20 @@ function addAuthUi() {
   }
 
   if (user) {
+    // Make the administration surface discoverable to administrators on every
+    // app page. The link is only rendered for the management permission; the
+    // admin route and every admin API endpoint still enforce that permission
+    // server-side.
+    if (nav && user.permissions?.includes('user:manage') && !path.endsWith('/admin.html')) {
+      const adminLink = document.createElement('a');
+      adminLink.href = './admin.html';
+      adminLink.className = 'top-bar__link';
+      adminLink.dataset.authPermission = 'user:manage';
+      adminLink.dataset.adminNavLink = 'true';
+      adminLink.textContent = 'Admin Console';
+      nav.appendChild(adminLink);
+    }
+
     const roleBadge = user.role === 'admin' ? 'Admin' : user.role === 'organization' ? 'Host' : 'Player';
     const container = document.createElement('div');
     container.className = 'auth-user-container';
