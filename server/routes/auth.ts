@@ -14,7 +14,7 @@ import {
 import type { AppRole } from '../types.js';
 
 // Best-effort audit trail; never fails the surrounding request.
-function passwordResetEvent(eventCode: string, userId: number | null, ip: string, userAgent: string, details: Record<string, unknown> = {}) {
+function recordAuthEvent(eventCode: string, userId: number | null, ip: string, userAgent: string, details: Record<string, unknown> = {}) {
   getDbPool()
     .query(
       `INSERT INTO auth_events (event_type_id, user_id, ip_address, user_agent, details)
@@ -31,36 +31,54 @@ export function registerAuthRoutes(app: Express) {
       return res.status(429).json({ error: 'TOO_MANY_REQUESTS', message: 'Too many registration requests from this address. Please try again after 10 minutes.' });
     }
 
-    const { username, email, password, displayName, role = 'individual', adminCode } = req.body || {};
-    const normalizedRole = String(role).toLowerCase() as AppRole;
+    const body = req.body || {};
+    const username = String(body.username || '').trim();
+    const email = String(body.email || '').trim().toLowerCase();
+    const password = String(body.password || '');
+    const displayName = String(body.displayName || '').trim();
+    const adminCode = body.adminCode;
+    const normalizedRole = String(body.role || 'individual').trim().toLowerCase() as AppRole;
     if (
-      !/^[a-zA-Z0-9_.-]{3,32}$/.test(String(username || '')) ||
-      !/^\S+@\S+\.\S+$/.test(String(email || '')) ||
-      String(password || '').length < 8 ||
-      String(password || '').length > 128 ||
-      !String(displayName || '').trim() ||
-      String(displayName || '').length > 64
+      !/^[a-zA-Z0-9_.-]{3,32}$/.test(username) ||
+      !/^\S+@\S+\.\S+$/.test(email) ||
+      email.length > 254 ||
+      password.length < 8 ||
+      password.length > 128 ||
+      !displayName ||
+      displayName.length > 64
     ) {
-      return res.status(400).json({ error: 'INVALID_INPUT', message: 'Username, email, display name, and password (8-128 characters) are required.' });
+      return res.status(400).json({ error: 'INVALID_INPUT', message: 'Username (3-32 chars), valid email, display name (max 64 chars), and password (8-128 characters) are required.' });
     }
     if (normalizedRole !== 'individual' && normalizedRole !== 'admin') return res.status(403).json({ error: 'ROLE_NOT_REGISTERABLE', message: 'Organization accounts can only be provisioned by an administrator.' });
 
     if (normalizedRole === 'admin') {
       const serverAdminCode = process.env.ADMIN_REGISTRATION_CODE;
-      if (!serverAdminCode || !adminCode) return res.status(403).json({ error: 'INVALID_ADMIN_CODE' });
+      if (!serverAdminCode || !adminCode) return res.status(403).json({ error: 'INVALID_ADMIN_CODE', message: 'Invalid admin registration code.' });
       const clientBuf = Buffer.from(String(adminCode));
       const serverBuf = Buffer.from(String(serverAdminCode));
       if (clientBuf.length !== serverBuf.length || !crypto.timingSafeEqual(clientBuf, serverBuf)) {
-        return res.status(403).json({ error: 'INVALID_ADMIN_CODE' });
+        return res.status(403).json({ error: 'INVALID_ADMIN_CODE', message: 'Invalid admin registration code.' });
       }
     }
 
     let connection: PoolClient | undefined;
     try {
       connection = await getDbPool().connect(); await connection.query('BEGIN');
-      const userId = await insertUserAccount(connection, { username: String(username).trim(), email: String(email).trim(), password: String(password), displayName: String(displayName).trim(), role: normalizedRole });
+      const existingCheck = await connection.query<{ id: number }>(
+        `SELECT u.id FROM users u
+         LEFT JOIN user_emails e ON e.user_id = u.id
+         WHERE LOWER(u.username) = LOWER($1) OR LOWER(e.email) = LOWER($2)
+         LIMIT 1`,
+        [username, email]
+      );
+      if (existingCheck.rows[0]) {
+        await connection.query('ROLLBACK');
+        return res.status(409).json({ error: 'ACCOUNT_EXISTS', message: 'Username or email already exists.' });
+      }
+      const userId = await insertUserAccount(connection, { username, email, password, displayName, role: normalizedRole });
       await connection.query('COMMIT');
       const user = await loadUser(userId); if (!user) throw new Error('Created user could not be loaded.');
+      recordAuthEvent('register', user.id, clientIp, req.get('user-agent') || '', { role: normalizedRole, method: 'password' });
       return res.status(201).json({ user: publicUser(user), token: signSession(user) });
     } catch (error: any) { if (connection) await connection.query('ROLLBACK'); const duplicate = error?.code === '23505'; return res.status(duplicate ? 409 : 503).json({ error: duplicate ? 'ACCOUNT_EXISTS' : 'AUTH_DATABASE_UNAVAILABLE', message: duplicate ? 'Username or email already exists.' : 'Cannot connect to authentication database.' }); }
     finally { connection?.release(); }
@@ -74,17 +92,33 @@ export function registerAuthRoutes(app: Express) {
 
     const identifier = String(req.body?.identifier || '').trim();
     const password = String(req.body?.password || '');
-    if (!identifier || !password || identifier.length > 100 || password.length > 128) {
+    if (!identifier || !password || identifier.length > 254 || password.length > 128) {
       return res.status(400).json({ error: 'INVALID_INPUT', message: 'Invalid login input.' });
     }
 
+    const userAgent = req.get('user-agent') || '';
     try {
-      const { rows } = await getDbPool().query<any>(`SELECT u.id, c.password_hash, c.failed_attempts, c.locked_until FROM users u JOIN user_credentials c ON c.user_id=u.id
-        JOIN user_emails e ON e.user_id=u.id AND e.is_primary=TRUE
-        WHERE LOWER(u.username)=LOWER($1) OR LOWER(e.email)=LOWER($2) LIMIT 1`, [identifier, identifier]);
+      const { rows } = await getDbPool().query<any>(
+        `SELECT u.id, s.code AS status, c.password_hash, c.failed_attempts, c.locked_until
+         FROM users u
+         JOIN user_statuses s ON s.id = u.status_id
+         JOIN user_credentials c ON c.user_id = u.id
+         JOIN user_emails e ON e.user_id = u.id AND e.is_primary = TRUE
+         WHERE u.deleted_at IS NULL
+           AND (LOWER(u.username) = LOWER($1) OR LOWER(e.email) = LOWER($2))
+         LIMIT 1`,
+        [identifier, identifier]
+      );
 
       const record = rows[0];
-      if (record && record.locked_until && new Date(record.locked_until) > new Date()) {
+      if (!record) {
+        // Run dummy verification to eliminate username/email enumeration timing attacks
+        await verifyPassword(password, DUMMY_HASH);
+        recordAuthEvent('login_failed', null, clientIp, userAgent, { reason: 'unknown_account' });
+        return res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Invalid credentials.' });
+      }
+
+      if (record.locked_until && new Date(record.locked_until) > new Date()) {
         const remainingMinutes = Math.ceil((new Date(record.locked_until).getTime() - Date.now()) / (60 * 1000));
         return res.status(423).json({
           error: 'ACCOUNT_LOCKED',
@@ -92,44 +126,53 @@ export function registerAuthRoutes(app: Express) {
         });
       }
 
-      if (!record) {
-        // Run dummy verification to eliminate username/email enumeration timing attacks
-        await verifyPassword(password, DUMMY_HASH);
-        return res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Invalid credentials.' });
-      }
-
       const MAX_LOGIN_ATTEMPTS = 5;
-
       const isValid = await verifyPassword(password, record.password_hash);
       if (!isValid) {
+        if (record.status !== 'active') {
+          recordAuthEvent('login_failed', record.id, clientIp, userAgent, { reason: 'invalid_password_inactive' });
+          return res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Invalid credentials.' });
+        }
         const nextAttempts = (record.failed_attempts || 0) + 1;
-        // Chỉ khoá tài khoản sau MAX_LOGIN_ATTEMPTS lần sai LIÊN TIẾP.
-        // failed_attempts sẽ được reset về 0 khi đăng nhập thành công (xem bên dưới),
-        // nên các lần sai xen kẽ với lần đăng nhập thành công sẽ không được tính chung.
         if (nextAttempts >= MAX_LOGIN_ATTEMPTS) {
           await getDbPool().query(
             `UPDATE user_credentials SET failed_attempts=$1, locked_until=NOW() + INTERVAL '15 minutes' WHERE user_id=$2`,
             [nextAttempts, record.id]
           );
+          recordAuthEvent('account_locked', record.id, clientIp, userAgent, { attempts: nextAttempts });
           return res.status(423).json({
             error: 'ACCOUNT_LOCKED',
-            message: `Tài khoản đã bị tạm khoá trong 15 phút do đăng nhập sai ${MAX_LOGIN_ATTEMPTS} lần liên tiếp.`,
+            message: `Account has been temporarily locked for 15 minutes due to ${MAX_LOGIN_ATTEMPTS} consecutive failed login attempts.`,
           });
         } else {
           await getDbPool().query(
             `UPDATE user_credentials SET failed_attempts=$1 WHERE user_id=$2`,
             [nextAttempts, record.id]
           );
+          recordAuthEvent('login_failed', record.id, clientIp, userAgent, { attempts: nextAttempts });
           return res.status(401).json({
             error: 'INVALID_CREDENTIALS',
-            message: `Sai thông tin đăng nhập. Còn lại ${MAX_LOGIN_ATTEMPTS - nextAttempts} lần thử trước khi tài khoản bị khoá.`,
+            message: `Invalid credentials. ${MAX_LOGIN_ATTEMPTS - nextAttempts} attempt(s) remaining before temporary lockout.`,
           });
         }
       }
 
+      if (record.status !== 'active') {
+        return res.status(403).json({
+          error: 'ACCOUNT_INACTIVE_OR_ROLE_INVALID',
+          message: 'Your account is suspended or inactive. Please contact an administrator.',
+        });
+      }
+
       const user = await loadUser(record.id);
-      if (!user) return res.status(403).json({ error: 'ACCOUNT_INACTIVE_OR_ROLE_INVALID' });
+      if (!user) {
+        return res.status(403).json({
+          error: 'ACCOUNT_INACTIVE_OR_ROLE_INVALID',
+          message: 'Your account is suspended or lacks a valid role.',
+        });
+      }
       await getDbPool().query('UPDATE user_credentials SET last_login_at=NOW(), failed_attempts=0, locked_until=NULL WHERE user_id=$1', [user.id]);
+      recordAuthEvent('login_success', user.id, clientIp, userAgent, { method: 'password' });
       return res.json({ user: publicUser(user), token: signSession(user) });
     } catch (error) {
       console.error('[Auth] Login failed:', error);
@@ -173,7 +216,7 @@ export function registerAuthRoutes(app: Express) {
         [email]
       );
       const record = rows[0];
-      passwordResetEvent('password_reset_requested', record?.user_id ?? null, clientIp, req.get('user-agent') || '');
+      recordAuthEvent('password_reset_requested', record?.user_id ?? null, clientIp, req.get('user-agent') || '');
 
       if (record) {
         // Single-use opaque token; only its SHA-256 hash is stored.
@@ -276,7 +319,7 @@ export function registerAuthRoutes(app: Express) {
       );
       if (!result.rowCount) throw new Error('Credential upsert failed.');
 
-      passwordResetEvent('password_changed', claimed.user_id, clientIp, req.get('user-agent') || '');
+      recordAuthEvent('password_changed', claimed.user_id, clientIp, req.get('user-agent') || '');
 
       return res.json({ message: 'Password updated. You can now sign in with your new password.' });
     } catch (error) {
@@ -285,14 +328,15 @@ export function registerAuthRoutes(app: Express) {
     }
   });
 
-  // Google OAuth endpoint: verifies Google credential & checks whether password initialization is required
+  // Google OAuth endpoint: verifies Google credential & handles login or password-setup registration
   app.post('/api/auth/google', async (req: Request, res: Response) => {
     const clientIp = getClientIp(req);
     if (!checkRateLimit(clientIp, 'google_auth', 20, 60 * 1000)) {
       return res.status(429).json({ error: 'TOO_MANY_REQUESTS', message: 'Too many requests. Please wait a minute.' });
     }
 
-    const { credential } = req.body || {};
+    const { credential, mode } = req.body || {};
+    const authMode = String(mode || 'login').toLowerCase() === 'register' ? 'register' : 'login';
     let googleUser: { sub: string; email: string; name: string; picture?: string } | null = null;
 
     if (credential) {
@@ -307,43 +351,47 @@ export function registerAuthRoutes(app: Express) {
     }
 
     const normalizedEmail = googleUser.email.trim().toLowerCase();
+    const userAgent = req.get('user-agent') || '';
 
     try {
       // 1. Check if user already exists by Google provider_user_id
       const identityQuery = await getDbPool().query<any>(
-        `SELECT u.id, u.username, u.status_id, c.password_hash
+        `SELECT u.id, u.username, s.code AS status, c.password_hash
          FROM users u
+         JOIN user_statuses s ON s.id = u.status_id
          JOIN user_identities ui ON ui.user_id = u.id
          JOIN auth_providers ap ON ap.id = ui.provider_id AND ap.code = 'google'
          LEFT JOIN user_credentials c ON c.user_id = u.id
-         WHERE ui.provider_user_id = $1 LIMIT 1`,
+         WHERE u.deleted_at IS NULL AND ui.provider_user_id = $1
+         LIMIT 1`,
         [googleUser.sub]
       );
 
       let record = identityQuery.rows[0];
 
-      // 2. If not found by Google provider ID, check by primary email
+      // 2. If not found by Google provider ID, check by verified email
       if (!record) {
         const emailQuery = await getDbPool().query<any>(
-          `SELECT u.id, u.username, u.status_id, c.password_hash
+          `SELECT u.id, u.username, s.code AS status, c.password_hash
            FROM users u
+           JOIN user_statuses s ON s.id = u.status_id
            JOIN user_emails e ON e.user_id = u.id AND LOWER(e.email) = LOWER($1)
-           LEFT JOIN user_credentials c ON c.user_id = u.id LIMIT 1`,
+           LEFT JOIN user_credentials c ON c.user_id = u.id
+           WHERE u.deleted_at IS NULL
+           LIMIT 1`,
           [normalizedEmail]
         );
         record = emailQuery.rows[0];
       }
 
-      // Google authentication is login-only. The account must already exist
-      // from the web registration flow and have a password credential.
-      if (!record || !record.password_hash) {
+      if (record && record.status !== 'active') {
         return res.status(403).json({
-          error: 'ACCOUNT_NOT_REGISTERED',
-          message: 'This account is not registered on the website. Please register first.',
+          error: 'ACCOUNT_INACTIVE_OR_ROLE_INVALID',
+          message: 'Your account is suspended or inactive. Please contact an administrator.',
         });
       }
 
-      // Existing registered user: authenticate session directly.
+      // Existing registered user with password: authenticate session directly.
       if (record && record.password_hash) {
         const user = await loadUser(record.id);
         if (!user) {
@@ -360,7 +408,7 @@ export function registerAuthRoutes(app: Express) {
         await getDbPool().query(
           `INSERT INTO user_identities (user_id, provider_id, provider_user_id)
            SELECT $1, id, $2 FROM auth_providers WHERE code = 'google'
-           ON CONFLICT (provider_id, provider_user_id) DO NOTHING`,
+           ON CONFLICT DO NOTHING`,
           [user.id, googleUser.sub]
         );
 
@@ -369,6 +417,7 @@ export function registerAuthRoutes(app: Express) {
           [user.id]
         );
 
+        recordAuthEvent('login_success', user.id, clientIp, userAgent, { method: 'google' });
         return res.json({
           requirePasswordSetup: false,
           user: publicUser(user),
@@ -376,8 +425,15 @@ export function registerAuthRoutes(app: Express) {
         });
       }
 
-      // If user is new OR user does not have a password initialized:
-      // MANDATORY: Require initializing password to save into database!
+      // Sign-In tab requires an already-registered account; Register tab continues to Step 2/2 password setup.
+      if (authMode !== 'register') {
+        return res.status(403).json({
+          error: 'ACCOUNT_NOT_REGISTERED',
+          message: 'This Google account is not registered yet. Please switch to Create Account first.',
+        });
+      }
+
+      // New user (or legacy account missing password): issue signed setup token for Step 2/2.
       const setupToken = signGoogleSetupToken({
         sub: googleUser.sub,
         email: normalizedEmail,
@@ -419,7 +475,7 @@ export function registerAuthRoutes(app: Express) {
     if (!payload) {
       return res.status(401).json({
         error: 'EXPIRED_OR_INVALID_TOKEN',
-        message: 'Password setup session has expired or is invalid. Please sign in with Google again.',
+        message: 'Password setup session has expired or is invalid. Please try again.',
       });
     }
 
@@ -439,15 +495,28 @@ export function registerAuthRoutes(app: Express) {
       });
     }
 
-    const finalDisplayName = String(displayName || payload.displayName || finalUsername).trim().slice(0, 64);
-    if (!finalDisplayName) {
-      return res.status(400).json({ error: 'INVALID_NAME', message: 'Display name is required.' });
+    const finalDisplayName = String(displayName || payload.displayName || finalUsername).trim();
+    if (!finalDisplayName || finalDisplayName.length > 64) {
+      return res.status(400).json({ error: 'INVALID_NAME', message: 'Display name is required (max 64 characters).' });
     }
 
     let connection: PoolClient | undefined;
     try {
       connection = await getDbPool().connect();
       await connection.query('BEGIN');
+
+      // Case-insensitive username uniqueness check across active/existing accounts
+      const dupUsername = await connection.query<{ id: number }>(
+        `SELECT id FROM users WHERE LOWER(username) = LOWER($1) AND id <> COALESCE($2, -1) LIMIT 1`,
+        [finalUsername, payload.existingUserId]
+      );
+      if (dupUsername.rows[0]) {
+        await connection.query('ROLLBACK');
+        return res.status(409).json({
+          error: 'USERNAME_OR_EMAIL_EXISTS',
+          message: 'Username is already taken. Please choose a different username.',
+        });
+      }
 
       // Ensure 'google' provider exists in auth_providers
       await connection.query(`INSERT INTO auth_providers (code) VALUES ('google') ON CONFLICT (code) DO NOTHING`);
@@ -456,6 +525,23 @@ export function registerAuthRoutes(app: Express) {
       let targetUserId: number;
 
       if (payload.existingUserId) {
+        const existingRes = await connection.query<{ id: number; status: string }>(
+          `SELECT u.id, s.code AS status
+           FROM users u
+           JOIN user_statuses s ON s.id = u.status_id
+           WHERE u.id = $1 AND u.deleted_at IS NULL
+           FOR UPDATE OF u`,
+          [payload.existingUserId]
+        );
+        const existingRow = existingRes.rows[0];
+        if (!existingRow || existingRow.status !== 'active') {
+          await connection.query('ROLLBACK');
+          return res.status(403).json({
+            error: 'ACCOUNT_INACTIVE_OR_ROLE_INVALID',
+            message: 'Account is suspended or unavailable.',
+          });
+        }
+
         targetUserId = payload.existingUserId;
 
         // Save password into user_credentials
@@ -470,21 +556,41 @@ export function registerAuthRoutes(app: Express) {
         await connection.query(
           `INSERT INTO user_identities (user_id, provider_id, provider_user_id)
            SELECT $1, id, $2 FROM auth_providers WHERE code = 'google'
-           ON CONFLICT (provider_id, provider_user_id) DO NOTHING`,
+           ON CONFLICT DO NOTHING`,
           [targetUserId, payload.sub]
         );
 
-        // Update profile
+        // Upsert profile
         await connection.query(
-          `UPDATE user_profiles SET display_name = $2, avatar_url = COALESCE($3, avatar_url), updated_at = NOW() WHERE user_id = $1`,
+          `INSERT INTO user_profiles (user_id, display_name, avatar_url)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (user_id) DO UPDATE SET display_name = EXCLUDED.display_name, avatar_url = COALESCE(EXCLUDED.avatar_url, user_profiles.avatar_url), updated_at = NOW()`,
           [targetUserId, finalDisplayName, payload.avatarUrl]
         );
 
-        // Update username if requested and changed
-        if (finalUsername) {
-          await connection.query(`UPDATE users SET username = $2, updated_at = NOW() WHERE id = $1`, [targetUserId, finalUsername]);
-        }
+        // Ensure user has at least the individual role if none exists
+        await connection.query(
+          `INSERT INTO user_roles (user_id, role_id)
+           SELECT $1, id FROM roles WHERE code = 'individual'
+           AND NOT EXISTS (SELECT 1 FROM user_roles WHERE user_id = $1)
+           ON CONFLICT DO NOTHING`,
+          [targetUserId]
+        );
+
+        await connection.query(`UPDATE users SET username = $2, updated_at = NOW() WHERE id = $1`, [targetUserId, finalUsername]);
       } else {
+        const dupEmail = await connection.query<{ id: number }>(
+          `SELECT id FROM user_emails WHERE LOWER(email) = LOWER($1) LIMIT 1`,
+          [payload.email]
+        );
+        if (dupEmail.rows[0]) {
+          await connection.query('ROLLBACK');
+          return res.status(409).json({
+            error: 'USERNAME_OR_EMAIL_EXISTS',
+            message: 'An account with this email already exists. Please sign in instead.',
+          });
+        }
+
         // Create new user in users table
         const publicId = crypto.randomUUID();
         const userRes = await connection.query<{ id: number }>(
@@ -521,7 +627,8 @@ export function registerAuthRoutes(app: Express) {
         // Save identity into user_identities
         await connection.query(
           `INSERT INTO user_identities (user_id, provider_id, provider_user_id)
-           SELECT $1, id, $2 FROM auth_providers WHERE code = 'google'`,
+           SELECT $1, id, $2 FROM auth_providers WHERE code = 'google'
+           ON CONFLICT DO NOTHING`,
           [targetUserId, payload.sub]
         );
 
@@ -538,6 +645,7 @@ export function registerAuthRoutes(app: Express) {
       const user = await loadUser(targetUserId);
       if (!user) throw new Error('Active user could not be loaded after creation.');
 
+      recordAuthEvent('register', user.id, clientIp, req.get('user-agent') || '', { role: user.role, method: 'google' });
       return res.status(201).json({
         user: publicUser(user),
         token: signSession(user),

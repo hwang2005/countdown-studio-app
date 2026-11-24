@@ -1047,6 +1047,18 @@
   height: 20px;
 }
 
+.google-gis-slot {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+}
+
+.google-gis-slot[hidden] {
+  display: none !important;
+}
+
 /* OAuth Divider */
 .auth-divider {
   display: flex;

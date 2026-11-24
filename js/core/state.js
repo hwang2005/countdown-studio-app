@@ -13,12 +13,12 @@
  *
  * Allowed Transitions:
  * - IDLE          -> ['PICKING', 'IDLE']
- * - PICKING       -> ['PICKING', 'CLOCK_RUNNING', 'REVEAL', 'IDLE']
- * - CLOCK_RUNNING -> ['CLOCK_RUNNING', 'REVEAL', 'PICKING', 'IDLE']
- * - REVEAL        -> ['REVEAL', 'SCORING', 'CLOCK_RUNNING', 'NEXT_ROUND', 'MATCH_END', 'IDLE']
- * - SCORING       -> ['SCORING', 'NEXT_ROUND', 'MATCH_END', 'REVEAL', 'IDLE']
- * - NEXT_ROUND    -> ['PICKING', 'MATCH_END', 'IDLE']
- * - MATCH_END     -> ['IDLE', 'PICKING']
+ * - PICKING       -> ['PICKING', 'CLOCK_RUNNING', 'REVEAL', 'SCORING', 'MATCH_END', 'IDLE']
+ * - CLOCK_RUNNING -> ['CLOCK_RUNNING', 'REVEAL', 'SCORING', 'PICKING', 'MATCH_END', 'IDLE']
+ * - REVEAL        -> ['REVEAL', 'SCORING', 'CLOCK_RUNNING', 'NEXT_ROUND', 'PICKING', 'MATCH_END', 'IDLE']
+ * - SCORING       -> ['SCORING', 'NEXT_ROUND', 'MATCH_END', 'REVEAL', 'PICKING', 'IDLE']
+ * - NEXT_ROUND    -> ['NEXT_ROUND', 'PICKING', 'MATCH_END', 'IDLE']
+ * - MATCH_END     -> ['MATCH_END', 'IDLE', 'PICKING']
  */
 
 export const PHASES = Object.freeze({
@@ -33,13 +33,28 @@ export const PHASES = Object.freeze({
 
 const ALLOWED_TRANSITIONS = Object.freeze({
   [PHASES.IDLE]: new Set([PHASES.IDLE, PHASES.PICKING]),
-  [PHASES.PICKING]: new Set([PHASES.PICKING, PHASES.CLOCK_RUNNING, PHASES.REVEAL, PHASES.IDLE]),
-  [PHASES.CLOCK_RUNNING]: new Set([PHASES.CLOCK_RUNNING, PHASES.REVEAL, PHASES.PICKING, PHASES.IDLE]),
+  [PHASES.PICKING]: new Set([
+    PHASES.PICKING,
+    PHASES.CLOCK_RUNNING,
+    PHASES.REVEAL,
+    PHASES.SCORING,
+    PHASES.MATCH_END,
+    PHASES.IDLE
+  ]),
+  [PHASES.CLOCK_RUNNING]: new Set([
+    PHASES.CLOCK_RUNNING,
+    PHASES.REVEAL,
+    PHASES.SCORING,
+    PHASES.PICKING,
+    PHASES.MATCH_END,
+    PHASES.IDLE
+  ]),
   [PHASES.REVEAL]: new Set([
     PHASES.REVEAL,
     PHASES.SCORING,
     PHASES.CLOCK_RUNNING,
     PHASES.NEXT_ROUND,
+    PHASES.PICKING,
     PHASES.MATCH_END,
     PHASES.IDLE
   ]),
@@ -85,6 +100,7 @@ export function createInitialMatchState(overrides = {}) {
     pickerPlayer: 1, // 1 or 2
     clockDuration: 30,
     clockRemainingMs: 30000,
+    clockBaseRemainingMs: 30000,
     clockRunning: false,
     clockStartedAtEpoch: null, // Epoch timestamp for cross-window drift-free sync
 

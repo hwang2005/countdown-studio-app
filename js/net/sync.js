@@ -116,10 +116,12 @@ export class StageSyncChannel {
   /**
    * @param {'host'|'display'} role
    * @param {(message: object) => void} onMessage
+   * @param {{ isPreview?: boolean }} [options]
    */
-  constructor(role, onMessage) {
+  constructor(role, onMessage, options = {}) {
     this.role = role;
     this.onMessage = onMessage;
+    this.isPreview = Boolean(options?.isPreview);
     /** @type {BroadcastChannel|null} */
     this.channel = null;
     this.pollTimer = null;
@@ -131,6 +133,7 @@ export class StageSyncChannel {
     this.hostPin = null;
     this.hostToken = null;
     this.isRemoteConnected = false;
+    this.hasHost = false;
     this.remoteReconnectTimer = null;
     this.remoteConnectTimeoutTimer = null;
     this.remoteConnectAttempts = 0;
@@ -215,6 +218,7 @@ export class StageSyncChannel {
     this.onStatusChangeCallbacks.add(callback);
     callback({
       connected: this.isRemoteConnected,
+      hasHost: this.hasHost,
       roomId: this.roomId,
       displayCount: this.displayCount,
       error: this.lastRemoteError || undefined,
@@ -226,6 +230,7 @@ export class StageSyncChannel {
   notifyStatus(extra = {}) {
     const status = {
       connected: this.isRemoteConnected,
+      hasHost: this.hasHost,
       roomId: this.roomId,
       displayCount: this.displayCount,
       roomClosed: this.roomClosed,
@@ -249,7 +254,7 @@ export class StageSyncChannel {
    * @param {string} [hostPin] Host password/PIN if role is host
    */
   connectRemote(roomId, role = this.role, hostPin = '') {
-    if (!roomId) return;
+    if (!roomId || this.isPreview) return;
     this.roomId = roomId.toUpperCase().trim();
     this.role = role;
     this.hostPin = hostPin ? String(hostPin).trim() : '';
@@ -311,13 +316,13 @@ export class StageSyncChannel {
             type: 'host:auth',
             roomId: this.roomId,
             pin: this.hostPin,
-            authToken: localStorage.getItem(AUTH_TOKEN_KEY) || '',
+            authToken: localStorage.getItem(AUTH_TOKEN_KEY) || sessionStorage.getItem(AUTH_TOKEN_KEY) || '',
           }));
         } else {
           socket.send(JSON.stringify({
             type: 'display:join',
             roomId: this.roomId,
-            authToken: localStorage.getItem(AUTH_TOKEN_KEY) || '',
+            authToken: localStorage.getItem(AUTH_TOKEN_KEY) || sessionStorage.getItem(AUTH_TOKEN_KEY) || '',
           }));
         }
 
@@ -365,10 +370,17 @@ export class StageSyncChannel {
             clearTimeout(this.remoteConnectTimeoutTimer);
             this.remoteConnectTimeoutTimer = null;
             this.isRemoteConnected = true;
+            this.hasHost = Boolean(msg.hasHost);
             this.remoteConnectionFailed = false;
             this.lastRemoteError = null;
             this.remoteConnectAttempts = 0;
-            this.notifyStatus({ hasHost: msg.hasHost });
+            this.notifyStatus({ hasHost: this.hasHost });
+            return;
+          }
+
+          if (msg.type === 'room:host_status') {
+            this.hasHost = Boolean(msg.hasHost);
+            this.notifyStatus({ hasHost: this.hasHost });
             return;
           }
 
@@ -552,6 +564,7 @@ export class StageSyncChannel {
     this.roomId = null;
     this.hostToken = null;
     this.isRemoteConnected = false;
+    this.hasHost = false;
     this.displayCount = 0;
     this.roomClosed = false;
     this.remoteConnectionFailed = false;
@@ -609,7 +622,7 @@ export class StageSyncChannel {
       payload
     };
 
-    if (type === 'STATE_SYNC' && payload) {
+    if (type === 'STATE_SYNC' && payload && !this.isPreview) {
       saveVersusState(payload);
       try {
         this.lastObservedStateJson = JSON.stringify(payload);
@@ -626,10 +639,12 @@ export class StageSyncChannel {
     }
 
     // 2. Local storage transport
-    try {
-      localStorage.setItem(STORAGE_SIGNAL_KEY, JSON.stringify(packet));
-    } catch {
-      // Ignore quota errors
+    if (!this.isPreview) {
+      try {
+        localStorage.setItem(STORAGE_SIGNAL_KEY, JSON.stringify(packet));
+      } catch {
+        // Ignore quota errors
+      }
     }
 
     // 3. Direct window postMessage to child iframes, opener, or parent

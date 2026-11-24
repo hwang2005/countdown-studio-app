@@ -98,6 +98,11 @@ export async function verifyGoogleIdToken(token: string): Promise<{ sub: string;
           console.warn('[Google Auth] Client ID mismatch. Expected:', expectedClientId, 'Got:', data.aud);
           return null;
         }
+        const emailVerified = data.email_verified === true || data.email_verified === 'true';
+        if (!emailVerified) {
+          console.warn('[Google Auth] Rejecting token with unverified email.');
+          return null;
+        }
         return {
           sub: String(data.sub),
           email: String(data.email),

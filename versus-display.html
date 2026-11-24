@@ -46,6 +46,15 @@
         );
       })();
     </script>
+    <script>
+      (function () {
+        var host = window.location.hostname || '';
+        var prodDomains = ['countdown-studio.id.vn', 'www.countdown-studio.id.vn'];
+        if (prodDomains.includes(host)) {
+          window.__COUNTDOWN_STAGE_WS_URL__ = "wss://countdown-studio-app.onrender.com/ws";
+        }
+      })();
+    </script>
     <title>Stage Display (16:9) — Countdown Studio</title>
     <meta name="description" content="Full-bleed 16:9 projector stage screen for Countdown Studio Live Versus mode." />
     <link rel="manifest" href="./manifest.webmanifest" />
@@ -134,17 +143,25 @@
             <div id="stage-numbers-board" class="tile-row tile-row--numbers"></div>
             <div id="stage-numbers-solution" class="panel--subtle" style="margin-top: 1.5%; padding: 0.5rem 0.85rem;" hidden></div>
           </div>
-
-          <!-- End-of-Match Podium -->
-          <div id="stage-match-end-podium" class="panel" style="text-align: center; padding: 1rem 1.5rem;" hidden>
-            <h1 id="stage-winner-title" style="font-size: clamp(1.4rem, 2.8cqw, 3.2rem); color: var(--accent-primary);">
-              Match Complete
-            </h1>
-            <p style="font-size: clamp(0.85rem, 1.3cqw, 1.35rem); color: var(--text-secondary); margin-top: 0.35rem;">
-              Thank you for playing Countdown Studio!
-            </p>
-          </div>
         </section>
+
+        <!-- End-of-Match Podium (Grand Overlay above stage canvas) -->
+        <section id="stage-match-end-podium" class="stage-match-end-podium panel" aria-live="polite" hidden>
+          <div class="stage-match-end-podium__eyebrow">FINAL SCOREBOARD · MATCH COMPLETE</div>
+          <h1 id="stage-winner-title" class="stage-match-end-podium__title">Match Complete</h1>
+          <div id="stage-winner-scores" class="stage-match-end-podium__scores font-mono">0 – 0</div>
+          <p id="stage-winner-meta" class="stage-match-end-podium__meta">
+            Thank you for playing Countdown Studio!
+          </p>
+        </section>
+
+        <!-- Broadcast Safe-Zone & Center Crosshair Overlay (Shown in Calibration Mode B/L) -->
+        <div id="stage-calibration-grid" class="stage-calibration-grid" aria-hidden="true">
+          <div class="stage-calibration-grid__action-safe"><span>ACTION SAFE 90%</span></div>
+          <div class="stage-calibration-grid__title-safe"><span>TITLE SAFE 80%</span></div>
+          <div class="stage-calibration-grid__crosshair-h"></div>
+          <div class="stage-calibration-grid__crosshair-v"></div>
+        </div>
 
         <!-- 3. CONTESTANT 1 NAME, SCORE & DECLARATION IN LEFT PODIUM OF BACKGROUND -->
         <div
@@ -284,6 +301,22 @@
           </button>
           <button
             type="button"
+            id="btn-toggle-stage-audio"
+            class="btn btn--sm btn--secondary"
+            title="Enable or mute Stage Display clock audio"
+          >
+            🔊 Audio On
+          </button>
+          <button
+            type="button"
+            id="btn-toggle-fullscreen"
+            class="btn btn--sm btn--secondary"
+            title="Toggle 16:9 fullscreen stage projection (Hotkey F)"
+          >
+            ⛶ Fullscreen (F)
+          </button>
+          <button
+            type="button"
             id="btn-hide-stage-controls"
             class="btn btn--sm btn--secondary"
             title="Hide control buttons from display (Key C)"
@@ -390,13 +423,38 @@
     <!-- Test Pattern Overlay (Strictly hidden by default) -->
     <div
       id="stage-test-pattern"
-      class="panic-screen is-hidden"
-      style="display: none; background: rgba(8,18,41,0.95); color: #F8FAFC; flex-direction: column; gap: 1rem;"
+      class="panic-screen stage-test-card is-hidden"
+      style="display: none;"
       data-active="false"
       hidden
     >
-      <h2 style="font-size: 2.5rem; color: var(--accent-primary);">16:9 STAGE DISPLAY TEST PATTERN</h2>
-      <p style="font-size: 1.25rem;">BroadcastChannel Sync Verified · Audio &amp; Aspect Ratio Calibrated</p>
+      <div class="stage-test-card__frame">
+        <div class="stage-test-card__bars" aria-hidden="true">
+          <span style="background:#E2E8F0"></span>
+          <span style="background:#FACC15"></span>
+          <span style="background:#22D3EE"></span>
+          <span style="background:#4ADE80"></span>
+          <span style="background:#E879F9"></span>
+          <span style="background:#EF4444"></span>
+          <span style="background:#3B82F6"></span>
+        </div>
+        <div class="stage-test-card__center">
+          <div class="stage-test-card__circle">
+            <h2 class="stage-test-card__title">16:9 STAGE TEST CARD</h2>
+            <p class="stage-test-card__subtitle">Countdown Studio · Aspect Ratio &amp; Audio Calibration</p>
+            <div id="stage-test-resolution" class="stage-test-card__meta font-mono">1920 × 1080</div>
+            <div id="stage-test-sync-status" class="stage-test-card__meta font-mono">Sync: Local Transport Ready</div>
+          </div>
+        </div>
+        <div class="stage-test-card__bars stage-test-card__bars--bottom" aria-hidden="true">
+          <span style="background:#0F172A"></span>
+          <span style="background:#334155"></span>
+          <span style="background:#64748B"></span>
+          <span style="background:#94A3B8"></span>
+          <span style="background:#CBD5E1"></span>
+          <span style="background:#F8FAFC"></span>
+        </div>
+      </div>
     </div>
 
     <!-- Panic Blank Screen Overlay (Strictly hidden by default) -->

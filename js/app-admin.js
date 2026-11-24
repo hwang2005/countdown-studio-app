@@ -11,7 +11,7 @@
  *   - Archives   (js/admin/archives.js)  — archived match inspection
  *   - Roles      (js/admin/roles.js)     — permission matrix editor
  */
-import { token, currentUser, logout } from './auth.js';
+import { token, currentUser, logout, clearSession, updateStoredUser } from './auth.js';
 import { apiFetch, readApiJson } from './net/api.js';
 import { initModalHandlers, openModal } from './ui/modal.js';
 import { showToast } from './ui/toast.js';
@@ -35,12 +35,11 @@ async function guardAccess() {
     const response = await apiFetch('/api/auth/me', { headers: token() ? { Authorization: `Bearer ${token()}` } : {} });
     const data = await readApiJson(response);
     if (!response.ok) {
-      localStorage.removeItem('countdown_studio_auth_token_v1');
-      localStorage.removeItem('countdown_studio_auth_user_v1');
+      clearSession();
       location.href = './login.html?redirect=' + encodeURIComponent(location.pathname + location.search);
       return false;
     }
-    localStorage.setItem('countdown_studio_auth_user_v1', JSON.stringify(data.user));
+    updateStoredUser(data.user);
     if (!data.user.permissions.includes(requiredPermission)) {
       location.href = `./index.html?unauthorized=1&feature=${encodeURIComponent(requiredPermission)}`;
       return false;

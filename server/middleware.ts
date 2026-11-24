@@ -89,11 +89,11 @@ function applyContentSecurityPolicy(app: import('express').Express) {
     process.env.CSP_POLICY || [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' https://accounts.google.com",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
       "font-src 'self' data: https://fonts.gstatic.com",
       "img-src 'self' data: https://vietnamcos.com https://api.producthunt.com https://*.googleusercontent.com",
       "media-src 'self'",
-      "connect-src 'self' wss://*.onrender.com https://api.datamuse.com https://api.dictionaryapi.dev",
+      "connect-src 'self' wss://*.onrender.com https://accounts.google.com https://api.datamuse.com https://api.dictionaryapi.dev",
       "frame-src 'self' https://accounts.google.com",
       "object-src 'none'",
       "base-uri 'self'",

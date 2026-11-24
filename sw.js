@@ -5,11 +5,14 @@
  * while full offline capability is preserved when disconnected.
  */
 
-const CACHE_NAME = 'countdown-studio-v2.2.9';
+const CACHE_NAME = 'countdown-studio-v2.3.0';
 
 const CORE_ASSETS = [
   './',
   './index.html',
+  './login.html',
+  './forgot-password.html',
+  './reset-password.html',
   './solo.html',
   './versus-display.html',
   './versus-host.html',
@@ -25,6 +28,8 @@ const CORE_ASSETS = [
   './css/display.css',
   './css/animations.css',
   './js/i18n.js',
+  './js/auth.js',
+  './js/net/api.js',
   './js/core/state.js',
   './js/core/events.js',
   './js/core/storage.js',
@@ -45,6 +50,8 @@ const CORE_ASSETS = [
   './js/ui/modal.js',
   './js/ui/toast.js',
   './js/ui/a11y.js',
+  './js/ui/qrcode.js',
+  './js/ui/stageImage.js',
   './js/net/sync.js',
   './js/net/dictionaryApi.js',
   './js/app-home.js',
@@ -67,7 +74,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) =>
-      Promise.allSettled(CORE_ASSETS.map((url) => cache.add(url).catch(() => {})))
+      Promise.allSettled(CORE_ASSETS.map((url) => cache.add(url).catch(() => { })))
     )
   );
 });
@@ -86,6 +93,9 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
+
+  const url = new URL(request.url);
+  if (url.pathname.startsWith('/api/')) return;
 
   // Network-first with offline cache fallback
   event.respondWith(

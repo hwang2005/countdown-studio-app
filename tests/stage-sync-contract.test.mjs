@@ -5,10 +5,25 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
+const readServerBundle = () => {
+  const parts = [read('server.ts')];
+  const serverDir = path.join(root, 'server');
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith('.ts')) parts.push(fs.readFileSync(full, 'utf8'));
+    }
+  };
+  if (fs.existsSync(serverDir)) walk(serverDir);
+  return parts.join('\n');
+};
 
-const server = read('server.ts');
+const server = readServerBundle();
+const wsServer = read('server/ws.ts');
 const sync = read('js/net/sync.js');
 const host = read('js/app-host.js');
+const hostHtml = read('versus-host.html');
 const display = read('js/app-display.js');
 const displayCss = read('css/display.css');
 const displayHtml = read('versus-display.html');
@@ -60,6 +75,16 @@ const checks = [
   ['Projection machine can auto-rejoin its saved room', display.includes('DISPLAY_AUTOJOIN_KEY') && display.includes('Auto-rejoining saved room')],
   ['Display can copy a ?room= bookmark link', display.includes('btn-copy-display-link') && display.includes('buildDisplayRoomLink')],
   ['Technician hotkeys D and ? are wired on the display', display.includes("key === 'd'") && display.includes("key === '?'")],
+  ['Display includes production WS backend config', displayHtml.includes('__COUNTDOWN_STAGE_WS_URL__')],
+  ['Display places match-end podium outside stage-board-zone', displayHtml.indexOf('id="stage-match-end-podium"') > displayHtml.indexOf('</section>')],
+  ['Display guards keydown against input elements', display.includes('HTMLInputElement') && display.includes("e.target.id === 'display-input-room-code'")],
+  ['Display supports preview iframe isolation', display.includes('isPreviewMode') && sync.includes('this.isPreview') && hostHtml.includes('versus-display.html?preview=1')],
+  ['Display preserves ?ws= param in buildDisplayRoomLink', display.includes('buildDisplayRoomLink') && display.includes("url.searchParams.set('ws'")],
+  ['Display serializes numbersSolution cleanly in boardKey', display.includes('JSON.stringify(currentState.numbersSolution')],
+  ['Host uses zero-dependency QR encoder and compressed backgrounds', host.includes('drawQrCodeToCanvas') && host.includes('compressStageBackgroundFile')],
+  ['Host saves versus match log and supports declaration preview', host.includes('saveGameLog') && host.includes('host-btn-preview-declarations')],
+  ['Host throttles clock tick broadcasts and guards double-scoring', host.includes('lastNonTickBroadcastKey') && host.includes('Current round is already scored')],
+  ['Server emits room:host_status on host connect/disconnect', wsServer.includes("'room:host_status'")],
 ];
 
 for (const [label, condition] of checks) {
@@ -69,3 +94,19 @@ for (const [label, condition] of checks) {
 
 assert.equal(displayCss.includes('countdown-clock-placeholder.jpg'), false, 'placeholder stage asset must not be referenced');
 console.log('✅ no missing placeholder stage asset reference');
+
+// Runtime FSM & QR Code checks
+const { PHASES, canTransition } = await import('../js/core/state.js');
+assert.equal(canTransition(PHASES.IDLE, PHASES.SCORING), false, 'IDLE -> SCORING must remain blocked');
+assert.equal(canTransition(PHASES.CLOCK_RUNNING, PHASES.SCORING), true, 'CLOCK_RUNNING -> SCORING must be allowed');
+assert.equal(canTransition(PHASES.REVEAL, PHASES.PICKING), true, 'REVEAL -> PICKING must be allowed');
+assert.equal(canTransition(PHASES.PICKING, PHASES.MATCH_END), true, 'PICKING -> MATCH_END must be allowed');
+console.log('✅ runtime FSM transition contract verified');
+
+const { encodeQrMatrix } = await import('../js/ui/qrcode.js');
+const qr = encodeQrMatrix('https://www.countdown-studio.id.vn/versus-display.html?room=CD-8842');
+assert.equal(qr.size >= 21 && qr.modules.length === qr.size && qr.modules[0].length === qr.size, true, 'QR matrix must be square');
+assert.equal(qr.modules[0][0] && qr.modules[0][6] && qr.modules[6][0] && qr.modules[6][6] && qr.modules[3][3], true, 'Top-left QR finder pattern must be intact');
+assert.equal(qr.modules[0][qr.size - 7] && qr.modules[0][qr.size - 1] && qr.modules[3][qr.size - 4], true, 'Top-right QR finder pattern must be intact');
+assert.equal(qr.modules[qr.size - 7][0] && qr.modules[qr.size - 1][0] && qr.modules[qr.size - 4][3], true, 'Bottom-left QR finder pattern must be intact');
+console.log('✅ runtime QR encoder verified');

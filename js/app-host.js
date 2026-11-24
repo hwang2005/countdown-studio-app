@@ -30,7 +30,8 @@ import {
   loadCustomStageBackground,
   saveCustomStageBackground,
   loadStageControlsHidden,
-  saveStageControlsHidden
+  saveStageControlsHidden,
+  saveGameLog
 } from './core/storage.js';
 import {
   PHASES,
@@ -39,7 +40,7 @@ import {
 } from './core/state.js';
 import { createRNG, randomInt } from './core/rng.js';
 import { audio } from './core/audio.js';
-import { CountdownClock, renderClockWidget } from './core/clock.js';
+import { CountdownClock } from './core/clock.js';
 import {
   createLetterStacks,
   getPickConstraints,
@@ -54,11 +55,14 @@ import {
 } from './game/numbers.js';
 import {
   pickConundrum,
-  adjudicateBuzz
+  adjudicateBuzz,
+  checkConundrumGuess
 } from './game/conundrum.js';
 import {
   scoreVersusLettersRound,
-  scoreVersusNumbersRound
+  scoreVersusNumbersRound,
+  scoreSingleWord,
+  scoreSingleNumbers
 } from './game/scoring.js';
 import {
   SCHEDULE_PRESETS,
@@ -72,12 +76,13 @@ import { StageSyncChannel } from './net/sync.js';
 import { apiFetch, readApiJson } from './net/api.js';
 import { authHeaders } from './auth.js';
 import { fetchWordDefinition } from './net/dictionaryApi.js';
-import { renderLetterTiles, renderNumberTiles } from './ui/tiles.js';
 import { renderDictionaryCorner, renderNumbersSolution } from './ui/board.js';
 import { exportMatchSummaryPNG, launchConfetti } from './ui/scoreboard.js';
 import { initModalHandlers } from './ui/modal.js';
 import { showToast } from './ui/toast.js';
 import { requestWakeLock } from './ui/a11y.js';
+import { drawQrCodeToCanvas } from './ui/qrcode.js';
+import { compressStageBackgroundFile } from './ui/stageImage.js';
 
 let settings = loadSettings();
 let dictData = null;
@@ -92,8 +97,14 @@ let syncChannel = null;
 let clock = null;
 let buzzerAnswerTimer = null;
 let hostCustomSchedule = [];
-let lastRenderedPreviewBoardKey = null;
 let selectedArchiveSnapshot = null;
+let lastBroadcastAt = 0;
+let lastNonTickBroadcastKey = '';
+let lastSolverRenderKey = '';
+let lastActionLogRenderKey = '';
+let lastScheduleStripKey = '';
+let lastRoundHistoryKey = '';
+let lastLoggedMatchId = null;
 
 const HISTORY_PAGE_SIZE = 25;
 const historyFilterState = { offset: 0, total: 0 };
@@ -218,33 +229,21 @@ function getStageDisplayUrl(roomId = '') {
  * it the copyable room link remains fully usable.
  */
 function renderQrCode(canvas, value) {
-  const qrCode = window.QRCode;
-  if (qrCode?.toCanvas) {
-    qrCode.toCanvas(canvas, value, {
-      width: 200,
-      margin: 1,
-      color: { dark: '#030712', light: '#FFFFFF' },
-    }, (error) => {
-      if (error) console.error('Failed to generate QR Code:', error);
-    });
-    return;
-  }
-
-  const context = canvas?.getContext?.('2d');
-  if (!context) return;
-  canvas.width = 200;
-  canvas.height = 200;
-  context.fillStyle = '#FFFFFF';
-  context.fillRect(0, 0, canvas.width, canvas.height);
-  context.fillStyle = '#030712';
-  context.font = '600 14px sans-serif';
-  context.textAlign = 'center';
-  context.fillText('Copy the display link', 100, 92);
-  context.fillText('to open it on another device.', 100, 114);
+  drawQrCodeToCanvas(canvas, value, {
+    width: 200,
+    margin: 2,
+    dark: '#030712',
+    light: '#FFFFFF'
+  });
 }
 
-function broadcastState(state) {
-  if (syncChannel) {
+function broadcastState(state, { force = false } = {}) {
+  if (!syncChannel) return;
+  const nonTickKey = JSON.stringify({ ...state, clockRemainingMs: undefined });
+  const now = Date.now();
+  if (force || nonTickKey !== lastNonTickBroadcastKey || now - lastBroadcastAt >= 1000) {
+    lastNonTickBroadcastKey = nonTickKey;
+    lastBroadcastAt = now;
     syncChannel.send('STATE_SYNC', state);
   }
 }
@@ -264,16 +263,19 @@ function initClock() {
     },
     onComplete: () => {
       const st = store.getState();
+      audio.stopClockMusic();
       store.transition(
         PHASES.REVEAL,
         {
           clockRemainingMs: 0,
+          clockBaseRemainingMs: 0,
           clockRunning: false,
           clockStartedAtEpoch: null,
           activeBuzzerPlayer: null
         },
         `Round ${st.roundIndex + 1} clock expired (Time!).`
       );
+      broadcastState(store.getState(), { force: true });
       showToast('Time is up! Enter contestant declarations.', 'info');
     }
   });
@@ -294,6 +296,8 @@ function initHostScheduleEditor() {
   hostCustomSchedule = getScheduleRounds('custom', settings.customSchedule);
   if (hostCustomSchedule.length === 0) hostCustomSchedule = [...SCHEDULE_PRESETS['tv-15'].rounds];
 
+  let dragIndex = null;
+
   const render = () => {
     const isCustom = presetSelect.value === 'custom';
     editor.hidden = !isCustom;
@@ -305,14 +309,44 @@ function initHostScheduleEditor() {
       item.draggable = true;
       item.className = 'btn btn--sm btn--secondary';
       item.style.cursor = 'grab';
-      item.setAttribute('aria-label', `Round ${index + 1}: ${getRoundTypeName(code)}. Drag to reorder.`);
+      item.style.gap = '0.25rem';
+      item.setAttribute('aria-label', `Round ${index + 1}: ${getRoundTypeName(code)}. Drag or use arrows to reorder.`);
+
+      const moveLeft = document.createElement('button');
+      moveLeft.type = 'button';
+      moveLeft.className = 'btn btn--sm';
+      moveLeft.style.padding = '0 0.2rem';
+      moveLeft.textContent = '‹';
+      moveLeft.title = `Move round ${index + 1} earlier`;
+      moveLeft.disabled = index === 0;
+      moveLeft.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (index === 0) return;
+        [hostCustomSchedule[index - 1], hostCustomSchedule[index]] = [hostCustomSchedule[index], hostCustomSchedule[index - 1]];
+        render();
+      });
 
       const label = document.createElement('span');
       label.textContent = `R${index + 1}: ${getRoundTypeName(code)}`;
+
+      const moveRight = document.createElement('button');
+      moveRight.type = 'button';
+      moveRight.className = 'btn btn--sm';
+      moveRight.style.padding = '0 0.2rem';
+      moveRight.textContent = '›';
+      moveRight.title = `Move round ${index + 1} later`;
+      moveRight.disabled = index === hostCustomSchedule.length - 1;
+      moveRight.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (index >= hostCustomSchedule.length - 1) return;
+        [hostCustomSchedule[index + 1], hostCustomSchedule[index]] = [hostCustomSchedule[index], hostCustomSchedule[index + 1]];
+        render();
+      });
+
       const remove = document.createElement('button');
       remove.type = 'button';
       remove.className = 'btn btn--sm';
-      remove.style.marginLeft = '0.35rem';
+      remove.style.marginLeft = '0.15rem';
       remove.style.padding = '0 0.25rem';
       remove.textContent = '×';
       remove.title = `Remove round ${index + 1}`;
@@ -325,9 +359,8 @@ function initHostScheduleEditor() {
         hostCustomSchedule.splice(index, 1);
         render();
       });
-      item.append(label, remove);
+      item.append(moveLeft, label, moveRight, remove);
 
-      let dragIndex = null;
       item.addEventListener('dragstart', () => { dragIndex = index; });
       item.addEventListener('dragover', (event) => event.preventDefault());
       item.addEventListener('drop', (event) => {
@@ -335,6 +368,7 @@ function initHostScheduleEditor() {
         if (dragIndex === null || dragIndex === index) return;
         const [moved] = hostCustomSchedule.splice(dragIndex, 1);
         hostCustomSchedule.splice(index, 0, moved);
+        dragIndex = null;
         render();
       });
       list.appendChild(item);
@@ -359,19 +393,80 @@ function initHostScheduleEditor() {
   render();
 }
 
+function populatePreMatchSetupModal() {
+  const st = store.getState();
+  const p1Name = document.getElementById('setup-p1-name');
+  const p2Name = document.getElementById('setup-p2-name');
+  const p1Color = document.getElementById('setup-p1-color');
+  const p2Color = document.getElementById('setup-p2-color');
+  const clockSel = document.getElementById('setup-clock');
+  const starterSel = document.getElementById('setup-starter');
+  const themeSel = document.getElementById('setup-theme');
+  const onlyLongerChk = document.getElementById('setup-only-longer');
+  const soundChk = document.getElementById('setup-sound');
+
+  if (p1Name) p1Name.value = st.players?.[0]?.name || 'Contestant 1';
+  if (p2Name) p2Name.value = st.players?.[1]?.name || 'Contestant 2';
+  if (p1Color) p1Color.value = st.players?.[0]?.color || '#38BDF8';
+  if (p2Color) p2Color.value = st.players?.[1]?.color || '#F59E0B';
+  if (clockSel) clockSel.value = String(st.clockDuration ?? settings.clockDuration ?? 30);
+  if (starterSel) starterSel.value = String(settings.startingPlayer || 1);
+  if (themeSel) themeSel.value = st.theme || settings.theme || 'classic-blue';
+  if (onlyLongerChk) onlyLongerChk.checked = settings.onlyLongerScores !== false;
+  if (soundChk) soundChk.checked = settings.soundEnabled !== false;
+}
+
+function updateActiveMatchMeta() {
+  const st = store.getState();
+  const p1Name = document.getElementById('setup-p1-name')?.value.trim() || 'Contestant 1';
+  const p2Name = document.getElementById('setup-p2-name')?.value.trim() || 'Contestant 2';
+  const p1Color = document.getElementById('setup-p1-color')?.value || '#38BDF8';
+  const p2Color = document.getElementById('setup-p2-color')?.value || '#F59E0B';
+  const theme = document.getElementById('setup-theme')?.value || 'classic-blue';
+  const onlyLonger = document.getElementById('setup-only-longer')?.checked ?? true;
+  const soundOn = document.getElementById('setup-sound')?.checked ?? true;
+
+  settings = saveSettings({
+    theme,
+    onlyLongerScores: onlyLonger,
+    soundEnabled: soundOn
+  });
+  audio.setMuted(!soundOn);
+
+  const nextPlayers = st.players.map((p, idx) => ({
+    ...p,
+    name: idx === 0 ? p1Name : p2Name,
+    color: idx === 0 ? p1Color : p2Color
+  }));
+
+  store.update(
+    { theme, players: nextPlayers },
+    {
+      recordUndo: true,
+      logMessage: `Updated match details: ${p1Name} vs ${p2Name} (${theme}).`
+    }
+  );
+  broadcastState(store.getState(), { force: true });
+  showToast('Updated active match details without resetting scores.', 'success');
+}
+
 function startNewMatchFromSetup() {
   const p1Name = document.getElementById('setup-p1-name')?.value.trim() || 'Contestant 1';
   const p2Name = document.getElementById('setup-p2-name')?.value.trim() || 'Contestant 2';
+  const p1Color = document.getElementById('setup-p1-color')?.value || '#38BDF8';
+  const p2Color = document.getElementById('setup-p2-color')?.value || '#F59E0B';
   const preset = document.getElementById('setup-schedule')?.value || 'tv-15';
   const clockSec = Number(document.getElementById('setup-clock')?.value || 30);
   const starter = Number(document.getElementById('setup-starter')?.value || 1);
   const theme = document.getElementById('setup-theme')?.value || 'classic-blue';
+  const onlyLonger = document.getElementById('setup-only-longer')?.checked ?? true;
   const soundOn = document.getElementById('setup-sound')?.checked ?? true;
 
   settings = saveSettings({
     theme,
     clockDuration: clockSec,
     startingPlayer: starter,
+    onlyLongerScores: onlyLonger,
     soundEnabled: soundOn
   });
   audio.setMuted(!soundOn);
@@ -400,9 +495,10 @@ function startNewMatchFromSetup() {
     pickerPlayer: getPickerForRound(0, starter),
     clockDuration: clockSec,
     clockRemainingMs: clockSec * 1000,
+    clockBaseRemainingMs: clockSec * 1000,
     players: [
-      { id: 1, name: p1Name, color: '#38BDF8', score: 0, submission: '', valid: null, roundPoints: 0, lockedOut: false },
-      { id: 2, name: p2Name, color: '#F59E0B', score: 0, submission: '', valid: null, roundPoints: 0, lockedOut: false }
+      { id: 1, name: p1Name, color: p1Color, score: 0, submission: '', valid: null, roundPoints: 0, lockedOut: false },
+      { id: 2, name: p2Name, color: p2Color, score: 0, submission: '', valid: null, roundPoints: 0, lockedOut: false }
     ],
     actionLog: [{ time: new Date().toLocaleTimeString(), message: `Match started: ${p1Name} vs ${p2Name} (${schedule.length} rounds).` }]
   });
@@ -417,6 +513,11 @@ function startNewMatchFromSetup() {
 
   store.replaceState(fresh);
   if (clock) clock.setDuration(clockSec);
+  const p1In = document.getElementById('host-p1-submission');
+  const p2In = document.getElementById('host-p2-submission');
+  if (p1In) p1In.value = '';
+  if (p2In) p2In.value = '';
+  broadcastState(store.getState(), { force: true });
   showToast('Match initialised and broadcast to Stage Display!', 'success');
 }
 
@@ -430,11 +531,35 @@ function configureRoundAtIndex(roundIdx, logText) {
   if (roundIdx >= schedule.length) {
     store.transition(
       PHASES.MATCH_END,
-      { clockRunning: false, clockStartedAtEpoch: null },
+      {
+        clockRunning: false,
+        clockStartedAtEpoch: null,
+        clockBaseRemainingMs: st.clockRemainingMs
+      },
       'Match completed!'
     );
+    broadcastState(store.getState(), { force: true });
     audio.playFanfare();
     launchConfetti();
+
+    const finalState = store.getState();
+    if (lastLoggedMatchId !== finalState.matchId) {
+      lastLoggedMatchId = finalState.matchId;
+      const topScore = Math.max(finalState.players[0]?.score || 0, finalState.players[1]?.score || 0);
+      void saveGameLog(
+        { score: topScore, maxPossible: 0, roundsCount: (finalState.roundHistory || []).length },
+        {
+          mode: 'versus-host',
+          matchId: finalState.matchId,
+          roomCode: syncChannel?.roomId || null,
+          roundsCount: (finalState.roundHistory || []).length,
+          sessionData: {
+            players: finalState.players,
+            roundHistory: finalState.roundHistory
+          }
+        }
+      );
+    }
     return;
   }
 
@@ -453,6 +578,7 @@ function configureRoundAtIndex(roundIdx, logText) {
     roundType: rType,
     pickerPlayer: picker,
     clockRemainingMs: st.clockDuration * 1000,
+    clockBaseRemainingMs: st.clockDuration * 1000,
     clockRunning: false,
     clockStartedAtEpoch: null,
     players: nextPlayers,
@@ -486,6 +612,13 @@ function configureRoundAtIndex(roundIdx, logText) {
   const p2In = document.getElementById('host-p2-submission');
   if (p1In) p1In.value = '';
   if (p2In) p2In.value = '';
+  const conCheckIn = document.getElementById('host-conundrum-check-input');
+  const conCheckStatus = document.getElementById('host-conundrum-check-status');
+  if (conCheckIn) conCheckIn.value = '';
+  if (conCheckStatus) {
+    conCheckStatus.textContent = 'Type spoken answer to verify';
+    conCheckStatus.style.color = 'var(--text-muted)';
+  }
 
   store.transition(PHASES.PICKING, patch, logText || `Started Round ${roundIdx + 1} (${getRoundTypeName(rType)}).`);
 }
@@ -493,7 +626,15 @@ function configureRoundAtIndex(roundIdx, logText) {
 /* ============================================================================
  * HOST ROUND ACTIONS
  * ========================================================================== */
+function ensureMatchActiveForPicking() {
+  const st = store.getState();
+  if (st.phase === PHASES.IDLE) {
+    store.transition(PHASES.PICKING, {}, `Started Round ${st.roundIndex + 1} (${getRoundTypeName(st.roundType)}).`);
+  }
+}
+
 function hostPickLetter(kind) {
+  ensureMatchActiveForPicking();
   const st = store.getState();
   if (st.phase !== PHASES.PICKING || st.roundType !== 'L') return;
 
@@ -525,6 +666,7 @@ function hostPickLetter(kind) {
 }
 
 function hostPickRandomLetters() {
+  ensureMatchActiveForPicking();
   const st = store.getState();
   if (st.phase !== PHASES.PICKING || st.roundType !== 'L') return;
   if (st.letters.length >= 9) return;
@@ -548,6 +690,7 @@ function hostPickRandomLetters() {
 }
 
 function hostPickNumbers(largeCount) {
+  ensureMatchActiveForPicking();
   const st = store.getState();
   if (st.phase !== PHASES.PICKING || st.roundType !== 'N') return;
 
@@ -590,34 +733,42 @@ function toggleClockRunPause() {
   if (clock.running) {
     clock.pause();
     audio.pauseClockMusic();
+    const pausedRem = Math.round(clock.remainingMs);
     store.update(
       {
         clockRunning: false,
-        clockRemainingMs: Math.round(clock.remainingMs),
+        clockRemainingMs: pausedRem,
+        clockBaseRemainingMs: pausedRem,
         clockStartedAtEpoch: null
       },
-      { logMessage: `Paused clock at ${(clock.remainingMs / 1000).toFixed(1)}s.` }
+      { logMessage: `Paused clock at ${(pausedRem / 1000).toFixed(1)}s.` }
     );
+    broadcastState(store.getState(), { force: true });
   } else {
-    if (st.phase === PHASES.PICKING || st.phase === PHASES.REVEAL) {
+    const startRemMs = st.clockRemainingMs > 0 ? st.clockRemainingMs : st.clockDuration * 1000;
+    const startEpoch = Date.now();
+    if (st.phase === PHASES.IDLE || st.phase === PHASES.PICKING || st.phase === PHASES.REVEAL) {
       store.transition(
         PHASES.CLOCK_RUNNING,
         {
           clockRunning: true,
-          clockStartedAtEpoch: Date.now()
+          clockStartedAtEpoch: startEpoch,
+          clockBaseRemainingMs: startRemMs
         },
-        `Started 30s clock for Round ${st.roundIndex + 1}.`
+        `Started ${st.clockDuration || 30}s clock for Round ${st.roundIndex + 1}.`
       );
     } else {
       store.update(
         {
           clockRunning: true,
-          clockStartedAtEpoch: Date.now()
+          clockStartedAtEpoch: startEpoch,
+          clockBaseRemainingMs: startRemMs
         },
         { logMessage: 'Resumed clock.' }
       );
     }
-    clock.start(st.clockRemainingMs > 0 ? st.clockRemainingMs : st.clockDuration * 1000);
+    broadcastState(store.getState(), { force: true });
+    clock.start(startRemMs);
     audio.resumeClockMusic();
   }
 }
@@ -659,10 +810,12 @@ function handleContestantBuzz(playerNum, timestamp = performance.now()) {
   audio.pauseClockMusic();
   audio.playContestantBuzz(adj.winner);
 
+  const pausedRem = Math.round(clock ? clock.remainingMs : st.clockRemainingMs);
   store.update(
     {
       clockRunning: false,
-      clockRemainingMs: Math.round(clock.remainingMs),
+      clockRemainingMs: pausedRem,
+      clockBaseRemainingMs: pausedRem,
       clockStartedAtEpoch: null,
       activeBuzzerPlayer: adj.winner,
       buzzerTimestamp: timestamp,
@@ -671,10 +824,11 @@ function handleContestantBuzz(playerNum, timestamp = performance.now()) {
     {
       recordUndo: true,
       logMessage: `${st.players[adj.winner - 1].name} buzzed in at ${(
-        clock.remainingMs / 1000
+        pausedRem / 1000
       ).toFixed(1)}s!`
     }
   );
+  broadcastState(store.getState(), { force: true });
 
   clearBuzzerTimer();
   let rem = 5000;
@@ -683,6 +837,7 @@ function handleContestantBuzz(playerNum, timestamp = performance.now()) {
     store.update({ buzzerRemainingMs: rem });
     if (rem <= 0) {
       clearBuzzerTimer();
+      showToast(`5s answer window expired for ${st.players[adj.winner - 1].name} — mark Correct or Wrong.`, 'info');
     }
   }, 250);
 }
@@ -697,6 +852,8 @@ function adjudicateConundrumBuzz(isCorrect) {
   const idx = activeP - 1;
 
   if (isCorrect) {
+    if (clock && clock.running) clock.pause();
+    audio.stopClockMusic();
     nextPlayers[idx].roundPoints = 10;
     nextPlayers[idx].score += 10;
     nextPlayers[idx].valid = true;
@@ -719,12 +876,15 @@ function adjudicateConundrumBuzz(isCorrect) {
       PHASES.SCORING,
       {
         players: nextPlayers,
+        clockRunning: false,
+        clockStartedAtEpoch: null,
         activeBuzzerPlayer: null,
         conundrumRevealed: true,
         roundHistory: nextHistory
       },
       `CORRECT! ${nextPlayers[idx].name} solved "${st.conundrumAnswer}" (+10 pts).`
     );
+    broadcastState(store.getState(), { force: true });
   } else {
     nextPlayers[idx].lockedOut = true;
     nextPlayers[idx].valid = false;
@@ -759,10 +919,116 @@ function adjudicateConundrumBuzz(isCorrect) {
 /* ============================================================================
  * REVEAL & ADJUDICATION SCORING (LETTERS & NUMBERS)
  * ========================================================================== */
+function updateLiveDeclarationHints(state = store.getState()) {
+  const hint1 = document.getElementById('host-p1-validation');
+  const hint2 = document.getElementById('host-p2-validation');
+  const p1Raw = document.getElementById('host-p1-submission')?.value.trim() || '';
+  const p2Raw = document.getElementById('host-p2-submission')?.value.trim() || '';
+  const p1Verified = document.getElementById('host-p1-valid-toggle')?.checked ?? true;
+  const p2Verified = document.getElementById('host-p2-valid-toggle')?.checked ?? true;
+
+  const applyHint = (el, raw, verified) => {
+    if (!el) return;
+    el.classList.remove('is-valid', 'is-invalid');
+    if (!raw) {
+      el.textContent = '';
+      return;
+    }
+    if (state.roundType === 'L') {
+      if (!state.letters || state.letters.length < 9) {
+        el.textContent = 'Pick all 9 letters to validate.';
+        return;
+      }
+      const res = validateWordSubmission(raw, state.letters, dictData ? dictData.wordSet : null);
+      if (res.valid) {
+        const pts = scoreSingleWord(res.normalizedWord, true);
+        el.classList.add('is-valid');
+        el.textContent = `✓ Valid (${res.normalizedWord.length}L · ${pts} pts)`;
+      } else {
+        el.classList.add('is-invalid');
+        const reasonMap = {
+          too_short: 'Too short (min 2 letters)',
+          too_long: 'Exceeds 9 letters',
+          non_alpha: 'Letters A–Z only',
+          missing_letters: `Missing tile "${res.missingLetter || '?'}"`,
+          not_in_dictionary: 'Not in dictionary'
+        };
+        el.textContent = `✗ ${reasonMap[res.reason] || 'Invalid word'}`;
+      }
+    } else if (state.roundType === 'N') {
+      const val = Number(raw);
+      if (!Number.isFinite(val) || !Number.isInteger(val) || val <= 0) {
+        el.classList.add('is-invalid');
+        el.textContent = '✗ Enter a positive integer';
+        return;
+      }
+      if (!state.target) {
+        el.textContent = 'Draw target numbers first.';
+        return;
+      }
+      if (!verified) {
+        el.classList.add('is-invalid');
+        el.textContent = '✗ Working unchecked (0 pts)';
+        return;
+      }
+      const res = scoreSingleNumbers(val, state.target, true, {
+        exact: settings.numbersExactPoints,
+        within5: settings.numbersClose5Points,
+        within10: settings.numbersClose10Points
+      });
+      if (res.points > 0) {
+        el.classList.add('is-valid');
+        el.textContent = res.distance === 0
+          ? `✓ Exact! (${res.points} pts)`
+          : `✓ ${res.distance} away (${res.points} pts)`;
+      } else {
+        el.classList.add('is-invalid');
+        el.textContent = `✗ ${res.distance} away (> 10 · 0 pts)`;
+      }
+    } else {
+      const ok = checkConundrumGuess(raw, state.conundrumAnswers?.length ? state.conundrumAnswers : state.conundrumAnswer);
+      el.classList.toggle('is-valid', ok);
+      el.classList.toggle('is-invalid', !ok);
+      el.textContent = ok ? '✓ Matches conundrum answer' : '✗ Does not match conundrum';
+    }
+  };
+
+  applyHint(hint1, p1Raw, p1Verified);
+  applyHint(hint2, p2Raw, p2Verified);
+}
+
+function previewDeclarationsOnStage() {
+  const st = store.getState();
+  const p1Raw = document.getElementById('host-p1-submission')?.value.trim().toUpperCase() || '';
+  const p2Raw = document.getElementById('host-p2-submission')?.value.trim().toUpperCase() || '';
+  const nextPlayers = st.players.map((p, idx) => ({
+    ...p,
+    submission: (idx === 0 ? p1Raw : p2Raw) || '',
+    valid: null,
+    roundPoints: 0
+  }));
+  store.update(
+    { players: nextPlayers },
+    { logMessage: `Displayed declarations on Stage: ${p1Raw || '—'} vs ${p2Raw || '—'}.` }
+  );
+  broadcastState(store.getState(), { force: true });
+  showToast('Contestant declarations shown on Stage Display.', 'info');
+}
+
 function scoreCurrentRoundSubmissions() {
   const st = store.getState();
+  if (st.phase === PHASES.IDLE) {
+    showToast('Start a round or pick tiles before scoring.', 'error');
+    return;
+  }
+  if (st.phase === PHASES.SCORING) {
+    showToast('Current round is already scored. Use Undo to revise or advance to Next Round.', 'info');
+    return;
+  }
+
   audio.stopClockMusic();
   if (clock && clock.running) clock.pause();
+  clearBuzzerTimer();
 
   const p1Raw = document.getElementById('host-p1-submission')?.value.trim() || '';
   const p2Raw = document.getElementById('host-p2-submission')?.value.trim() || '';
@@ -831,10 +1097,13 @@ function scoreCurrentRoundSubmissions() {
       PHASES.SCORING,
       {
         conundrumRevealed: true,
-        clockRunning: false
+        clockRunning: false,
+        clockStartedAtEpoch: null,
+        activeBuzzerPlayer: null
       },
       `Revealed Conundrum answer: ${st.conundrumAnswer}`
     );
+    broadcastState(store.getState(), { force: true });
     return;
   }
 
@@ -876,100 +1145,50 @@ function renderHostConsole(state) {
     } (${getRoundTypeName(state.roundType)})`;
   }
 
-  // Update Live Preview Mini-Stage
-  const prevRound = document.getElementById('preview-round-title');
-  if (prevRound) {
-    prevRound.textContent = `Round ${state.roundIndex + 1} of ${state.schedule.length} · ${getRoundTypeName(
-      state.roundType
-    )}`;
+  // Live Clock Readout & Progress Bar
+  const durationMs = Math.max(0, Number(state.clockDuration || 30) * 1000);
+  const remMs = Math.max(0, Number(state.clockRemainingMs ?? durationMs));
+  const clockReadout = document.getElementById('host-clock-readout');
+  const clockStateLabel = document.getElementById('host-clock-state-label');
+  const clockProgressFill = document.getElementById('host-clock-progress-fill');
+  if (clockReadout) {
+    clockReadout.textContent = durationMs === 0
+      ? 'Untimed'
+      : `${(remMs / 1000).toFixed(1)}s / ${Math.round(durationMs / 1000)}s`;
+  }
+  if (clockStateLabel) {
+    clockStateLabel.textContent = state.clockRunning
+      ? '⏱ Clock Running'
+      : state.activeBuzzerPlayer
+        ? `🔔 Buzzer Frozen (${state.players[state.activeBuzzerPlayer - 1]?.name || 'Player'})`
+        : remMs <= 0 && durationMs > 0
+          ? '⏹ Time Expired'
+          : '⏸ Clock Ready';
+  }
+  if (clockProgressFill) {
+    const pct = durationMs > 0 ? Math.max(0, Math.min(100, (remMs / durationMs) * 100)) : 100;
+    clockProgressFill.style.width = `${pct.toFixed(1)}%`;
+    clockProgressFill.parentElement?.setAttribute('aria-valuenow', String(Math.round(pct)));
   }
 
-  const prevPicker = document.getElementById('preview-picker-label');
-  if (prevPicker) {
-    const pickerObj = state.players[state.pickerPlayer - 1];
-    prevPicker.textContent =
-      state.roundType === 'C'
-        ? 'Buzzer Round'
-        : `Picker: ${pickerObj ? pickerObj.name : 'Contestant'}`;
-  }
-
-  const prevBoard = document.getElementById('preview-board-container');
-  if (prevBoard) {
-    const word = state.conundrumRevealed ? state.conundrumAnswer : state.conundrumScrambled;
-    const prevBoardKey = state.roundType === 'L'
-      ? `L:${(state.letters || []).join('')}`
-      : state.roundType === 'N'
-        ? `N:${(state.numbers || []).join(',')}`
-        : `C:${word || ''}:${Boolean(state.conundrumRevealed)}`;
-    if (prevBoardKey !== lastRenderedPreviewBoardKey) {
-      if (state.roundType === 'L') {
-        renderLetterTiles(prevBoard, state.letters, { noAnim: Boolean(state.clockRunning) });
-      } else if (state.roundType === 'N') {
-        renderNumberTiles(prevBoard, state.numbers, { noAnim: Boolean(state.clockRunning) });
-      } else {
-        renderLetterTiles(prevBoard, word ? word.split('') : [], { isConundrum: true, noAnim: Boolean(state.clockRunning) });
+  // Schedule Strip (memoized)
+  const scheduleStrip = document.getElementById('host-schedule-strip');
+  const scheduleKey = `${state.schedule.join('')}:${state.roundIndex}:${state.phase}`;
+  if (scheduleStrip && scheduleKey !== lastScheduleStripKey) {
+    lastScheduleStripKey = scheduleKey;
+    scheduleStrip.replaceChildren();
+    state.schedule.forEach((code, idx) => {
+      const pill = document.createElement('span');
+      pill.className = 'host-schedule-pill';
+      if (idx < state.roundIndex || (idx === state.roundIndex && (state.phase === PHASES.SCORING || state.phase === PHASES.MATCH_END))) {
+        pill.classList.add('is-done');
       }
-      lastRenderedPreviewBoardKey = prevBoardKey;
-    }
-  }
-
-  const prevTarget = document.getElementById('preview-target-label');
-  if (prevTarget) {
-    prevTarget.hidden = state.roundType !== 'N';
-    prevTarget.textContent = `Target: ${state.target || '000'}`;
-  }
-
-  const prevP1Name = document.getElementById('preview-p1-name');
-  const prevP2Name = document.getElementById('preview-p2-name');
-  const prevP1 = document.getElementById('preview-p1-score');
-  const prevP2 = document.getElementById('preview-p2-score');
-  if (prevP1Name) prevP1Name.textContent = state.players[0].name;
-  if (prevP2Name) prevP2Name.textContent = state.players[1].name;
-  if (prevP1) prevP1.textContent = String(state.players[0].score);
-  if (prevP2) prevP2.textContent = String(state.players[1].score);
-
-  const previewEl = document.getElementById('host-stage-preview');
-  const layout = loadStageLayout();
-  const customBg = loadCustomStageBackground();
-  if (previewEl) {
-    previewEl.style.setProperty('--clock-x', `${layout.clockX}%`);
-    previewEl.style.setProperty('--clock-y', `${layout.clockY}%`);
-    previewEl.style.setProperty('--clock-size', `${layout.clockSize}%`);
-    previewEl.style.setProperty('--p1-name-x', `${layout.p1NameX}%`);
-    previewEl.style.setProperty('--p1-name-y', `${layout.p1NameY}%`);
-    previewEl.style.setProperty('--p1-name-w', `${layout.p1NameW}%`);
-    previewEl.style.setProperty('--p1-score-x', `${layout.p1ScoreX}%`);
-    previewEl.style.setProperty('--p1-score-y', `${layout.p1ScoreY}%`);
-    previewEl.style.setProperty('--p1-score-w', `${layout.p1ScoreW}%`);
-    previewEl.style.setProperty('--p2-name-x', `${layout.p2NameX}%`);
-    previewEl.style.setProperty('--p2-name-y', `${layout.p2NameY}%`);
-    previewEl.style.setProperty('--p2-name-w', `${layout.p2NameW}%`);
-    previewEl.style.setProperty('--p2-score-x', `${layout.p2ScoreX}%`);
-    previewEl.style.setProperty('--p2-score-y', `${layout.p2ScoreY}%`);
-    previewEl.style.setProperty('--p2-score-w', `${layout.p2ScoreW}%`);
-    previewEl.style.setProperty('--board-x', `${layout.boardX}%`);
-    previewEl.style.setProperty('--board-y', `${layout.boardY}%`);
-    previewEl.style.setProperty('--board-w', `${layout.boardW}%`);
-    if (customBg) {
-      previewEl.style.setProperty('--stage-bg-image', `url("${customBg}")`);
-    } else {
-      previewEl.style.removeProperty('--stage-bg-image');
-      const probe = new Image();
-      probe.onload = () => {
-        if (!loadCustomStageBackground()) {
-          previewEl.style.setProperty('--stage-bg-image', `url("${probe.src}")`);
-        }
-      };
-      probe.src = './assets/stage-bg.svg';
-    }
-  }
-
-  // Render Host Clock Widget inside the background clock dial
-  const clockBox = document.getElementById('host-clock-widget');
-  if (clockBox) {
-    renderClockWidget(clockBox, state.clockRemainingMs, state.clockDuration * 1000, {
-      handsOnly: Boolean(layout.clockHandsOnly),
-      showDigital: Boolean(layout.showDigitalTimer)
+      if (idx === state.roundIndex && state.phase !== PHASES.MATCH_END) {
+        pill.classList.add('is-current');
+      }
+      pill.textContent = `R${idx + 1}:${code}`;
+      pill.title = `Round ${idx + 1}: ${getRoundTypeName(code)}`;
+      scheduleStrip.appendChild(pill);
     });
   }
 
@@ -981,17 +1200,40 @@ function renderHostConsole(state) {
   if (nPanel) nPanel.hidden = state.roundType !== 'N';
   if (cPanel) cPanel.hidden = state.roundType !== 'C';
 
+  // Hide Working Verified checkboxes unless in Numbers round
+  document.querySelectorAll('.host-verified-label').forEach((el) => {
+    el.hidden = state.roundType !== 'N';
+  });
+
+  // Update Scored Badge & Award Button
+  const scoredBadge = document.getElementById('host-scored-badge');
+  if (scoredBadge) scoredBadge.hidden = state.phase !== PHASES.SCORING;
+  const scoreBtn = document.getElementById('host-btn-score-round');
+  if (scoreBtn) {
+    scoreBtn.disabled =
+      state.phase === PHASES.SCORING ||
+      state.phase === PHASES.IDLE ||
+      state.phase === PHASES.MATCH_END;
+    scoreBtn.textContent =
+      state.roundType === 'C'
+        ? 'Reveal Conundrum (No Score)'
+        : 'Validate & Award Round Points';
+  }
+
+  const solverBox = document.getElementById('host-solver-output');
   if (state.roundType === 'L') {
     const c = getPickConstraints(state.vowelCount, state.consonantCount);
     const vBtn = document.getElementById('host-btn-vowel');
     const cBtn = document.getElementById('host-btn-consonant');
     const rBtn = document.getElementById('host-btn-random-letters');
-    if (vBtn) vBtn.disabled = state.phase !== PHASES.PICKING || !c.canPickVowel;
-    if (cBtn) cBtn.disabled = state.phase !== PHASES.PICKING || !c.canPickConsonant;
-    if (rBtn) rBtn.disabled = state.phase !== PHASES.PICKING || c.isComplete;
+    const lockPicking = state.phase !== PHASES.PICKING && state.phase !== PHASES.IDLE;
+    if (vBtn) vBtn.disabled = lockPicking || !c.canPickVowel;
+    if (cBtn) cBtn.disabled = lockPicking || !c.canPickConsonant;
+    if (rBtn) rBtn.disabled = lockPicking || c.isComplete;
 
-    const solverBox = document.getElementById('host-solver-output');
-    if (solverBox) {
+    const solverKey = `L:${(state.letters || []).join('')}:${Boolean(dictData)}`;
+    if (solverBox && solverKey !== lastSolverRenderKey) {
+      lastSolverRenderKey = solverKey;
       if (state.letters.length === 9 && dictData) {
         const solved = solveLettersRound(state.letters, dictData.trie, 10);
         renderDictionaryCorner(solverBox, solved);
@@ -1000,8 +1242,9 @@ function renderHostConsole(state) {
       }
     }
   } else if (state.roundType === 'N') {
-    const solverBox = document.getElementById('host-solver-output');
-    if (solverBox) {
+    const solverKey = `N:${JSON.stringify(state.numbersSolution || null)}:${state.target || ''}`;
+    if (solverBox && solverKey !== lastSolverRenderKey) {
+      lastSolverRenderKey = solverKey;
       if (state.numbersSolution) {
         renderNumbersSolution(solverBox, state.numbersSolution, state.target);
       } else {
@@ -1009,12 +1252,22 @@ function renderHostConsole(state) {
       }
     }
   } else if (state.roundType === 'C') {
+    const solverKey = `C:${state.conundrumScrambled || ''}`;
+    if (solverBox && solverKey !== lastSolverRenderKey) {
+      lastSolverRenderKey = solverKey;
+      solverBox.innerHTML = '<p style="color:var(--text-muted);font-size:0.875rem;">Conundrum Round active — monitor contestant buzzers (Q/L-Shift &amp; P/R-Shift) or use the quick answer checker above.</p>';
+    }
     const ansLabel = document.getElementById('host-conundrum-secret');
     if (ansLabel) {
       const accepted = state.conundrumAnswers?.length ? state.conundrumAnswers.join(' / ') : state.conundrumAnswer;
-      ansLabel.textContent = `Host Accepted Answer(s): ${accepted || '—'} (Question: ${
-        state.conundrumScrambled || '—'
-      })`;
+      const sourceText = Array.isArray(state.conundrumSourceWords) && state.conundrumSourceWords.length
+        ? state.conundrumSourceWords.join(' + ')
+        : state.conundrumScrambled || '—';
+      ansLabel.textContent = `Host Accepted Answer(s): ${accepted || '—'} (Source: ${sourceText})`;
+    }
+    const newConBtn = document.getElementById('host-btn-new-conundrum');
+    if (newConBtn) {
+      newConBtn.disabled = state.phase === PHASES.CLOCK_RUNNING || Boolean(state.conundrumRevealed);
     }
     const buzzZone = document.getElementById('host-buzzer-adjudication');
     const buzzName = document.getElementById('host-buzzed-player-name');
@@ -1028,11 +1281,54 @@ function renderHostConsole(state) {
     }
   }
 
-  // Update Contestant Names on Adjudication Inputs
+  // Update Contestant Names & Live Validation Hints
   const l1 = document.getElementById('label-p1-sub');
   const l2 = document.getElementById('label-p2-sub');
   if (l1) l1.textContent = `${state.players[0].name} Declaration`;
   if (l2) l2.textContent = `${state.players[1].name} Declaration`;
+  updateLiveDeclarationHints(state);
+
+  // Live Scoreboard Summary & Round History Table (memoized)
+  const sbP1Name = document.getElementById('host-sb-p1-name');
+  const sbP2Name = document.getElementById('host-sb-p2-name');
+  const sbP1Score = document.getElementById('host-sb-p1-score');
+  const sbP2Score = document.getElementById('host-sb-p2-score');
+  if (sbP1Name) sbP1Name.textContent = state.players[0].name;
+  if (sbP2Name) sbP2Name.textContent = state.players[1].name;
+  if (sbP1Score) sbP1Score.textContent = String(state.players[0].score);
+  if (sbP2Score) sbP2Score.textContent = String(state.players[1].score);
+
+  const historyBody = document.getElementById('host-round-history-body');
+  const historyKey = JSON.stringify(state.roundHistory || []);
+  if (historyBody && historyKey !== lastRoundHistoryKey) {
+    lastRoundHistoryKey = historyKey;
+    historyBody.replaceChildren();
+    const rows = state.roundHistory || [];
+    if (rows.length === 0) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 4;
+      td.style.color = 'var(--text-muted)';
+      td.style.textAlign = 'center';
+      td.textContent = 'No scored rounds yet.';
+      tr.appendChild(td);
+      historyBody.appendChild(tr);
+    } else {
+      rows.forEach((r) => {
+        const tr = document.createElement('tr');
+        const c1 = document.createElement('td');
+        c1.textContent = `R${r.round}`;
+        const c2 = document.createElement('td');
+        c2.textContent = r.type;
+        const c3 = document.createElement('td');
+        c3.textContent = `${r.p1Sub || '—'} (+${r.p1Pts || 0})`;
+        const c4 = document.createElement('td');
+        c4.textContent = `${r.p2Sub || '—'} (+${r.p2Pts || 0})`;
+        tr.append(c1, c2, c3, c4);
+        historyBody.appendChild(tr);
+      });
+    }
+  }
 
   // Tie-break banner check at MATCH_END
   const tieBanner = document.getElementById('host-tiebreak-banner');
@@ -1065,11 +1361,14 @@ function renderHostConsole(state) {
     prevPanic.style.display = state.panicBlank ? 'flex' : 'none';
   }
 
-  // Render Operator Action Log
+  // Render Operator Action Log (memoized)
   const logEl = document.getElementById('host-action-log');
-  if (logEl) {
-    logEl.innerHTML = '';
-    (state.actionLog || []).slice(0, 30).forEach((entry) => {
+  const recentLogs = (state.actionLog || []).slice(0, 30);
+  const logKey = JSON.stringify(recentLogs);
+  if (logEl && logKey !== lastActionLogRenderKey) {
+    lastActionLogRenderKey = logKey;
+    logEl.replaceChildren();
+    recentLogs.forEach((entry) => {
       const div = document.createElement('div');
       div.style.padding = '0.2rem 0';
       div.style.borderBottom = '1px solid rgba(148,163,184,0.1)';
@@ -1113,7 +1412,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (msg.type === 'DISPLAY_BUZZ' && msg.payload) {
       handleContestantBuzz(msg.payload.player, msg.payload.timestamp || performance.now());
     } else if (msg.type === 'REQUEST_STATE') {
-      broadcastState(store.getState());
+      broadcastState(store.getState(), { force: true });
     } else if (msg.type === 'CLEAR_PANIC') {
       store.update(
         { panicBlank: false },
@@ -1121,7 +1420,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       );
       // The Host owns the authoritative state: rebroadcast immediately so a
       // display that re-requested state will not render the blank overlay.
-      broadcastState(store.getState());
+      broadcastState(store.getState(), { force: true });
       renderHostConsole(store.getState());
     } else if (msg.type === 'STAGE_LAYOUT_SYNC' && msg.payload) {
       saveStageLayout(msg.payload);
@@ -1149,25 +1448,29 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Pre-match setup buttons
   initHostScheduleEditor();
+  document.querySelectorAll('[data-modal-open="modal-prematch-setup"]').forEach((trigger) => {
+    trigger.addEventListener('click', populatePreMatchSetupModal);
+  });
+  document.getElementById('btn-update-match-meta')?.addEventListener('click', updateActiveMatchMeta);
   document.getElementById('btn-start-match')?.addEventListener('click', startNewMatchFromSetup);
 
   const hostBgInput = document.getElementById('host-bg-file-input');
   document.getElementById('host-btn-upload-bg')?.addEventListener('click', () => {
     hostBgInput?.click();
   });
-  hostBgInput?.addEventListener('change', () => {
+  hostBgInput?.addEventListener('change', async () => {
     const file = hostBgInput.files?.[0];
+    hostBgInput.value = '';
     if (!file || !file.type.startsWith('image/')) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = String(reader.result || '');
+    try {
+      const { dataUrl } = await compressStageBackgroundFile(file);
       saveCustomStageBackground(dataUrl);
       syncChannel?.send('STAGE_BG_SYNC', { bg: dataUrl });
       renderHostConsole(store.getState());
       showToast('Stage background image updated and broadcast to 16:9 Display!', 'success');
-    };
-    reader.readAsDataURL(file);
-    hostBgInput.value = '';
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to process background image.', 'error');
+    }
   });
 
   // Remote Display Controls Toggle
@@ -1219,8 +1522,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     stageModal.style.display = 'flex';
     const currentState = store.getState();
     if (hostStageIframe) {
-      if (!hostStageIframe.src || hostStageIframe.src.endsWith('about:blank')) {
-        hostStageIframe.src = './versus-display.html';
+      if (!hostStageIframe.getAttribute('src') && hostStageIframe.dataset.src) {
+        hostStageIframe.src = hostStageIframe.dataset.src;
       }
       try {
         hostStageIframe.contentWindow?.postMessage({
@@ -1231,7 +1534,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, '*');
       } catch {}
     }
-    broadcastState(currentState);
+    broadcastState(currentState, { force: true });
   };
 
   const closeStageModal = () => {
@@ -1361,7 +1664,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       syncChannel.send('STAGE_LAYOUT_SYNC', loadStageLayout());
       syncChannel.send('STAGE_BG_SYNC', { bg: loadCustomStageBackground() });
       syncChannel.send('STAGE_CONTROLS_SYNC', { hidden: loadStageControlsHidden() });
-      broadcastState(store.getState());
+      broadcastState(store.getState(), { force: true });
     }
   });
 
@@ -1402,6 +1705,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  document.getElementById('host-btn-open-remote-display')?.addEventListener('click', () => {
+    const url = renderRemoteQR(inputRoomCode?.value || currentRoomId);
+    window.open(url, '_blank', 'noopener');
+  });
+
+  const submitBroadcastOnEnter = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      btnStartBroadcast?.click();
+    }
+  };
+  inputRoomCode?.addEventListener('keydown', submitBroadcastOnEnter);
+  inputPin?.addEventListener('keydown', submitBroadcastOnEnter);
+
   btnStartBroadcast?.addEventListener('click', () => {
     const room = (inputRoomCode?.value || '').toUpperCase().trim();
     const pin = (inputPin?.value || '').trim();
@@ -1424,7 +1741,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     localStorage.setItem('countdown_studio_host_room_v1', room);
 
     syncChannel.connectRemote(room, 'host', pin);
-    broadcastState(store.getState());
+    broadcastState(store.getState(), { force: true });
     showToast(`Opening broadcast room ${room}...`, 'info');
   });
 
@@ -1489,6 +1806,47 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Conundrum Host Controls
+  document.getElementById('host-btn-new-conundrum')?.addEventListener('click', () => {
+    const st = store.getState();
+    if (st.roundType !== 'C' || st.phase === PHASES.CLOCK_RUNNING || st.conundrumRevealed) return;
+    const con = pickConundrum(dictData ? dictData.conundrums : [], rng, dictData?.wordSet, usedConundrumAnswers);
+    store.update(
+      {
+        conundrumAnswer: con.answer,
+        conundrumAnswers: con.answers,
+        conundrumScrambled: con.scrambled,
+        conundrumSourceWords: con.sourceWords,
+        conundrumRevealed: false,
+        activeBuzzerPlayer: null
+      },
+      { recordUndo: true, logMessage: 'Drew a fresh Conundrum puzzle.' }
+    );
+    const conCheckIn = document.getElementById('host-conundrum-check-input');
+    const conCheckStatus = document.getElementById('host-conundrum-check-status');
+    if (conCheckIn) conCheckIn.value = '';
+    if (conCheckStatus) {
+      conCheckStatus.textContent = 'Type spoken answer to verify';
+      conCheckStatus.style.color = 'var(--text-muted)';
+    }
+    showToast('Drew a fresh Conundrum puzzle!', 'info');
+  });
+
+  document.getElementById('host-conundrum-check-input')?.addEventListener('input', (e) => {
+    const st = store.getState();
+    const statusEl = document.getElementById('host-conundrum-check-status');
+    if (!statusEl) return;
+    const val = (e.target?.value || '').trim();
+    if (!val) {
+      statusEl.textContent = 'Type spoken answer to verify';
+      statusEl.style.color = 'var(--text-muted)';
+      return;
+    }
+    const accepted = st.conundrumAnswers?.length ? st.conundrumAnswers : st.conundrumAnswer;
+    const ok = checkConundrumGuess(val, accepted);
+    statusEl.textContent = ok ? '✓ CORRECT MATCH' : '✗ Not accepted';
+    statusEl.style.color = ok ? 'var(--status-valid)' : 'var(--status-invalid)';
+  });
+
   document.getElementById('host-btn-buzz-p1')?.addEventListener('click', () =>
     handleContestantBuzz(1, performance.now())
   );
@@ -1503,11 +1861,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   );
   document.getElementById('host-btn-reveal-conundrum')?.addEventListener('click', () => {
     const st = store.getState();
+    if (clock && clock.running) clock.pause();
+    audio.stopClockMusic();
+    clearBuzzerTimer();
     store.transition(
       PHASES.SCORING,
-      { conundrumRevealed: true, clockRunning: false, activeBuzzerPlayer: null },
+      { conundrumRevealed: true, clockRunning: false, clockStartedAtEpoch: null, activeBuzzerPlayer: null },
       `Revealed Conundrum answer on Stage Display: ${st.conundrumAnswer}`
     );
+    broadcastState(store.getState(), { force: true });
   });
 
   // Clock Controls
@@ -1516,17 +1878,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (clock) clock.reset();
     audio.resetClockTracker();
     const st = store.getState();
+    const fullMs = st.clockDuration * 1000;
     store.update(
       {
-        clockRemainingMs: st.clockDuration * 1000,
+        clockRemainingMs: fullMs,
+        clockBaseRemainingMs: fullMs,
         clockRunning: false,
         clockStartedAtEpoch: null
       },
       { logMessage: 'Reset clock to full duration.' }
     );
+    broadcastState(store.getState(), { force: true });
   });
 
   // Adjudication & Round Progression
+  document.getElementById('host-p1-submission')?.addEventListener('input', () => updateLiveDeclarationHints());
+  document.getElementById('host-p2-submission')?.addEventListener('input', () => updateLiveDeclarationHints());
+  document.getElementById('host-p1-valid-toggle')?.addEventListener('change', () => updateLiveDeclarationHints());
+  document.getElementById('host-p2-valid-toggle')?.addEventListener('change', () => updateLiveDeclarationHints());
+  document.getElementById('host-btn-preview-declarations')?.addEventListener('click', previewDeclarationsOnStage);
   document.getElementById('host-btn-score-round')?.addEventListener('click', scoreCurrentRoundSubmissions);
   document.getElementById('host-btn-next-round')?.addEventListener('click', () => {
     const st = store.getState();
@@ -1594,6 +1964,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // Dictionary Challenge Checker
+  document.getElementById('host-challenge-input')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      document.getElementById('host-btn-challenge-word')?.click();
+    }
+  });
   document.getElementById('host-btn-challenge-word')?.addEventListener('click', async () => {
     const input = document.getElementById('host-challenge-input');
     const resultEl = document.getElementById('host-challenge-result');
@@ -1687,13 +2063,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
 
-    if (key === 'c' && st.roundType === 'L' && st.phase === PHASES.PICKING) {
+    if (key === 'c' && st.roundType === 'L' && (st.phase === PHASES.PICKING || st.phase === PHASES.IDLE)) {
       e.preventDefault();
       hostPickLetter('C');
-    } else if (key === 'v' && st.roundType === 'L' && st.phase === PHASES.PICKING) {
+    } else if (key === 'v' && st.roundType === 'L' && (st.phase === PHASES.PICKING || st.phase === PHASES.IDLE)) {
       e.preventDefault();
       hostPickLetter('V');
-    } else if (key === 'r' && st.roundType === 'L' && st.phase === PHASES.PICKING) {
+    } else if (key === 'r' && st.roundType === 'L' && (st.phase === PHASES.PICKING || st.phase === PHASES.IDLE)) {
       e.preventDefault();
       hostPickRandomLetters();
     } else if (e.code === 'Space') {
@@ -1705,6 +2081,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else if (key === 'n') {
       e.preventDefault();
       configureRoundAtIndex(st.roundIndex + 1);
+    } else if (key === 'h') {
+      e.preventDefault();
+      if (stageModal && !stageModal.hidden) {
+        closeStageModal();
+      } else {
+        openStageModal();
+      }
     }
   });
 });

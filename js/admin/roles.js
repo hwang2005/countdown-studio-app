@@ -9,6 +9,7 @@
  * administrator prevents an accidental full system lockout.
  */
 import { adminRequest, esc, roleBadge } from './api.js';
+import { currentUser } from '../auth.js';
 import { showToast } from '../ui/toast.js';
 
 const state = {
@@ -22,11 +23,9 @@ const matrixEl = () => document.getElementById('admin-roles-matrix');
 const statusEl = () => document.getElementById('admin-roles-status');
 const errorEl = () => document.getElementById('admin-roles-error');
 
-const USER_KEY = 'countdown_studio_auth_user_v1';
-
 export function canManageRoles() {
   try {
-    const user = JSON.parse(localStorage.getItem(USER_KEY) || 'null');
+    const user = currentUser();
     return Boolean(user?.permissions?.includes('role:manage'));
   } catch {
     return false;

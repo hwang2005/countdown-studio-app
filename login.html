@@ -177,6 +177,7 @@
             <!-- 1. SIGN IN FORM       -->
             <!-- ===================== -->
             <form id="auth-form-login" class="auth-form anim-fade-in" role="tabpanel" aria-labelledby="tab-btn-login" novalidate>
+              <div id="google-login-slot" class="google-gis-slot" hidden></div>
               <button type="button" class="btn btn-google btn--block btn--lg btn-trigger-google" id="btn-google-login">
                 <svg class="google-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -257,6 +258,7 @@
             <!-- 2. REGISTER FORM      -->
             <!-- ===================== -->
             <form id="auth-form-register" class="auth-form anim-fade-in" role="tabpanel" aria-labelledby="tab-btn-register" hidden novalidate>
+              <div id="google-register-slot" class="google-gis-slot" hidden></div>
               <button type="button" class="btn btn-google btn--block btn--lg btn-trigger-google" id="btn-google-register">
                 <svg class="google-icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -283,6 +285,7 @@
                   class="input-field"
                   placeholder="e.g. Susie Dent"
                   autocomplete="name"
+                  maxlength="64"
                   required
                 />
               </div>
@@ -300,6 +303,8 @@
                   placeholder="e.g. dictionary_whiz"
                   autocomplete="username"
                   required
+                  minlength="3"
+                  maxlength="32"
                   pattern="[a-zA-Z0-9_.-]{3,32}"
                   spellcheck="false"
                 />
@@ -317,6 +322,7 @@
                   class="input-field"
                   placeholder="e.g. wordsmith@example.com"
                   autocomplete="email"
+                  maxlength="254"
                   required
                 />
               </div>
@@ -335,6 +341,7 @@
                     placeholder="Create a strong password"
                     autocomplete="new-password"
                     minlength="8"
+                    maxlength="128"
                     required
                   />
                   <button
@@ -439,6 +446,8 @@
                   class="input-field"
                   placeholder="e.g. countdown_champ"
                   required
+                  minlength="3"
+                  maxlength="32"
                   pattern="[a-zA-Z0-9_.-]{3,32}"
                   spellcheck="false"
                 />
@@ -474,6 +483,7 @@
                     placeholder="Enter a secure password"
                     autocomplete="new-password"
                     minlength="8"
+                    maxlength="128"
                     required
                   />
                   <button
@@ -530,6 +540,7 @@
                     placeholder="Re-enter password to confirm"
                     autocomplete="new-password"
                     minlength="8"
+                    maxlength="128"
                     required
                   />
                   <button
@@ -559,64 +570,29 @@
               </button>
             </form>
 
-            <!-- Hidden container for official Google Identity Services iframe button -->
-            <div id="gsi-hidden-wrapper" style="position:absolute; opacity:0.001; pointer-events:none; width:1px; height:1px; overflow:hidden;" aria-hidden="true"></div>
-
           </section>
 
         </div>
       </div>
     </main>
 
-    <!-- Demo / Dev Google Sign-In Simulation Modal -->
-    <div id="auth-demo-modal" class="auth-demo-modal" hidden role="dialog" aria-modal="true" aria-labelledby="demo-modal-title">
-      <div class="auth-demo-card">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <h3 id="demo-modal-title" style="margin:0;font-size:1.15rem;display:flex;align-items:center;gap:0.5rem;color:var(--text-primary)">
-            <svg width="20" height="20" viewBox="0 0 24 24">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-            </svg>
-            Google OAuth (Dev/Demo)
-          </h3>
-          <button type="button" id="btn-close-demo-modal" class="btn btn--secondary btn--sm" aria-label="Close modal">✕</button>
-        </div>
-        <p style="font-size:0.8125rem;color:var(--text-muted);margin:0">
-          No <code>GOOGLE_CLIENT_ID</code> detected in <code>.env</code>. You can select a test account below to test the flow: <strong>Google Sign-In → Password Setup → Database Storage</strong>.
-        </p>
-        <div style="display:grid;gap:0.5rem">
-          <button type="button" class="auth-demo-user-btn" data-demo-email="susie.dent@gmail.com" data-demo-name="Susie Dent">
-            <div style="width:36px;height:36px;border-radius:50%;background:#2563eb;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">S</div>
-            <div>
-              <div style="font-weight:600;font-size:0.875rem">Susie Dent</div>
-              <div style="font-size:0.75rem;color:var(--text-muted)">susie.dent@gmail.com</div>
-            </div>
-          </button>
-          <button type="button" class="auth-demo-user-btn" data-demo-email="rachel.riley@gmail.com" data-demo-name="Rachel Riley">
-            <div style="width:36px;height:36px;border-radius:50%;background:#10b981;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700">R</div>
-            <div>
-              <div style="font-weight:600;font-size:0.875rem">Rachel Riley</div>
-              <div style="font-size:0.75rem;color:var(--text-muted)">rachel.riley@gmail.com</div>
-            </div>
-          </button>
-        </div>
-        <div class="auth-field" style="margin-top:0.25rem">
-          <label for="demo-custom-email" class="auth-label">Or enter any Google email</label>
-          <input id="demo-custom-email" type="email" class="input-field" placeholder="player_name@gmail.com" />
-          <button type="button" id="btn-demo-custom-submit" class="btn btn--primary btn--sm" style="margin-top:0.35rem">
-            Authenticate this account →
-          </button>
-        </div>
-      </div>
-    </div>
-
     <script type="module">
       import { apiFetch, readApiJson } from './js/net/api.js';
+      import {
+        clearSession,
+        currentUser,
+        getRequiredPermissionForHref,
+        persistSession,
+        refreshAuthUi,
+        token as getStoredToken,
+        updateStoredUser,
+      } from './js/auth.js';
 
-      const TOKEN_KEY = 'countdown_studio_auth_token_v1';
-      const USER_KEY = 'countdown_studio_auth_user_v1';
+      function esc(value) {
+        return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+          '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+        }[ch]));
+      }
 
       // Elements
       const tabsContainer = document.querySelector('.auth-tabs');
@@ -637,6 +613,10 @@
       const strengthHint = document.getElementById('password-strength-hint');
       const btnSubmitLogin = document.getElementById('btn-submit-login');
       const btnSubmitRegister = document.getElementById('btn-submit-register');
+      const btnGoogleLogin = document.getElementById('btn-google-login');
+      const btnGoogleRegister = document.getElementById('btn-google-register');
+      const googleLoginSlot = document.getElementById('google-login-slot');
+      const googleRegisterSlot = document.getElementById('google-register-slot');
 
       // Password Setup Elements
       const setupUsernameInput = document.getElementById('setup-username');
@@ -656,15 +636,11 @@
       const setupAvatarImg = document.getElementById('setup-avatar-img');
       const setupAvatarPlaceholder = document.getElementById('setup-avatar-placeholder');
 
-      // Demo Modal Elements
-      const demoModal = document.getElementById('auth-demo-modal');
-      const btnCloseDemoModal = document.getElementById('btn-close-demo-modal');
-      const demoCustomEmail = document.getElementById('demo-custom-email');
-      const btnDemoCustomSubmit = document.getElementById('btn-demo-custom-submit');
-
       // State
+      let currentMode = 'login';
       let currentSetupToken = null;
       let configuredGoogleClientId = '';
+      let googleGisInitialized = false;
       let googleGisReady = Boolean(window.google?.accounts?.id);
       let googleGisReadyPromiseResolve;
       const googleGisReadyPromise = new Promise((resolve) => {
@@ -675,15 +651,15 @@
       // OAuth configuration look like an unconfigured deployment.
       window.onGoogleLibraryLoad = () => {
         googleGisReady = Boolean(window.google?.accounts?.id);
-        if (googleGisReady) googleGisReadyPromiseResolve();
+        if (googleGisReady) googleGisReadyPromiseResolve?.();
         if (configuredGoogleClientId && googleGisReady) initGoogleGIS();
       };
 
       function sanitizeRedirect(target) {
-        if (!target || typeof target !== 'string') return './solo.html';
+        if (!target || typeof target !== 'string') return '';
         const trimmed = target.trim();
-        if (/^(?:javascript|data|vbscript):/i.test(trimmed)) return './solo.html';
-        if (trimmed.startsWith('//')) return './solo.html';
+        if (!trimmed || /^(?:javascript|data|vbscript):/i.test(trimmed)) return '';
+        if (trimmed.startsWith('//')) return '';
         if (/^https?:\/\//i.test(trimmed)) {
           try {
             const parsed = new URL(trimmed, window.location.origin);
@@ -691,55 +667,108 @@
               return parsed.pathname + parsed.search + parsed.hash;
             }
           } catch {}
-          return './solo.html';
+          return '';
         }
         if (trimmed.startsWith('./') || (trimmed.startsWith('/') && !trimmed.startsWith('//')) || /^[a-zA-Z0-9_\-./]+\.html/i.test(trimmed)) {
           return trimmed;
         }
-        return './solo.html';
+        return '';
       }
 
       // Query param handling
       const urlParams = new URLSearchParams(window.location.search);
-      const redirectTarget = sanitizeRedirect(urlParams.get('redirect'));
+      const explicitRedirect = sanitizeRedirect(urlParams.get('redirect'));
       const initialMode = urlParams.get('mode') || (window.location.hash === '#register' ? 'register' : 'login');
 
-      // Check if user is already logged in
-      try {
-        const existingToken = localStorage.getItem(TOKEN_KEY);
-        const existingUser = JSON.parse(localStorage.getItem(USER_KEY) || 'null');
-        const sessionCard = document.getElementById('auth-current-session');
-        if (existingToken && existingUser && sessionCard) {
-          sessionCard.hidden = false;
-          sessionCard.innerHTML = `
-            <div class="auth-current-session-card">
-              <div class="auth-current-session-info">
-                <span class="auth-role-tag">Active Account</span>
-                <span style="font-size:0.9rem">Signed in as <strong>${existingUser.displayName || existingUser.username}</strong> (${existingUser.role === 'individual' ? 'Individual Player' : existingUser.role})</span>
-              </div>
-              <div class="auth-current-session-actions">
-                <a href="${redirectTarget}" class="btn btn--primary btn--sm">
-                  Continue to Studio →
-                </a>
-                <button type="button" id="btn-session-switch" class="btn btn--secondary btn--sm">
-                  Sign Out / Switch Account
-                </button>
-              </div>
-            </div>
-          `;
-          document.getElementById('btn-session-switch')?.addEventListener('click', () => {
-            localStorage.removeItem(TOKEN_KEY);
-            localStorage.removeItem(USER_KEY);
-            sessionCard.hidden = true;
-            showAlert('Signed out. You can now log into another account or create a new one.', 'info');
-          });
-        } else if (redirectTarget.toLowerCase().includes('solo')) {
-          showAlert('Please sign in or register a free Individual account to access Solo Practice and save career stats.', 'info');
+      function defaultRouteForUser(user) {
+        const perms = Array.isArray(user?.permissions) ? user.permissions : [];
+        if (perms.includes('user:manage')) return './admin.html';
+        if (perms.includes('host:operations')) return './versus-host.html';
+        if (perms.includes('solo:practice')) return './solo.html';
+        return './index.html';
+      }
+
+      function resolvePostLoginTarget(user) {
+        if (!explicitRedirect) return defaultRouteForUser(user);
+        const required = getRequiredPermissionForHref(explicitRedirect);
+        if (required && !(Array.isArray(user?.permissions) && user.permissions.includes(required))) {
+          return defaultRouteForUser(user);
         }
-      } catch (err) {}
+        return explicitRedirect;
+      }
+
+      function renderActiveSessionCard(user) {
+        const sessionCard = document.getElementById('auth-current-session');
+        if (!sessionCard || !user) return;
+        const target = resolvePostLoginTarget(user);
+        const roleLabel = user.role === 'individual' ? 'Individual Player' : user.role === 'organization' ? 'Organization Host' : user.role;
+        sessionCard.hidden = false;
+        sessionCard.innerHTML = `
+          <div class="auth-current-session-card">
+            <div class="auth-current-session-info">
+              <span class="auth-role-tag">Active Account</span>
+              <span style="font-size:0.9rem">Signed in as <strong>${esc(user.displayName || user.username)}</strong> (${esc(roleLabel)})</span>
+            </div>
+            <div class="auth-current-session-actions">
+              <a href="${esc(target)}" id="btn-session-continue" class="btn btn--primary btn--sm">
+                Continue to Studio →
+              </a>
+              <button type="button" id="btn-session-switch" class="btn btn--secondary btn--sm">
+                Sign Out / Switch Account
+              </button>
+            </div>
+          </div>
+        `;
+        document.getElementById('btn-session-switch')?.addEventListener('click', () => {
+          clearSession();
+          refreshAuthUi();
+          sessionCard.hidden = true;
+          showAlert('Signed out. You can now log into another account or create a new one.', 'info');
+        });
+      }
+
+      // Check and verify if user is already logged in
+      async function checkExistingSession() {
+        const existingToken = getStoredToken();
+        const existingUser = currentUser();
+        const sessionCard = document.getElementById('auth-current-session');
+
+        if (!existingToken || !existingUser) {
+          if (explicitRedirect.toLowerCase().includes('solo')) {
+            showAlert('Please sign in or register a free Individual account to access Solo Practice and save career stats.', 'info');
+          }
+          return;
+        }
+
+        renderActiveSessionCard(existingUser);
+
+        try {
+          const res = await apiFetch('/api/auth/me', {
+            headers: { Authorization: `Bearer ${existingToken}` },
+          });
+          if (res.status === 401 || res.status === 403) {
+            clearSession();
+            refreshAuthUi();
+            if (sessionCard) sessionCard.hidden = true;
+            showAlert('Your previous session has expired. Please sign in again.', 'info');
+            return;
+          }
+          if (res.ok) {
+            const data = await readApiJson(res);
+            if (data?.user) {
+              updateStoredUser(data.user);
+              refreshAuthUi();
+              renderActiveSessionCard(data.user);
+            }
+          }
+        } catch {
+          // Offline / unreachable backend: keep cached session card visible
+        }
+      }
 
       // Tab Switcher
       function setMode(mode) {
+        currentMode = mode;
         const isLogin = mode === 'login';
         const isPasswordSetup = mode === 'password-setup';
 
@@ -757,6 +786,8 @@
 
         tabBtnLogin.classList.toggle('is-active', isLogin);
         tabBtnLogin.setAttribute('aria-selected', isLogin ? 'true' : 'false');
+        tabBtnRegister.classList.toggle('is-active', !isLogin);
+        tabBtnRegister.setAttribute('aria-selected', isLogin ? 'false' : 'true');
         if (isLogin) {
           formLogin.removeAttribute('hidden');
           formRegister.setAttribute('hidden', '');
@@ -765,6 +796,10 @@
           formLogin.setAttribute('hidden', '');
           formRegister.removeAttribute('hidden');
           document.getElementById('register-display-name')?.focus();
+        }
+
+        if (googleGisInitialized) {
+          renderGoogleButtons();
         }
 
         hideAlert();
@@ -921,13 +956,14 @@
         button.textContent = text;
       }
 
-      function saveSession(data) {
-        localStorage.setItem(TOKEN_KEY, data.token);
-        localStorage.setItem(USER_KEY, JSON.stringify(data.user));
-        showAlert(`Welcome, ${data.user.displayName || data.user.username}! Loading Solo Practice...`, 'success');
+      function saveSession(data, remember = true) {
+        persistSession(data, remember);
+        refreshAuthUi();
+        const target = resolvePostLoginTarget(data.user);
+        showAlert(`Welcome, ${data.user.displayName || data.user.username}! Redirecting to Studio...`, 'success');
         setTimeout(() => {
-          window.location.href = redirectTarget;
-        }, 600);
+          window.location.href = target;
+        }, 500);
       }
 
       // ========================================================
@@ -957,53 +993,87 @@
         }
       }
 
+      function renderGoogleSlot(slot, fallbackBtn, textVariant, formEl) {
+        if (!slot || !window.google?.accounts?.id || !configuredGoogleClientId) return;
+        if (formEl?.hasAttribute('hidden')) return;
+        const containerWidth = formEl?.clientWidth || 340;
+        const width = Math.min(400, Math.max(240, Math.floor(containerWidth)));
+        slot.innerHTML = '';
+        google.accounts.id.renderButton(slot, {
+          type: 'standard',
+          theme: 'filled_black',
+          size: 'large',
+          text: textVariant,
+          shape: 'rectangular',
+          logo_alignment: 'left',
+          width,
+        });
+        slot.hidden = false;
+        if (fallbackBtn) fallbackBtn.hidden = true;
+      }
+
+      function renderGoogleButtons() {
+        if (!googleGisInitialized) return;
+        renderGoogleSlot(googleLoginSlot, btnGoogleLogin, 'signin_with', formLogin);
+        renderGoogleSlot(googleRegisterSlot, btnGoogleRegister, 'signup_with', formRegister);
+      }
+
       function initGoogleGIS() {
         if (!configuredGoogleClientId || !window.google?.accounts?.id) return;
         try {
-          google.accounts.id.initialize({
-            client_id: configuredGoogleClientId,
-            callback: handleGoogleCredentialResponse,
-            auto_select: false,
-            cancel_on_tap_outside: true,
-          });
-
-          // Render button into hidden container for programmatic click
-          const hiddenWrap = document.getElementById('gsi-hidden-wrapper');
-          if (hiddenWrap) {
-            google.accounts.id.renderButton(hiddenWrap, {
-              type: 'standard',
-              theme: 'filled_black',
-              size: 'large',
+          if (!googleGisInitialized) {
+            google.accounts.id.initialize({
+              client_id: configuredGoogleClientId,
+              callback: handleGoogleCredentialResponse,
+              auto_select: false,
+              cancel_on_tap_outside: true,
             });
+            googleGisInitialized = true;
           }
+          renderGoogleButtons();
         } catch (err) {
           console.warn('[Google GIS] Init error:', err);
+          if (googleLoginSlot) googleLoginSlot.hidden = true;
+          if (googleRegisterSlot) googleRegisterSlot.hidden = true;
+          if (btnGoogleLogin) btnGoogleLogin.hidden = false;
+          if (btnGoogleRegister) btnGoogleRegister.hidden = false;
         }
       }
 
       // Process Google OAuth Response (Credential / Token)
       async function handleGoogleCredentialResponse(response) {
         hideAlert();
-        const activeBtn = document.getElementById('btn-google-login');
-        if (activeBtn) setSubmitting(activeBtn, true, 'Verifying Google Account...');
+        const modeForRequest = currentMode === 'register' ? 'register' : 'login';
+        const activeBtn = modeForRequest === 'register' ? btnGoogleRegister : btnGoogleLogin;
+        const originalLabel = modeForRequest === 'register' ? 'Register with Google' : 'Sign in with Google';
+        if (activeBtn && !activeBtn.hidden) {
+          setSubmitting(activeBtn, true, 'Verifying Google Account...');
+        } else {
+          showAlert('Verifying your Google account...', 'info');
+        }
 
         try {
           const res = await apiFetch('/api/auth/google', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ credential: response.credential }),
+            body: JSON.stringify({
+              credential: response.credential,
+              mode: modeForRequest,
+            }),
           });
 
           const data = await readApiJson(res);
           if (!res.ok) {
-            throw new Error(data.message || data.error || 'Google authentication failed.');
+            const err = new Error(data.message || data.error || 'Google authentication failed.');
+            err.code = data.error;
+            throw err;
           }
 
           handleGoogleAuthResult(data);
         } catch (err) {
           showAlert(err.message || 'Google authentication failed.', 'error');
         } finally {
-          if (activeBtn) setSubmitting(activeBtn, false, 'Sign in with Google');
+          if (activeBtn && !activeBtn.hidden) setSubmitting(activeBtn, false, originalLabel);
         }
       }
 
@@ -1035,91 +1105,25 @@
           showAlert('Google verified successfully! Please initialize a password to complete saving your account to the database.', 'info');
         } else if (data.token && data.user) {
           // Existing user with initialized password already in database
-          saveSession(data);
+          const remember = document.getElementById('login-remember')?.checked ?? true;
+          saveSession(data, remember);
         }
       }
 
-      // Trigger Google Sign-In on button click
-      function showDemoModal() {
-        demoModal.removeAttribute('hidden');
-        demoCustomEmail?.focus();
-      }
-
-      function hideDemoModal() {
-        demoModal.setAttribute('hidden', '');
-      }
-
-      // Trigger Google Sign-In on button click
-      function triggerGoogleSignIn() {
-        if (configuredGoogleClientId && googleGisReady && window.google?.accounts?.id) {
-          // Try to prompt GIS or click hidden GIS button
-          const iframeBtn = document.querySelector('#gsi-hidden-wrapper div[role="button"]');
-          if (iframeBtn) {
-            iframeBtn.click();
-          } else {
-            google.accounts.id.prompt();
-          }
-        } else {
-          showAlert('Google sign-in is available only for accounts already registered on this website. Please use Create Account first.', 'info');
-        }
-      }
-
+      // Fallback handler when GIS script is unavailable or GOOGLE_CLIENT_ID is not configured
       document.querySelectorAll('.btn-trigger-google').forEach((btn) => {
         btn.addEventListener('click', (e) => {
           e.preventDefault();
-          triggerGoogleSignIn();
+          if (configuredGoogleClientId && googleGisReady && window.google?.accounts?.id) {
+            initGoogleGIS();
+            google.accounts.id.prompt();
+          } else if (!configuredGoogleClientId) {
+            showAlert('Google Sign-In is not configured on this server. Please use username/email and password.', 'info');
+          } else {
+            showAlert('Google Sign-In could not be loaded (you may be offline or blocked by a browser extension). Please use username/email and password.', 'info');
+          }
         });
       });
-
-      // Demo Modal Handlers
-      btnCloseDemoModal?.addEventListener('click', hideDemoModal);
-      demoModal?.addEventListener('click', (e) => {
-        if (e.target === demoModal) hideDemoModal();
-      });
-
-      document.querySelectorAll('.auth-demo-user-btn').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-          hideDemoModal();
-          const email = btn.getAttribute('data-demo-email');
-          const name = btn.getAttribute('data-demo-name');
-          await runDemoGoogleAuth(email, name);
-        });
-      });
-
-      btnDemoCustomSubmit?.addEventListener('click', async () => {
-        const email = demoCustomEmail.value.trim();
-        if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
-          alert('Please enter a valid email address.');
-          return;
-        }
-        hideDemoModal();
-        const name = email.split('@')[0];
-        await runDemoGoogleAuth(email, name);
-      });
-
-      async function runDemoGoogleAuth(email, name) {
-        hideAlert();
-        try {
-          showAlert(`Authenticating Google account (${email})...`, 'info');
-          const res = await apiFetch('/api/auth/google', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              isDemo: true,
-              demoUser: {
-                email,
-                name,
-                sub: `demo_${email.replace(/[^a-zA-Z0-9]/g, '_')}`,
-              },
-            }),
-          });
-          const data = await readApiJson(res);
-          if (!res.ok) throw new Error(data.message || 'Authentication failed');
-          handleGoogleAuthResult(data);
-        } catch (err) {
-          showAlert(err.message || 'Unable to connect to Google authentication service.', 'error');
-        }
-      }
 
       // Cancel Password Setup
       btnCancelSetup.addEventListener('click', () => {
@@ -1134,8 +1138,8 @@
         hideAlert();
 
         if (!currentSetupToken) {
-          showAlert('Setup session has expired. Please sign in with Google again.', 'error');
-          setMode('login');
+          showAlert('Setup session has expired. Please try registering with Google again.', 'error');
+          setMode('register');
           return;
         }
 
@@ -1150,14 +1154,14 @@
           return;
         }
 
-        if (!displayName) {
-          showAlert('Please enter your display name.', 'error');
+        if (!displayName || displayName.length > 64) {
+          showAlert('Display name is required (maximum 64 characters).', 'error');
           setupDisplayNameInput.focus();
           return;
         }
 
-        if (password.length < 8) {
-          showAlert('Password must contain at least 8 characters.', 'error');
+        if (password.length < 8 || password.length > 128) {
+          showAlert('Password must be between 8 and 128 characters.', 'error');
           setupPasswordInput.focus();
           return;
         }
@@ -1188,7 +1192,7 @@
           }
 
           currentSetupToken = null;
-          saveSession(data);
+          saveSession(data, true);
         } catch (err) {
           showAlert(err.message || 'Unable to save password to database.', 'error');
           setSubmitting(btnSubmitSetup, false, 'Save Password & Finish Setup →');
@@ -1202,6 +1206,7 @@
 
         const identifier = document.getElementById('login-identifier').value.trim();
         const password = document.getElementById('login-password').value;
+        const remember = document.getElementById('login-remember')?.checked ?? true;
 
         if (!identifier || !password) {
           showAlert('Please provide both username/email and password.', 'error');
@@ -1222,7 +1227,7 @@
             throw new Error(data.message || data.error || 'Invalid credentials.');
           }
 
-          saveSession(data);
+          saveSession(data, remember);
         } catch (err) {
           showAlert(err.message || 'Unable to connect to the authentication service.', 'error');
           setSubmitting(btnSubmitLogin, false, 'Sign In to Studio');
@@ -1240,8 +1245,8 @@
         const password = document.getElementById('register-password').value;
         const role = 'individual';
 
-        if (!displayName) {
-          showAlert('Please enter your display name.', 'error');
+        if (!displayName || displayName.length > 64) {
+          showAlert('Please enter your display name (maximum 64 characters).', 'error');
           document.getElementById('register-display-name').focus();
           return;
         }
@@ -1252,14 +1257,14 @@
           return;
         }
 
-        if (!/^\S+@\S+\.\S+$/.test(email)) {
+        if (!/^\S+@\S+\.\S+$/.test(email) || email.length > 254) {
           showAlert('Please enter a valid email address.', 'error');
           document.getElementById('register-email').focus();
           return;
         }
 
-        if (password.length < 8) {
-          showAlert('Password must contain at least 8 characters.', 'error');
+        if (password.length < 8 || password.length > 128) {
+          showAlert('Password must be between 8 and 128 characters.', 'error');
           document.getElementById('register-password').focus();
           return;
         }
@@ -1284,22 +1289,26 @@
             throw new Error(data.message || data.error || 'Registration failed.');
           }
 
-          saveSession(data);
+          saveSession(data, true);
         } catch (err) {
           showAlert(err.message || 'Unable to complete registration.', 'error');
           setSubmitting(btnSubmitRegister, false, 'Create Individual Account');
         }
       });
 
-      // Initialize requested view mode and load configuration
+      // Initialize requested view mode, verify existing session, and load configuration
       setMode(initialMode === 'register' ? 'register' : 'login');
+      checkExistingSession();
       loadAuthConfig();
+      window.addEventListener('hashchange', () => {
+        if (window.location.hash === '#register') setMode('register');
+        else if (window.location.hash === '#login') setMode('login');
+      });
       window.addEventListener('load', () => {
         if (window.google?.accounts?.id && configuredGoogleClientId) {
           initGoogleGIS();
         }
       });
     </script>
-    <script type="module" src="./js/auth.js"></script>
   </body>
 </html>

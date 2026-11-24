@@ -32,17 +32,53 @@ const requiredPermission = path.endsWith('/solo.html')
   ? 'user:manage'
   : null;
 
-export const token = () => localStorage.getItem(TOKEN_KEY);
+export const token = () => {
+  try {
+    return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+};
 export function authHeaders() {
   return token() ? { Authorization: `Bearer ${token()}` } : {};
 }
 
 export function currentUser() {
   try {
-    return JSON.parse(localStorage.getItem(USER_KEY) || 'null');
+    const raw = localStorage.getItem(USER_KEY) || sessionStorage.getItem(USER_KEY);
+    return JSON.parse(raw || 'null');
   } catch {
     return null;
   }
+}
+
+export function persistSession(data, remember = true) {
+  const primary = remember ? localStorage : sessionStorage;
+  const secondary = remember ? sessionStorage : localStorage;
+  try {
+    secondary.removeItem(TOKEN_KEY);
+    secondary.removeItem(USER_KEY);
+  } catch {}
+  primary.setItem(TOKEN_KEY, data.token);
+  primary.setItem(USER_KEY, JSON.stringify(data.user));
+}
+
+export function updateStoredUser(user) {
+  try {
+    const target = localStorage.getItem(TOKEN_KEY) ? localStorage : sessionStorage.getItem(TOKEN_KEY) ? sessionStorage : localStorage;
+    target.setItem(USER_KEY, JSON.stringify(user));
+  } catch {}
+}
+
+export function clearSession() {
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+  } catch {}
+  try {
+    sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(USER_KEY);
+  } catch {}
 }
 
 export function hasPermission(permission) {
@@ -52,8 +88,7 @@ export function hasPermission(permission) {
 }
 
 export function logout() {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
+  clearSession();
   location.href = './index.html';
 }
 
@@ -75,9 +110,13 @@ function showMessage(message, isError = false) {
 }
 
 function saveSession(data) {
-  localStorage.setItem(TOKEN_KEY, data.token);
-  localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+  persistSession(data, true);
   location.reload();
+}
+
+export function refreshAuthUi() {
+  addAuthUi();
+  applyPermissionGuards();
 }
 
 export function getRequiredPermissionForHref(href) {
@@ -471,7 +510,7 @@ function addModal() {
       <p id="auth-message" style="min-height:1.4rem;color:var(--text-secondary);font-size:0.9rem;margin-bottom:var(--space-3)"></p>
       <form id="auth-login-form" style="display:grid;gap:.75rem">
         <input id="auth-identifier" class="input-field" required placeholder="Username or email" autocomplete="username">
-        <input id="auth-password" class="input-field" required type="password" minlength="8" placeholder="Password" autocomplete="current-password">
+        <input id="auth-password" class="input-field" required type="password" placeholder="Password" autocomplete="current-password">
         <button class="btn btn--primary" type="submit">Sign In</button>
       </form>
       <hr class="hairline" style="margin:var(--space-4) 0">
@@ -520,8 +559,7 @@ async function guardFeature() {
 
     if (!response.ok) {
       if (response.status === 401) {
-        localStorage.removeItem(TOKEN_KEY);
-        localStorage.removeItem(USER_KEY);
+        clearSession();
         location.href = `./login.html?redirect=${encodeURIComponent(location.pathname + location.search)}`;
         return;
       }
@@ -531,12 +569,12 @@ async function guardFeature() {
     if (!data.user.permissions.includes(requiredPermission)) {
       // User is authenticated, but lacks permission for this feature.
       // Update cached user but DO NOT wipe session! Redirect to home with notification.
-      localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+      updateStoredUser(data.user);
       location.href = `./index.html?unauthorized=1&feature=${encodeURIComponent(requiredPermission)}`;
       return;
     }
 
-    localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+    updateStoredUser(data.user);
   } catch {
     // If auth server is unreachable, verify against locally cached user for offline PWA play
     const cachedUser = currentUser();

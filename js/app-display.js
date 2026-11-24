@@ -30,9 +30,10 @@ import { createInitialMatchState } from './core/state.js';
 import { renderClockWidget } from './core/clock.js';
 import { getRoundTypeName } from './game/schedule.js';
 import { StageSyncChannel } from './net/sync.js';
-import { renderLetterTiles, renderNumberTiles } from './ui/tiles.js';
+import { renderLetterTiles, renderNumberTiles, animateTargetSlotRoll } from './ui/tiles.js';
 import { renderNumbersSolution } from './ui/board.js';
 import { animateScoreTo, launchConfetti } from './ui/scoreboard.js';
+import { compressStageBackgroundFile } from './ui/stageImage.js';
 import { audio } from './core/audio.js';
 import { requestWakeLock } from './ui/a11y.js';
 import { showToast } from './ui/toast.js';
@@ -47,6 +48,12 @@ let stageAudioWasRunning = false;
 let stageQuestionSnapshot = null;
 let lastStageBuzzerPlayer = null;
 let lastRenderedBoardKey = null;
+let lastAnimatedTargetKey = null;
+let isPreviewMode = false;
+let clockSyncedAtPerf = performance.now();
+let clockSyncedRemainingMs = 30000;
+let lastClockAnchorKey = '';
+let lastAudioWholeSecond = -1;
 // Two-machine operation telemetry (projection screen + operator console)
 let hudPingMs = null;
 let lastRemoteStateAt = Date.now();
@@ -65,6 +72,17 @@ const DISPLAY_AUTOJOIN_KEY = 'countdown_studio_stage_autojoin_v1';
 function buildDisplayRoomLink(roomId) {
   const url = new URL('./versus-display.html', window.location.href);
   if (roomId) url.searchParams.set('room', String(roomId).toUpperCase().trim());
+
+  const pageParams = new URLSearchParams(window.location.search);
+  const wsEndpoint = pageParams.get('ws')
+    || window.__COUNTDOWN_STAGE_WS_URL__
+    || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_STAGE_WS_URL);
+  if (wsEndpoint) url.searchParams.set('ws', wsEndpoint);
+  const apiEndpoint = pageParams.get('api')
+    || window.__COUNTDOWN_API_URL__
+    || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL);
+  if (apiEndpoint) url.searchParams.set('api', apiEndpoint);
+
   return url.toString();
 }
 
@@ -96,7 +114,10 @@ function refreshSyncHud() {
   } else if (syncChannel.isRemoteConnected) {
     const ageSeconds = Math.max(0, Math.round((Date.now() - lastRemoteStateAt) / 1000));
     const rttLabel = hudPingMs !== null ? `${hudPingMs}ms` : 'measuring…';
-    const stateLabel = remoteFirstStateReceived ? `last broadcast ${ageSeconds}s ago` : 'awaiting first broadcast';
+    let stateLabel = remoteFirstStateReceived ? `last broadcast ${ageSeconds}s ago` : 'awaiting first broadcast';
+    if (syncChannel.hasHost === false) {
+      stateLabel = 'Host disconnected (waiting…)';
+    }
     detail.textContent = `Room ${roomId} · ${rttLabel} · ${stateLabel}`;
   } else if (syncChannel.roomClosed) {
     detail.textContent = `Room ${roomId} · closed`;
@@ -120,14 +141,44 @@ function setRemoteDisplayGate(blocked, message = 'Authenticating display room...
       'font-family:var(--font-body, sans-serif)'
     ].join(';');
     gate.innerHTML = `
-      <div style="max-width:34rem;display:grid;gap:0.85rem;justify-items:center">
+      <div style="max-width:36rem;display:grid;gap:0.95rem;justify-items:center">
         <strong id="stage-remote-gate-title" style="font-size:clamp(1.3rem,3vw,2rem)"></strong>
         <span id="stage-remote-gate-message" style="color:#CBD5E1"></span>
-        <button type="button" id="stage-remote-gate-join" class="btn btn--primary btn--sm">Enter another room code</button>
+        <div style="display:flex;flex-wrap:wrap;gap:0.6rem;justify-content:center">
+          <button type="button" id="stage-remote-gate-retry" class="btn btn--primary btn--sm">Retry Connection</button>
+          <button type="button" id="stage-remote-gate-join" class="btn btn--royal btn--sm">Enter another room code</button>
+          <button type="button" id="stage-remote-gate-local" class="btn btn--secondary btn--sm">Switch to Local Sync</button>
+        </div>
       </div>`;
     document.body.appendChild(gate);
+    gate.querySelector('#stage-remote-gate-retry')?.addEventListener('click', () => {
+      const targetRoom = syncChannel?.roomId
+        || new URLSearchParams(window.location.search).get('room')
+        || localStorage.getItem(DISPLAY_AUTOJOIN_KEY)
+        || localStorage.getItem('countdown_studio_last_room')
+        || '';
+      if (targetRoom) {
+        remoteFirstStateReceived = false;
+        syncChannel?.connectRemote(targetRoom, 'display');
+      } else {
+        document.getElementById('btn-join-remote-stage')?.click();
+      }
+    });
     gate.querySelector('#stage-remote-gate-join')?.addEventListener('click', () => {
       document.getElementById('btn-join-remote-stage')?.click();
+    });
+    gate.querySelector('#stage-remote-gate-local')?.addEventListener('click', () => {
+      syncChannel?.disconnectRemote();
+      localStorage.removeItem(DISPLAY_AUTOJOIN_KEY);
+      remoteFirstStateReceived = false;
+      setStandbyVisible(false);
+      setRemoteDisplayGate(false);
+      const cleanUrl = new URL(window.location.href);
+      if (cleanUrl.searchParams.has('room')) {
+        cleanUrl.searchParams.delete('room');
+        window.history.replaceState({}, document.title, cleanUrl.toString());
+      }
+      showToast('Switched Stage Display to Local Sync mode.', 'info');
     });
   }
 
@@ -146,6 +197,7 @@ function setRemoteDisplayGate(blocked, message = 'Authenticating display room...
  * @param {object} state
  */
 function syncStageClockAudio(state) {
+  if (isPreviewMode) return;
   const duration = Number(state.clockDuration || 30);
   const remaining = Math.max(0, Number(state.clockRemainingMs || 0));
 
@@ -363,24 +415,62 @@ function applyStageLayoutToDOM(layout = stageLayout, customBg = loadCustomStageB
 }
 
 function renderStage(state) {
-  currentState = state;
-  syncStageClockAudio(state);
-  const questionState = getStageQuestionState(state);
+  const durationMs = Math.max(0, Number(state.clockDuration || 30) * 1000);
+  let effectiveRemainingMs = Math.max(0, Number(state.clockRemainingMs ?? durationMs));
+
+  if (state.clockRunning) {
+    const anchorKey = `${state.matchId}:${state.roundIndex}:${state.clockStartedAtEpoch || 'local'}`;
+    if (anchorKey !== lastClockAnchorKey) {
+      lastClockAnchorKey = anchorKey;
+      lastAudioWholeSecond = -1;
+      let startRem = effectiveRemainingMs;
+      if (state.clockStartedAtEpoch && typeof state.clockBaseRemainingMs === 'number') {
+        const skewAdjustedElapsed = Math.max(0, Date.now() - state.clockStartedAtEpoch);
+        // Only apply epoch delta when clocks are plausibly synchronized (< 5s skew beyond base)
+        if (skewAdjustedElapsed <= state.clockBaseRemainingMs + 5000) {
+          startRem = Math.max(0, state.clockBaseRemainingMs - skewAdjustedElapsed);
+        }
+      }
+      clockSyncedRemainingMs = startRem;
+      clockSyncedAtPerf = performance.now();
+    } else {
+      const localProjected = Math.max(0, clockSyncedRemainingMs - (performance.now() - clockSyncedAtPerf));
+      // Re-anchor only if Host drift exceeds 350ms
+      if (Math.abs(localProjected - effectiveRemainingMs) > 350) {
+        clockSyncedRemainingMs = effectiveRemainingMs;
+        clockSyncedAtPerf = performance.now();
+      } else {
+        effectiveRemainingMs = localProjected;
+      }
+    }
+  } else {
+    lastClockAnchorKey = '';
+    lastAudioWholeSecond = -1;
+    clockSyncedRemainingMs = effectiveRemainingMs;
+    clockSyncedAtPerf = performance.now();
+  }
+
+  currentState = {
+    ...state,
+    clockRemainingMs: effectiveRemainingMs
+  };
+  syncStageClockAudio(currentState);
+  const questionState = getStageQuestionState(currentState);
 
   // Mirror the Host's Conundrum buzzer sound on the Stage Display once per
   // buzzer event. Other Host-only sounds remain local to the Host console.
-  const buzzerPlayer = state.roundType === 'C' ? state.activeBuzzerPlayer : null;
-  if (buzzerPlayer && buzzerPlayer !== lastStageBuzzerPlayer) {
+  const buzzerPlayer = currentState.roundType === 'C' ? currentState.activeBuzzerPlayer : null;
+  if (!isPreviewMode && buzzerPlayer && buzzerPlayer !== lastStageBuzzerPlayer) {
     audio.playContestantBuzz(buzzerPlayer);
   }
   lastStageBuzzerPlayer = buzzerPlayer || null;
 
-  document.documentElement.setAttribute('data-theme', state.theme || 'classic-blue');
+  document.documentElement.setAttribute('data-theme', currentState.theme || 'classic-blue');
 
   // Panic blank screen check
   const panicEl = document.getElementById('stage-panic-screen');
   if (panicEl) {
-    const isBlank = Boolean(state.panicBlank);
+    const isBlank = Boolean(currentState.panicBlank);
     panicEl.hidden = !isBlank;
     panicEl.classList.toggle('is-hidden', !isBlank);
     panicEl.classList.toggle('is-active', isBlank);
@@ -391,36 +481,49 @@ function renderStage(state) {
   // Test pattern overlay check
   const testEl = document.getElementById('stage-test-pattern');
   if (testEl) {
-    const isTest = Boolean(state.testPattern);
+    const isTest = Boolean(currentState.testPattern);
     testEl.hidden = !isTest;
     testEl.classList.toggle('is-hidden', !isTest);
     testEl.classList.toggle('is-active', isTest);
     testEl.setAttribute('data-active', String(isTest));
     testEl.style.display = isTest ? 'flex' : 'none';
+    if (isTest) {
+      const canvas = document.getElementById('stage-canvas');
+      const resEl = document.getElementById('stage-test-resolution');
+      const syncEl = document.getElementById('stage-test-sync-status');
+      if (resEl && canvas) {
+        resEl.textContent = `Viewport ${window.innerWidth} × ${window.innerHeight} · Stage ${Math.round(canvas.clientWidth)} × ${Math.round(canvas.clientHeight)}`;
+      }
+      if (syncEl) {
+        syncEl.textContent = syncChannel?.roomId
+          ? `Remote Room: ${syncChannel.roomId}${hudPingMs !== null ? ` (${hudPingMs}ms RTT)` : ''}`
+          : 'Sync: Local BroadcastChannel Ready';
+      }
+    }
   }
 
   // Round & Picker Header
   const roundEl = document.getElementById('stage-round-indicator');
   if (roundEl) {
-    if (state.phase === 'MATCH_END') {
+    if (currentState.phase === 'MATCH_END') {
       roundEl.textContent = 'Final Scoreboard · Match Complete';
     } else {
-      roundEl.textContent = `Round ${state.roundIndex + 1} of ${
-        state.schedule.length
-      } · ${getRoundTypeName(state.roundType)}`;
+      roundEl.textContent = `Round ${currentState.roundIndex + 1} of ${
+        currentState.schedule.length
+      } · ${getRoundTypeName(currentState.roundType)}`;
     }
   }
 
   const pickerEl = document.getElementById('stage-picker-indicator');
   if (pickerEl) {
-    const picker = state.players[state.pickerPlayer - 1];
+    const picker = currentState.players[currentState.pickerPlayer - 1];
     pickerEl.textContent =
-      state.roundType === 'C'
+      currentState.roundType === 'C'
         ? 'Countdown Conundrum · Buzzer Active'
         : `Selection: ${picker ? picker.name : 'Contestant'}`;
   }
 
-  // Central Board Zone
+  // Central Board Zone & End-of-Match Podium
   const lettersBoard = document.getElementById('stage-letters-board');
   const numbersZone = document.getElementById('stage-numbers-zone');
   const numbersBoard = document.getElementById('stage-numbers-board');
@@ -430,7 +533,7 @@ function renderStage(state) {
   const boardZone = document.getElementById('stage-board-zone');
   const conundrumPrompt = document.getElementById('stage-conundrum-prompt');
 
-  if (state.phase === 'MATCH_END') {
+  if (currentState.phase === 'MATCH_END') {
     lastRenderedBoardKey = null;
     if (boardZone) boardZone.style.display = 'none';
     if (lettersBoard) lettersBoard.hidden = true;
@@ -438,20 +541,29 @@ function renderStage(state) {
     if (conundrumPrompt) conundrumPrompt.hidden = true;
     if (endPodium) {
       endPodium.hidden = false;
-      const p1 = state.players[0];
-      const p2 = state.players[1];
+      const p1 = currentState.players[0];
+      const p2 = currentState.players[1];
       const winnerTitle = document.getElementById('stage-winner-title');
+      const winnerScores = document.getElementById('stage-winner-scores');
+      const winnerMeta = document.getElementById('stage-winner-meta');
       if (winnerTitle) {
         if (p1.score > p2.score) {
-          winnerTitle.textContent = `Winner: ${p1.name} (${p1.score} – ${p2.score})`;
+          winnerTitle.textContent = `🏆 Winner: ${p1.name}`;
         } else if (p2.score > p1.score) {
-          winnerTitle.textContent = `Winner: ${p2.name} (${p2.score} – ${p1.score})`;
+          winnerTitle.textContent = `🏆 Winner: ${p2.name}`;
         } else {
-          winnerTitle.textContent = `Tied Match (${p1.score} – ${p2.score}) · Sudden Death!`;
+          winnerTitle.textContent = '⚖️ Tied Match · Sudden Death!';
         }
       }
-      if (lastCelebratedMatchId !== state.matchId) {
-        lastCelebratedMatchId = state.matchId;
+      if (winnerScores) {
+        winnerScores.textContent = `${p1.name}  ${p1.score}  –  ${p2.score}  ${p2.name}`;
+      }
+      if (winnerMeta) {
+        const roundsDone = (currentState.roundHistory || []).length;
+        winnerMeta.textContent = `${roundsDone} round${roundsDone === 1 ? '' : 's'} completed · Countdown Studio`;
+      }
+      if (!isPreviewMode && lastCelebratedMatchId !== currentState.matchId) {
+        lastCelebratedMatchId = currentState.matchId;
         launchConfetti(4000);
       }
     }
@@ -470,7 +582,7 @@ function renderStage(state) {
         lettersBoard.hidden = false;
         const boardKey = `L:${(questionState.letters || []).join('')}`;
         if (boardKey !== lastRenderedBoardKey) {
-          renderLetterTiles(lettersBoard, questionState.letters, { noAnim: Boolean(state.clockRunning) });
+          renderLetterTiles(lettersBoard, questionState.letters, { noAnim: Boolean(currentState.clockRunning) });
           lastRenderedBoardKey = boardKey;
         }
       }
@@ -479,14 +591,25 @@ function renderStage(state) {
       if (lettersBoard) lettersBoard.hidden = true;
       if (numbersZone) {
         numbersZone.hidden = false;
-        const boardKey = `N:${(questionState.numbers || []).join(',')}:${questionState.target || ''}:${Boolean(state.showNumbersSolutionOnDisplay)}:${state.numbersSolution || ''}`;
+        const solKey = currentState.showNumbersSolutionOnDisplay
+          ? JSON.stringify(currentState.numbersSolution || null)
+          : '';
+        const boardKey = `N:${(questionState.numbers || []).join(',')}:${questionState.target || ''}:${Boolean(currentState.showNumbersSolutionOnDisplay)}:${solKey}`;
         if (boardKey !== lastRenderedBoardKey) {
-          renderNumberTiles(numbersBoard, questionState.numbers, { noAnim: Boolean(state.clockRunning) });
-          if (targetVal) targetVal.textContent = questionState.target ? String(questionState.target) : '000';
+          renderNumberTiles(numbersBoard, questionState.numbers, { noAnim: Boolean(currentState.clockRunning) });
+          if (targetVal) {
+            const targetKey = `${currentState.matchId}:${currentState.roundIndex}:${questionState.target || ''}`;
+            if (questionState.target && !currentState.clockRunning && targetKey !== lastAnimatedTargetKey) {
+              lastAnimatedTargetKey = targetKey;
+              animateTargetSlotRoll(targetVal, questionState.target);
+            } else {
+              targetVal.textContent = questionState.target ? String(questionState.target) : '000';
+            }
+          }
           if (numSolBox) {
-            numSolBox.hidden = !state.showNumbersSolutionOnDisplay || !state.numbersSolution;
-            if (state.showNumbersSolutionOnDisplay && state.numbersSolution) {
-              renderNumbersSolution(numSolBox, state.numbersSolution, state.target);
+            numSolBox.hidden = !currentState.showNumbersSolutionOnDisplay || !currentState.numbersSolution;
+            if (currentState.showNumbersSolutionOnDisplay && currentState.numbersSolution) {
+              renderNumbersSolution(numSolBox, currentState.numbersSolution, currentState.target);
             }
           }
           lastRenderedBoardKey = boardKey;
@@ -502,7 +625,7 @@ function renderStage(state) {
         if (prompt) prompt.hidden = true;
         const boardKey = `C:${word || ''}:${Boolean(questionState.conundrumRevealed)}`;
         if (boardKey !== lastRenderedBoardKey) {
-          renderLetterTiles(lettersBoard, word ? word.split('') : [], { isConundrum: true, noAnim: Boolean(state.clockRunning) });
+          renderLetterTiles(lettersBoard, word ? word.split('') : [], { isConundrum: true, noAnim: Boolean(currentState.clockRunning) });
           lastRenderedBoardKey = boardKey;
         }
       }
@@ -512,11 +635,11 @@ function renderStage(state) {
   // Conundrum Buzzer Banner
   const buzzBanner = document.getElementById('stage-buzz-banner');
   if (buzzBanner) {
-    if (state.activeBuzzerPlayer) {
-      const p = state.players[state.activeBuzzerPlayer - 1];
+    if (currentState.activeBuzzerPlayer) {
+      const p = currentState.players[currentState.activeBuzzerPlayer - 1];
       buzzBanner.hidden = false;
       buzzBanner.textContent = `🔔 ${p.name} BUZZED IN! (${(
-        (state.buzzerRemainingMs || 5000) / 1000
+        (currentState.buzzerRemainingMs || 5000) / 1000
       ).toFixed(1)}s)`;
     } else {
       buzzBanner.hidden = true;
@@ -533,12 +656,14 @@ function renderStage(state) {
   // Contestant Name & Score Slots in the Left & Right Background Podiums
   const plate1 = document.getElementById('stage-plate-p1');
   const plate2 = document.getElementById('stage-plate-p2');
-  const p1 = state.players[0];
-  const p2 = state.players[1];
+  const p1 = currentState.players[0];
+  const p2 = currentState.players[1];
 
   if (plate1 && p1) {
-    plate1.classList.toggle('is-active-picker', state.pickerPlayer === 1 && state.roundType !== 'C');
-    plate1.classList.toggle('is-buzzed', state.activeBuzzerPlayer === 1);
+    plate1.classList.toggle('is-active-picker', currentState.pickerPlayer === 1 && currentState.roundType !== 'C');
+    plate1.classList.toggle('is-buzzed', currentState.activeBuzzerPlayer === 1);
+    plate1.classList.toggle('is-locked-out', currentState.roundType === 'C' && Boolean(p1.lockedOut));
+    if (p1.color) plate1.style.setProperty('--p1-accent', p1.color);
     document.getElementById('stage-p1-name').textContent = p1.name;
     const decl1 = document.getElementById('stage-p1-decl');
     if (decl1) {
@@ -556,8 +681,10 @@ function renderStage(state) {
   }
 
   if (plate2 && p2) {
-    plate2.classList.toggle('is-active-picker', state.pickerPlayer === 2 && state.roundType !== 'C');
-    plate2.classList.toggle('is-buzzed', state.activeBuzzerPlayer === 2);
+    plate2.classList.toggle('is-active-picker', currentState.pickerPlayer === 2 && currentState.roundType !== 'C');
+    plate2.classList.toggle('is-buzzed', currentState.activeBuzzerPlayer === 2);
+    plate2.classList.toggle('is-locked-out', currentState.roundType === 'C' && Boolean(p2.lockedOut));
+    if (p2.color) plate2.style.setProperty('--p2-accent', p2.color);
     document.getElementById('stage-p2-name').textContent = p2.name;
     const decl2 = document.getElementById('stage-p2-decl');
     if (decl2) {
@@ -579,8 +706,8 @@ function renderStage(state) {
   if (clockEl) {
     renderClockWidget(
       clockEl,
-      state.clockRemainingMs,
-      (state.clockDuration || 30) * 1000,
+      currentState.clockRemainingMs,
+      (currentState.clockDuration || 30) * 1000,
       {
         handsOnly: Boolean(stageLayout.clockHandsOnly),
         showDigital: Boolean(stageLayout.showDigitalTimer)
@@ -591,21 +718,26 @@ function renderStage(state) {
 
 /**
  * Smooth 60fps local interpolation loop on the Display window when `clockRunning` is true,
- * anchored to `clockRemainingMs` so even if BroadcastChannel messages arrive at 15–30Hz
- * or the page refreshes, the sweeping hand renders at buttery 60fps inside the background clock.
+ * anchored to `clockSyncedRemainingMs` / `clockSyncedAtPerf` so even with 1 Hz Host broadcasts
+ * or page refreshes, the sweeping hand renders at buttery 60fps inside the background clock.
  */
 function startDisplayClockLoop() {
-  let lastFrameTime = performance.now();
   const loop = (now) => {
-    const dt = now - lastFrameTime;
-    lastFrameTime = now;
-    if (currentState && currentState.clockRunning && currentState.clockRemainingMs > 0) {
-      currentState.clockRemainingMs = Math.max(0, currentState.clockRemainingMs - dt);
+    if (currentState && currentState.clockRunning && clockSyncedRemainingMs > 0) {
+      const nextRem = Math.max(0, clockSyncedRemainingMs - (now - clockSyncedAtPerf));
+      currentState.clockRemainingMs = nextRem;
+
+      const wholeSec = Math.ceil(nextRem / 1000);
+      if (!isPreviewMode && wholeSec !== lastAudioWholeSecond) {
+        lastAudioWholeSecond = wholeSec;
+        syncStageClockAudio(currentState);
+      }
+
       const clockEl = document.getElementById('stage-clock-container');
       if (clockEl) {
         renderClockWidget(
           clockEl,
-          currentState.clockRemainingMs,
+          nextRem,
           (currentState.clockDuration || 30) * 1000,
           {
             handsOnly: Boolean(stageLayout.clockHandsOnly),
@@ -623,19 +755,19 @@ function startDisplayClockLoop() {
  * Handles custom background image file selection or drag-and-drop.
  * @param {File} file
  */
-function handleBackgroundFile(file) {
+async function handleBackgroundFile(file) {
   if (!file || !file.type.startsWith('image/')) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    const dataUrl = String(reader.result || '');
+  try {
+    const { dataUrl } = await compressStageBackgroundFile(file);
     saveCustomStageBackground(dataUrl);
     applyStageLayoutToDOM(stageLayout, dataUrl);
     if (syncChannel) {
       syncChannel.send('STAGE_BG_SYNC', { bg: dataUrl });
     }
     showToast('Stage background updated! Press B to fine-tune clock, name & score positions.', 'success');
-  };
-  reader.readAsDataURL(file);
+  } catch (err) {
+    showToast(err instanceof Error ? err.message : 'Failed to load background image.', 'error');
+  }
 }
 
 /**
@@ -780,6 +912,10 @@ function initStageCalibration() {
           patch.p1NameW = Number(Math.max(8, Math.min(35, stageLayout.p1NameW + delta)).toFixed(2));
         } else if (key === 'p2Name') {
           patch.p2NameW = Number(Math.max(8, Math.min(35, stageLayout.p2NameW + delta)).toFixed(2));
+        } else if (key === 'p1Score') {
+          patch.p1ScoreW = Number(Math.max(6, Math.min(28, stageLayout.p1ScoreW + delta)).toFixed(2));
+        } else if (key === 'p2Score') {
+          patch.p2ScoreW = Number(Math.max(6, Math.min(28, stageLayout.p2ScoreW + delta)).toFixed(2));
         }
         const next = saveStageLayout(patch);
         applyStageLayoutToDOM(next);
@@ -791,33 +927,77 @@ function initStageCalibration() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  isPreviewMode = urlParams.get('preview') === '1' || urlParams.get('embed') === '1';
+
   const settings = loadSettings();
   applySettingsToDOM(settings);
-  audio.setMuted(!settings.soundEnabled);
+  audio.setMuted(isPreviewMode ? true : !settings.soundEnabled);
   audio.setVolume(settings.volume);
   applyStageLayoutToDOM(loadStageLayout(), loadCustomStageBackground());
-  requestWakeLock();
+  if (isPreviewMode) {
+    document.getElementById('stage-canvas')?.classList.add('is-preview');
+  } else {
+    requestWakeLock();
+  }
 
   // Audio unlock splash for stage display
   const splash = document.getElementById('stage-audio-splash');
+  const btnAudioToggle = document.getElementById('btn-toggle-stage-audio');
+  const updateAudioButtonLabel = () => {
+    if (!btnAudioToggle) return;
+    btnAudioToggle.textContent = audio.muted ? '🔇 Audio Off' : '🔊 Audio On';
+    btnAudioToggle.setAttribute('aria-pressed', String(!audio.muted));
+  };
+  updateAudioButtonLabel();
+
   if (splash) {
-    splash.addEventListener('click', async () => {
-      const unlocked = await audio.unlock();
-      if (!unlocked) return;
-      // If the countdown started before the browser gesture, retry the first
-      // clock cue after unlocking instead of losing the soundtrack entirely.
+    if (isPreviewMode) {
+      splash.hidden = true;
+    } else {
+      splash.addEventListener('click', async () => {
+        const unlocked = await audio.unlock();
+        if (!unlocked) return;
+        audio.setMuted(false);
+        updateAudioButtonLabel();
+        // If the countdown started before the browser gesture, retry the first
+        // clock cue after unlocking instead of losing the soundtrack entirely.
+        audio.resetClockTracker();
+        syncStageClockAudio(currentState);
+
+        // The buzzer may have arrived while the browser still had audio locked.
+        // Replay that active buzzer immediately after the user gesture.
+        if (currentState.roundType === 'C' && currentState.activeBuzzerPlayer) {
+          audio.playContestantBuzz(currentState.activeBuzzerPlayer);
+          lastStageBuzzerPlayer = currentState.activeBuzzerPlayer;
+        }
+        splash.hidden = true;
+      });
+    }
+  }
+
+  btnAudioToggle?.addEventListener('click', async () => {
+    await audio.unlock();
+    const nextMuted = !audio.muted;
+    audio.setMuted(nextMuted);
+    if (!nextMuted) {
       audio.resetClockTracker();
       syncStageClockAudio(currentState);
+      if (splash) splash.hidden = true;
+    } else {
+      audio.stopClockMusic();
+    }
+    updateAudioButtonLabel();
+    showToast(nextMuted ? 'Stage audio muted.' : 'Stage audio enabled.', 'info');
+  });
 
-      // The buzzer may have arrived while the browser still had audio locked.
-      // Replay that active buzzer immediately after the user gesture.
-      if (currentState.roundType === 'C' && currentState.activeBuzzerPlayer) {
-        audio.playContestantBuzz(currentState.activeBuzzerPlayer);
-        lastStageBuzzerPlayer = currentState.activeBuzzerPlayer;
-      }
-      splash.hidden = true;
-    });
-  }
+  document.getElementById('btn-toggle-fullscreen')?.addEventListener('click', () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.().catch(() => {});
+    } else {
+      document.exitFullscreen?.().catch(() => {});
+    }
+  });
 
   syncChannel = new StageSyncChannel('display', (msg) => {
     if (msg.type === 'STATE_SYNC' && msg.payload) {
@@ -859,21 +1039,20 @@ document.addEventListener('DOMContentLoaded', () => {
         setStageControlsHidden(Boolean(config.value.hidden), false);
       }
     }
-  });
+  }, { isPreview: isPreviewMode });
 
-  const urlParams = new URLSearchParams(window.location.search);
-  const roomFromUrl = urlParams.get('room');
+  const roomFromUrl = isPreviewMode ? null : urlParams.get('room');
   const requestedRoom = (roomFromUrl || '').toUpperCase().trim();
   // A remote display must not reveal a locally cached match while its room is
   // being checked. This also prevents an old QR/link from showing stale data
   // when the room no longer exists.
-  const autoJoinRoom = !roomFromUrl
+  const autoJoinRoom = !isPreviewMode && !roomFromUrl
     ? (localStorage.getItem(DISPLAY_AUTOJOIN_KEY) || '').toUpperCase().trim()
     : '';
   if (requestedRoom || autoJoinRoom) setRemoteDisplayGate(true);
 
   const persisted = syncChannel.recoverPersistedState();
-  if (persisted && !requestedRoom) {
+  if (persisted && !requestedRoom && !autoJoinRoom) {
     renderStage(persisted);
   } else {
     renderStage(currentState);
@@ -928,9 +1107,13 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (status.roomId && status.connected) {
       setRemoteDisplayGate(false);
       if (roomDot) roomDot.className = 'status-dot status-dot--online';
-      if (roomText) roomText.textContent = status.waitingEmpty
-        ? `Room: ${status.roomId} (waiting for Host broadcast)`
-        : `Room: ${status.roomId}`;
+      if (roomText) {
+        roomText.textContent = status.hasHost === false
+          ? `Room: ${status.roomId} (Host disconnected)`
+          : status.waitingEmpty
+            ? `Room: ${status.roomId} (waiting for Host broadcast)`
+            : `Room: ${status.roomId}`;
+      }
       if (btnDisconnectRoom) btnDisconnectRoom.hidden = false;
       if (btnJoinRemote) btnJoinRemote.textContent = `🌐 ${status.roomId}`;
     } else if (status.roomId && status.connectionFailed) {
@@ -952,7 +1135,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Keep the gate up for a URL/localStorage room until the first join
       // response arrives. Otherwise the initial status callback briefly
       // exposes the locally cached display before validation completes.
-      if (!requestedRoom) setRemoteDisplayGate(false);
+      if (!requestedRoom && !autoJoinRoom) setRemoteDisplayGate(false);
       if (roomDot) roomDot.className = 'status-dot status-dot--offline';
       if (roomText) roomText.textContent = 'Local Sync';
       if (btnDisconnectRoom) btnDisconnectRoom.hidden = true;
@@ -1118,11 +1301,40 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.addEventListener('keydown', (e) => {
+    if (isPreviewMode) return;
     const key = e.key.toLowerCase();
     if (e.key === 'Escape') {
-      dismissPanic();
+      if (joinModal && !joinModal.hidden) {
+        closeJoinModal();
+        return;
+      }
+      const panicEl = document.getElementById('stage-panic-screen');
+      if (panicEl && !panicEl.hidden) {
+        dismissPanic();
+        return;
+      }
+      const canvas = document.getElementById('stage-canvas');
+      if (canvas?.classList.contains('is-calibrating')) {
+        canvas.classList.remove('is-calibrating');
+        const toolbar = document.getElementById('stage-calibration-toolbar');
+        if (toolbar) toolbar.hidden = true;
+      }
       return;
     }
+
+    if (
+      e.target instanceof HTMLInputElement ||
+      e.target instanceof HTMLTextAreaElement ||
+      e.target instanceof HTMLSelectElement ||
+      e.target?.isContentEditable
+    ) {
+      if (e.key === 'Enter' && e.target.id === 'display-input-room-code') {
+        e.preventDefault();
+        btnSubmitJoin?.click();
+      }
+      return;
+    }
+
     if (key === '?') {
       e.preventDefault();
       showToast(

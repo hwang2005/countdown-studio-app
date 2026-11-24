@@ -167,6 +167,17 @@ export function createWebSocketGateway(server: http.Server): WebSocketServer {
               displayCount: room.displays.size,
               isNew: false,
             }));
+
+            const hostStatusPacket = JSON.stringify({
+              type: 'room:host_status',
+              hasHost: true,
+              timestamp: Date.now(),
+            });
+            for (const displayWs of room.displays) {
+              if (displayWs.readyState === WebSocket.OPEN) {
+                displayWs.send(hostStatusPacket);
+              }
+            }
           }
           return;
         }
@@ -425,6 +436,16 @@ export function createWebSocketGateway(server: http.Server): WebSocketServer {
         if (room && room.hostSocket === ws) {
           room.hostSocket = null;
           room.hostDisconnectedAt = Date.now();
+          const hostStatusPacket = JSON.stringify({
+            type: 'room:host_status',
+            hasHost: false,
+            timestamp: Date.now(),
+          });
+          for (const displayWs of room.displays) {
+            if (displayWs.readyState === WebSocket.OPEN) {
+              displayWs.send(hostStatusPacket);
+            }
+          }
           void persistRoomDisconnected(room);
         }
       } else if (clientRole === 'display' && clientRoomId) {
