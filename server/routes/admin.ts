@@ -19,7 +19,7 @@ export function registerAdminRoutes(app: Express) {
 
     const body = req.body || {};
     const username = String(body.username || '').trim();
-    const email = String(body.email || '').trim();
+    const email = String(body.email || '').trim().toLowerCase();
     const password = String(body.password || '');
     const displayName = String(body.displayName || '').trim();
     // Only non-escalating roles may be provisioned via the admin API. Admin
@@ -31,6 +31,7 @@ export function registerAdminRoutes(app: Express) {
     if (
       !/^[a-zA-Z0-9_.-]{3,32}$/.test(username) ||
       !/^\S+@\S+\.\S+$/.test(email) ||
+      email.length > 254 ||
       password.length < 8 ||
       password.length > 128 ||
       !displayName ||
@@ -42,9 +43,21 @@ export function registerAdminRoutes(app: Express) {
     let connection: PoolClient | undefined;
     try {
       connection = await getDbPool().connect(); await connection.query('BEGIN');
+      const existingCheck = await connection.query<{ id: number }>(
+        `SELECT u.id FROM users u
+         LEFT JOIN user_emails e ON e.user_id = u.id
+         WHERE LOWER(u.username) = LOWER($1) OR LOWER(e.email) = LOWER($2)
+         LIMIT 1`,
+        [username, email]
+      );
+      if (existingCheck.rows[0]) {
+        await connection.query('ROLLBACK');
+        return res.status(409).json({ error: 'ACCOUNT_EXISTS', message: 'Username or email already exists.' });
+      }
       const userId = await insertUserAccount(connection, { username, email, password, displayName, role: featuresRole });
+      const user = await loadUser(userId, connection);
+      if (!user) throw new Error('Created user could not be loaded.');
       await connection.query('COMMIT');
-      const user = await loadUser(userId); if (!user) throw new Error('Created user could not be loaded.');
       return res.status(201).json({
         user: publicUser(user),
         // No session token is issued here: the provisioned account should not
@@ -185,7 +198,7 @@ export function registerAdminRoutes(app: Express) {
       const nextStatus = row.status === 'suspended' ? 'active' : row.status;
       if (row.credential_user_id) {
         await connection.query(
-          `UPDATE user_credentials SET failed_attempts=0, locked_until=NULL WHERE user_id=$1`,
+          `UPDATE user_credentials SET failed_attempts=0, locked_until=NULL, last_failed_at=NULL WHERE user_id=$1`,
           [row.id]
         );
       }
@@ -260,13 +273,21 @@ export function registerAdminRoutes(app: Express) {
     let connection: PoolClient | undefined;
     try {
       connection = await getDbPool().connect(); await connection.query('BEGIN');
-      const target = await connection.query<{ id: number }>(
-        'SELECT id FROM users WHERE public_id=$1 AND deleted_at IS NULL FOR UPDATE', [publicId]
+      const target = await connection.query<{ id: number; deleted_at: Date | null }>(
+        'SELECT id, deleted_at FROM users WHERE public_id=$1 FOR UPDATE', [publicId]
       );
       const userId = target.rows[0]?.id;
-      if (!userId) { await connection.query('ROLLBACK'); return res.status(404).json({ error: 'USER_NOT_FOUND' }); }
+      const isDeleted = Boolean(target.rows[0]?.deleted_at);
+      if (!userId || (isDeleted && status !== 'active')) { await connection.query('ROLLBACK'); return res.status(404).json({ error: 'USER_NOT_FOUND' }); }
       if (status !== undefined) {
-        await connection.query('UPDATE users SET status_id=(SELECT id FROM user_statuses WHERE code=$2), updated_at=NOW() WHERE id=$1', [userId, status]);
+        await connection.query(
+          `UPDATE users
+              SET status_id=(SELECT id FROM user_statuses WHERE code=$2),
+                  deleted_at=CASE WHEN $2 = 'active' THEN NULL ELSE deleted_at END,
+                  updated_at=NOW()
+            WHERE id=$1`,
+          [userId, status]
+        );
       }
       if (role !== undefined) {
         const roleRow = await connection.query('SELECT id FROM roles WHERE code=$1', [role]);
@@ -340,7 +361,7 @@ export function registerAdminRoutes(app: Express) {
       await connection.query(
         `INSERT INTO user_credentials (user_id, password_hash) VALUES ($1, $2)
            ON CONFLICT (user_id) DO UPDATE
-             SET password_hash=$2, password_changed_at=NOW(), failed_attempts=0, locked_until=NULL`,
+             SET password_hash=$2, password_changed_at=NOW(), failed_attempts=0, locked_until=NULL, last_failed_at=NULL`,
         [userId, passHash]
       );
       await connection.query('COMMIT');

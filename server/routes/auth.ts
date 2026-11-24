@@ -4,6 +4,7 @@ import type { PoolClient } from 'pg';
 import { getDbPool } from '../db.js';
 import { readPositiveInteger } from '../env.js';
 import { isMailConfigured, sendMail } from '../../mailer.js';
+import { isAllowedOrigin } from '../middleware.js';
 import { checkRateLimit, getClientIp, DUMMY_HASH, hashPassword, verifyPassword } from '../security.js';
 import {
   authenticateToken, bearer, insertUserAccount, loadUser, publicUser,
@@ -22,6 +23,22 @@ function recordAuthEvent(eventCode: string, userId: number | null, ip: string, u
       [eventCode, userId, ip, userAgent.slice(0, 255), JSON.stringify(details)]
     )
     .catch(() => { /* audit insert is optional */ });
+}
+
+function resolveResetBaseUrl(req: Request): string {
+  const envUrl = String(process.env.APP_URL || '').trim();
+  if (/^https?:\/\/[^/\s]+/i.test(envUrl)) {
+    return envUrl.replace(/\/+$/, '');
+  }
+  const origin = req.get('Origin');
+  if (origin && isAllowedOrigin(origin, req) && /^https?:\/\/[^/\s]+/i.test(origin)) {
+    return origin.replace(/\/+$/, '');
+  }
+  const host = req.get('host');
+  if (host) {
+    return `${req.protocol}://${host}`.replace(/\/+$/, '');
+  }
+  return 'https://www.countdown-studio.id.vn';
 }
 
 export function registerAuthRoutes(app: Express) {
@@ -49,6 +66,9 @@ export function registerAuthRoutes(app: Express) {
     ) {
       return res.status(400).json({ error: 'INVALID_INPUT', message: 'Username (3-32 chars), valid email, display name (max 64 chars), and password (8-128 characters) are required.' });
     }
+    if (body.passwordConfirm !== undefined && String(body.passwordConfirm) !== password) {
+      return res.status(400).json({ error: 'PASSWORD_MISMATCH', message: 'Confirmation password does not match.' });
+    }
     if (normalizedRole !== 'individual' && normalizedRole !== 'admin') return res.status(403).json({ error: 'ROLE_NOT_REGISTERABLE', message: 'Organization accounts can only be provisioned by an administrator.' });
 
     if (normalizedRole === 'admin') {
@@ -64,20 +84,51 @@ export function registerAuthRoutes(app: Express) {
     let connection: PoolClient | undefined;
     try {
       connection = await getDbPool().connect(); await connection.query('BEGIN');
-      const existingCheck = await connection.query<{ id: number }>(
-        `SELECT u.id FROM users u
+      const existingCheck = await connection.query<{
+        id: number;
+        username: string;
+        deleted_at: Date | null;
+        status: string;
+        email: string | null;
+      }>(
+        `SELECT u.id, u.username, u.deleted_at, s.code AS status, e.email
+         FROM users u
+         LEFT JOIN user_statuses s ON s.id = u.status_id
          LEFT JOIN user_emails e ON e.user_id = u.id
-         WHERE LOWER(u.username) = LOWER($1) OR LOWER(e.email) = LOWER($2)
-         LIMIT 1`,
+         WHERE LOWER(u.username) = LOWER($1) OR LOWER(e.email) = LOWER($2)`,
         [username, email]
       );
-      if (existingCheck.rows[0]) {
+      if (existingCheck.rows.length > 0) {
         await connection.query('ROLLBACK');
-        return res.status(409).json({ error: 'ACCOUNT_EXISTS', message: 'Username or email already exists.' });
+        const emailMatch = existingCheck.rows.find((row) => row.email && row.email.toLowerCase() === email);
+        if (emailMatch) {
+          if (emailMatch.deleted_at || emailMatch.status === 'deleted') {
+            return res.status(409).json({
+              error: 'ACCOUNT_DELETED',
+              message: 'This email belongs to a deactivated account. Please contact an administrator.',
+            });
+          }
+          return res.status(409).json({
+            error: 'EMAIL_EXISTS',
+            message: 'An account with this email already exists. Please sign in or use "Forgot credentials?" to reset your password.',
+          });
+        }
+        const usernameMatch = existingCheck.rows[0];
+        if (usernameMatch.deleted_at || usernameMatch.status === 'deleted') {
+          return res.status(409).json({
+            error: 'ACCOUNT_DELETED',
+            message: 'This username belongs to a deactivated account. Please choose a different username.',
+          });
+        }
+        return res.status(409).json({
+          error: 'USERNAME_EXISTS',
+          message: 'This username is already taken. Please choose a different username.',
+        });
       }
-      const userId = await insertUserAccount(connection, { username, email, password, displayName, role: normalizedRole });
+      const userId = await insertUserAccount(connection, { username, email, password, displayName, role: normalizedRole, markLoggedIn: true });
+      const user = await loadUser(userId, connection);
+      if (!user) throw new Error('Created user could not be loaded.');
       await connection.query('COMMIT');
-      const user = await loadUser(userId); if (!user) throw new Error('Created user could not be loaded.');
       recordAuthEvent('register', user.id, clientIp, req.get('user-agent') || '', { role: normalizedRole, method: 'password' });
       return res.status(201).json({ user: publicUser(user), token: signSession(user) });
     } catch (error: any) { if (connection) await connection.query('ROLLBACK'); const duplicate = error?.code === '23505'; return res.status(duplicate ? 409 : 503).json({ error: duplicate ? 'ACCOUNT_EXISTS' : 'AUTH_DATABASE_UNAVAILABLE', message: duplicate ? 'Username or email already exists.' : 'Cannot connect to authentication database.' }); }
@@ -99,15 +150,23 @@ export function registerAuthRoutes(app: Express) {
     const userAgent = req.get('user-agent') || '';
     try {
       const { rows } = await getDbPool().query<any>(
-        `SELECT u.id, s.code AS status, c.password_hash, c.failed_attempts, c.locked_until
+        `SELECT u.id, s.code AS status,
+                (c.user_id IS NOT NULL) AS has_credentials,
+                c.password_hash, c.failed_attempts, c.last_failed_at, c.locked_until
          FROM users u
          JOIN user_statuses s ON s.id = u.status_id
-         JOIN user_credentials c ON c.user_id = u.id
-         JOIN user_emails e ON e.user_id = u.id AND e.is_primary = TRUE
+         LEFT JOIN user_credentials c ON c.user_id = u.id
          WHERE u.deleted_at IS NULL
-           AND (LOWER(u.username) = LOWER($1) OR LOWER(e.email) = LOWER($2))
+           AND (
+             LOWER(u.username) = LOWER($1)
+             OR EXISTS (
+               SELECT 1 FROM user_emails e
+               WHERE e.user_id = u.id AND LOWER(e.email) = LOWER($1)
+             )
+           )
+         ORDER BY CASE WHEN LOWER(u.username) = LOWER($1) THEN 0 ELSE 1 END, u.id ASC
          LIMIT 1`,
-        [identifier, identifier]
+        [identifier]
       );
 
       const record = rows[0];
@@ -115,10 +174,10 @@ export function registerAuthRoutes(app: Express) {
         // Run dummy verification to eliminate username/email enumeration timing attacks
         await verifyPassword(password, DUMMY_HASH);
         recordAuthEvent('login_failed', null, clientIp, userAgent, { reason: 'unknown_account' });
-        return res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Invalid credentials.' });
+        return res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Invalid username/email or password.' });
       }
 
-      if (record.locked_until && new Date(record.locked_until) > new Date()) {
+      if (record.locked_until && new Date(record.locked_until).getTime() > Date.now()) {
         const remainingMinutes = Math.ceil((new Date(record.locked_until).getTime() - Date.now()) / (60 * 1000));
         return res.status(423).json({
           error: 'ACCOUNT_LOCKED',
@@ -126,17 +185,38 @@ export function registerAuthRoutes(app: Express) {
         });
       }
 
+      if (!record.has_credentials || !record.password_hash) {
+        await verifyPassword(password, DUMMY_HASH);
+        if (record.status !== 'active') {
+          return res.status(403).json({
+            error: 'ACCOUNT_INACTIVE_OR_ROLE_INVALID',
+            message: 'Your account is suspended or inactive. Please contact an administrator.',
+          });
+        }
+        recordAuthEvent('login_failed', record.id, clientIp, userAgent, { reason: 'password_not_initialized' });
+        return res.status(401).json({
+          error: 'PASSWORD_NOT_INITIALIZED',
+          message: 'This account has not set a password yet. Please sign in with Google or use "Forgot credentials?" to set one.',
+        });
+      }
+
       const MAX_LOGIN_ATTEMPTS = 5;
+      const LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
       const isValid = await verifyPassword(password, record.password_hash);
       if (!isValid) {
         if (record.status !== 'active') {
           recordAuthEvent('login_failed', record.id, clientIp, userAgent, { reason: 'invalid_password_inactive' });
           return res.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Invalid credentials.' });
         }
-        const nextAttempts = (record.failed_attempts || 0) + 1;
+        const lockExpired = Boolean(record.locked_until && new Date(record.locked_until).getTime() <= Date.now());
+        const windowExpired = Boolean(record.last_failed_at && Date.now() - new Date(record.last_failed_at).getTime() > LOCKOUT_WINDOW_MS);
+        const baseAttempts = (lockExpired || windowExpired) ? 0 : Number(record.failed_attempts || 0);
+        const nextAttempts = baseAttempts + 1;
         if (nextAttempts >= MAX_LOGIN_ATTEMPTS) {
           await getDbPool().query(
-            `UPDATE user_credentials SET failed_attempts=$1, locked_until=NOW() + INTERVAL '15 minutes' WHERE user_id=$2`,
+            `UPDATE user_credentials
+                SET failed_attempts=$1, last_failed_at=NOW(), locked_until=NOW() + INTERVAL '15 minutes'
+              WHERE user_id=$2`,
             [nextAttempts, record.id]
           );
           recordAuthEvent('account_locked', record.id, clientIp, userAgent, { attempts: nextAttempts });
@@ -146,12 +226,15 @@ export function registerAuthRoutes(app: Express) {
           });
         } else {
           await getDbPool().query(
-            `UPDATE user_credentials SET failed_attempts=$1 WHERE user_id=$2`,
+            `UPDATE user_credentials
+                SET failed_attempts=$1, last_failed_at=NOW(), locked_until=NULL
+              WHERE user_id=$2`,
             [nextAttempts, record.id]
           );
           recordAuthEvent('login_failed', record.id, clientIp, userAgent, { attempts: nextAttempts });
           return res.status(401).json({
             error: 'INVALID_CREDENTIALS',
+            remainingAttempts: MAX_LOGIN_ATTEMPTS - nextAttempts,
             message: `Invalid credentials. ${MAX_LOGIN_ATTEMPTS - nextAttempts} attempt(s) remaining before temporary lockout.`,
           });
         }
@@ -171,7 +254,10 @@ export function registerAuthRoutes(app: Express) {
           message: 'Your account is suspended or lacks a valid role.',
         });
       }
-      await getDbPool().query('UPDATE user_credentials SET last_login_at=NOW(), failed_attempts=0, locked_until=NULL WHERE user_id=$1', [user.id]);
+      await getDbPool().query(
+        'UPDATE user_credentials SET last_login_at=NOW(), failed_attempts=0, last_failed_at=NULL, locked_until=NULL WHERE user_id=$1',
+        [user.id]
+      );
       recordAuthEvent('login_success', user.id, clientIp, userAgent, { method: 'password' });
       return res.json({ user: publicUser(user), token: signSession(user) });
     } catch (error) {
@@ -210,9 +296,17 @@ export function registerAuthRoutes(app: Express) {
       const { rows } = await getDbPool().query<{ id: number; user_id: number }>(
         `SELECT e.id, u.id AS user_id
          FROM users u
-         JOIN user_emails e ON e.user_id = u.id AND e.is_primary = TRUE
-         JOIN user_statuses s ON s.id = u.status_id AND s.code = 'active'
-         WHERE LOWER(e.email) = LOWER($1) LIMIT 1`,
+         JOIN user_statuses s ON s.id = u.status_id AND s.code IN ('active', 'pending')
+         LEFT JOIN LATERAL (
+           SELECT id, email
+             FROM user_emails
+            WHERE user_id = u.id
+            ORDER BY is_primary DESC, id ASC
+            LIMIT 1
+         ) e ON TRUE
+         WHERE u.deleted_at IS NULL
+           AND LOWER(e.email) = LOWER($1)
+         LIMIT 1`,
         [email]
       );
       const record = rows[0];
@@ -249,7 +343,7 @@ export function registerAuthRoutes(app: Express) {
           connection.release();
         }
 
-        const resetBase = (process.env.APP_URL?.trim() || 'https://www.countdown-studio.id.vn').replace(/\/+$/, '');
+        const resetBase = resolveResetBaseUrl(req);
         const resetLink = `${resetBase}/reset-password.html?token=${encodeURIComponent(token)}`;
         await sendMail({
           to: email.trim().toLowerCase(),
@@ -310,14 +404,28 @@ export function registerAuthRoutes(app: Express) {
 
       const passHash = await hashPassword(password);
       const result = await getDbPool().query(
-        `INSERT INTO user_credentials (user_id, password_hash, password_changed_at, failed_attempts, last_login_at)
-         VALUES ($1, $2, NOW(), 0, NOW())
+        `INSERT INTO user_credentials (user_id, password_hash, password_changed_at, failed_attempts, last_failed_at, locked_until, last_login_at)
+         VALUES ($1, $2, NOW(), 0, NULL, NULL, NOW())
          ON CONFLICT (user_id) DO UPDATE
            SET password_hash = EXCLUDED.password_hash, password_changed_at = NOW(),
-               failed_attempts = 0, locked_until = NULL`,
+               failed_attempts = 0, last_failed_at = NULL, locked_until = NULL`,
         [claimed.user_id, passHash]
       );
       if (!result.rowCount) throw new Error('Credential upsert failed.');
+
+      await getDbPool().query(
+        `UPDATE user_emails SET verified_at = COALESCE(verified_at, NOW()) WHERE user_id = $1`,
+        [claimed.user_id]
+      );
+      await getDbPool().query(
+        `UPDATE users
+            SET status_id = (SELECT id FROM user_statuses WHERE code = 'active'),
+                updated_at = NOW()
+          WHERE id = $1
+            AND deleted_at IS NULL
+            AND status_id = (SELECT id FROM user_statuses WHERE code = 'pending')`,
+        [claimed.user_id]
+      );
 
       recordAuthEvent('password_changed', claimed.user_id, clientIp, req.get('user-agent') || '');
 
@@ -335,8 +443,7 @@ export function registerAuthRoutes(app: Express) {
       return res.status(429).json({ error: 'TOO_MANY_REQUESTS', message: 'Too many requests. Please wait a minute.' });
     }
 
-    const { credential, mode } = req.body || {};
-    const authMode = String(mode || 'login').toLowerCase() === 'register' ? 'register' : 'login';
+    const { credential } = req.body || {};
     let googleUser: { sub: string; email: string; name: string; picture?: string } | null = null;
 
     if (credential) {
@@ -413,7 +520,7 @@ export function registerAuthRoutes(app: Express) {
         );
 
         await getDbPool().query(
-          'UPDATE user_credentials SET last_login_at=NOW(), failed_attempts=0, locked_until=NULL WHERE user_id=$1',
+          'UPDATE user_credentials SET last_login_at=NOW(), failed_attempts=0, last_failed_at=NULL, locked_until=NULL WHERE user_id=$1',
           [user.id]
         );
 
@@ -422,14 +529,6 @@ export function registerAuthRoutes(app: Express) {
           requirePasswordSetup: false,
           user: publicUser(user),
           token: signSession(user),
-        });
-      }
-
-      // Sign-In tab requires an already-registered account; Register tab continues to Step 2/2 password setup.
-      if (authMode !== 'register') {
-        return res.status(403).json({
-          error: 'ACCOUNT_NOT_REGISTERED',
-          message: 'This Google account is not registered yet. Please switch to Create Account first.',
         });
       }
 
@@ -546,9 +645,9 @@ export function registerAuthRoutes(app: Express) {
 
         // Save password into user_credentials
         await connection.query(
-          `INSERT INTO user_credentials (user_id, password_hash, password_changed_at, failed_attempts, last_login_at)
-           VALUES ($1, $2, NOW(), 0, NOW())
-           ON CONFLICT (user_id) DO UPDATE SET password_hash = EXCLUDED.password_hash, password_changed_at = NOW(), failed_attempts = 0, locked_until = NULL, last_login_at = NOW()`,
+          `INSERT INTO user_credentials (user_id, password_hash, password_changed_at, failed_attempts, last_failed_at, locked_until, last_login_at)
+           VALUES ($1, $2, NOW(), 0, NULL, NULL, NOW())
+           ON CONFLICT (user_id) DO UPDATE SET password_hash = EXCLUDED.password_hash, password_changed_at = NOW(), failed_attempts = 0, last_failed_at = NULL, locked_until = NULL, last_login_at = NOW()`,
           [targetUserId, passHash]
         );
 
@@ -640,10 +739,10 @@ export function registerAuthRoutes(app: Express) {
         );
       }
 
-      await connection.query('COMMIT');
-
-      const user = await loadUser(targetUserId);
+      const user = await loadUser(targetUserId, connection);
       if (!user) throw new Error('Active user could not be loaded after creation.');
+
+      await connection.query('COMMIT');
 
       recordAuthEvent('register', user.id, clientIp, req.get('user-agent') || '', { role: user.role, method: 'google' });
       return res.status(201).json({
